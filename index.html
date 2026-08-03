@@ -789,11 +789,26 @@ function apiGet(action, extraParams) {
 function apiPost(body) {
   body.email = App.user.email;
   body.token = App.user.token;
-  return fetch(GAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify(body)
-  }).then(function(r) { return r.json(); });
+  var payload = JSON.stringify(body);
+  // GAS sometimes redirects the first POST of a session to a GET internally,
+  // returning a non-JSON response. We retry once transparently if that happens.
+  function doFetch(isRetry) {
+    return fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload
+    }).then(function(r) {
+      return r.text().then(function(text) {
+        try {
+          return JSON.parse(text);
+        } catch(e) {
+          if (!isRetry) { return doFetch(true); } // silent retry
+          throw new Error('Server returned an unexpected response. Please try again.');
+        }
+      });
+    });
+  }
+  return doFetch(false);
 }
 
 // ── Load approvals dashboard ──────────────────────────────────────────────────
