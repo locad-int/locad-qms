@@ -262,25 +262,25 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <span class="login-logo-name">Locad QMS</span>
     </div>
     <div class="login-title">Sign in</div>
-    <div class="login-sub">Enter your Locad email to access the SOP approval system.</div>
-    <form onsubmit="handleEmailSignIn(event)" style="text-align:left">
+    <div class="login-sub">Use your Locad QMS credentials to continue.</div>
+    <form onsubmit="handleLogin(event)" style="text-align:left">
       <div style="margin-bottom:12px">
-        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Full name</label>
-        <input id="login-name" type="text" placeholder="e.g. Larry Capacete" required
-          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
-          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
-      </div>
-      <div style="margin-bottom:16px">
         <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Work email</label>
         <input id="login-email" type="email" placeholder="you@golocad.com" required
           style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
           onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
-        <div id="login-err" style="font-size:12px;color:#dc2626;margin-top:4px;display:none">Must be a @golocad.com email address.</div>
       </div>
-      <button type="submit"
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Password</label>
+        <input id="login-password" type="password" placeholder="••••••••" required
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
+          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+      </div>
+      <div id="login-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
+      <button type="submit" id="btn-login"
         style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s"
         onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-        Continue
+        Sign in
       </button>
     </form>
   </div>
@@ -302,6 +302,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div class="tb-right">
       <span class="tb-user" id="tb-user-name"></span>
       <div class="tb-avatar" id="tb-avatar"></div>
+      <button class="tb-signout" onclick="openChangePwd()">Change password</button>
       <button class="tb-signout" onclick="signOut()">Sign out</button>
     </div>
   </header>
@@ -517,33 +518,130 @@ window.onload = function() {
   }
 };
 
-// ── Email sign-in ─────────────────────────────────────────────────────────────
-function handleEmailSignIn(e) {
+// ── Email + password sign-in ──────────────────────────────────────────────────
+function handleLogin(e) {
   e.preventDefault();
-  var name  = document.getElementById('login-name').value.trim();
-  var email = document.getElementById('login-email').value.trim().toLowerCase();
-  var errEl = document.getElementById('login-err');
+  var email    = document.getElementById('login-email').value.trim().toLowerCase();
+  var password = document.getElementById('login-password').value;
+  var errEl    = document.getElementById('login-err');
+  errEl.style.display = 'none';
 
   if (!email.endsWith('@golocad.com')) {
+    errEl.textContent   = 'Must be a @golocad.com email address.';
     errEl.style.display = 'block';
     return;
   }
-  errEl.style.display = 'none';
 
-  App.user = {
-    email:    email,
-    name:     name,
-    initials: initials(name)
-  };
-  showApp();
+  var btn = document.getElementById('btn-login');
+  btn.disabled    = true;
+  btn.textContent = 'Signing in…';
+
+  fetch(GAS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action: 'login', email: email, password: password })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      btn.disabled    = false;
+      btn.textContent = 'Sign in';
+      if (r.ok) {
+        App.user = {
+          email:    email,
+          name:     r.name || email.split('@')[0],
+          token:    r.token,
+          initials: initials(r.name || email.split('@')[0])
+        };
+        showApp();
+      } else {
+        errEl.textContent   = r.message || 'Invalid email or password.';
+        errEl.style.display = 'block';
+      }
+    })
+    .catch(function() {
+      btn.disabled    = false;
+      btn.textContent = 'Sign in';
+      errEl.textContent   = 'Network error. Check your connection.';
+      errEl.style.display = 'block';
+    });
 }
 
 function signOut() {
   App.user = null;
-  document.getElementById('login-name').value  = '';
-  document.getElementById('login-email').value = '';
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-err').style.display = 'none';
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('main-app').style.display   = 'none';
+}
+
+// ── Change password ───────────────────────────────────────────────────────────
+function openChangePwd() {
+  document.getElementById('cp-current').value  = '';
+  document.getElementById('cp-new').value      = '';
+  document.getElementById('cp-confirm').value  = '';
+  document.getElementById('cp-err').style.display = 'none';
+  document.getElementById('cp-ok').style.display  = 'none';
+  document.getElementById('change-pwd-modal').style.display = 'flex';
+}
+function closeChangePwd() {
+  document.getElementById('change-pwd-modal').style.display = 'none';
+}
+function submitChangePwd(e) {
+  e.preventDefault();
+  var current = document.getElementById('cp-current').value;
+  var newPwd  = document.getElementById('cp-new').value;
+  var confirm = document.getElementById('cp-confirm').value;
+  var errEl   = document.getElementById('cp-err');
+  var okEl    = document.getElementById('cp-ok');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (newPwd.length < 8) {
+    errEl.textContent   = 'New password must be at least 8 characters.';
+    errEl.style.display = 'block'; return;
+  }
+  if (newPwd !== confirm) {
+    errEl.textContent   = 'Passwords do not match.';
+    errEl.style.display = 'block'; return;
+  }
+
+  var btn = document.getElementById('btn-cp-save');
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+
+  fetch(GAS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      action:      'changePassword',
+      email:       App.user.email,
+      token:       App.user.token,
+      currentPwd:  current,
+      newPwd:      newPwd
+    })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      btn.disabled    = false;
+      btn.textContent = 'Save';
+      if (r.ok) {
+        okEl.textContent   = 'Password changed successfully.';
+        okEl.style.display = 'block';
+        document.getElementById('cp-current').value = '';
+        document.getElementById('cp-new').value     = '';
+        document.getElementById('cp-confirm').value = '';
+      } else {
+        errEl.textContent   = r.message || 'Failed to change password.';
+        errEl.style.display = 'block';
+      }
+    })
+    .catch(function() {
+      btn.disabled    = false;
+      btn.textContent = 'Save';
+      errEl.textContent   = 'Network error. Try again.';
+      errEl.style.display = 'block';
+    });
 }
 
 function initials(name) {
@@ -590,18 +688,21 @@ function showView(id) {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 function apiGet(action, extraParams) {
-  var params = 'action=' + action + '&email=' + encodeURIComponent(App.user.email);
+  var params = 'action=' + action +
+               '&email=' + encodeURIComponent(App.user.email) +
+               '&token=' + encodeURIComponent(App.user.token);
   if (extraParams) params += '&' + extraParams;
   return fetch(GAS_URL + '?' + params)
     .then(function(r) { return r.json(); })
     .then(function(r) {
-      if (r.error === 'unauthorized') { signOut(); throw new Error('Access denied. Check your email address.'); }
+      if (r.error === 'unauthorized') { signOut(); throw new Error('Session expired. Please sign in again.'); }
       return r;
     });
 }
 
 function apiPost(body) {
   body.email = App.user.email;
+  body.token = App.user.token;
   return fetch(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1064,5 +1165,47 @@ function showToast(msg) {
   _toastTimer = setTimeout(function() { el.classList.remove('show'); }, 3500);
 }
 </script>
+
+<!-- ── Change Password Modal ─────────────────────────────────────────────── -->
+<div id="change-pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:18px;font-weight:600;color:#111">Change password</div>
+      <button onclick="closeChangePwd()" style="color:#999;font-size:20px;padding:4px 8px;border-radius:4px;background:none;border:none;cursor:pointer">×</button>
+    </div>
+    <form onsubmit="submitChangePwd(event)">
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Current password</label>
+        <input id="cp-current" type="password" required placeholder="••••••••"
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
+          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">New password</label>
+        <input id="cp-new" type="password" required placeholder="At least 8 characters"
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
+          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Confirm new password</label>
+        <input id="cp-confirm" type="password" required placeholder="••••••••"
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
+          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+      </div>
+      <div id="cp-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
+      <div id="cp-ok"  style="font-size:12px;color:#16a34a;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:10px">
+        <button type="button" onclick="closeChangePwd()"
+          style="flex:1;padding:10px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#555;background:#fff;cursor:pointer">
+          Cancel
+        </button>
+        <button type="submit" id="btn-cp-save"
+          style="flex:1;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:500;cursor:pointer">
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 </body>
 </html>
