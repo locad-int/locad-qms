@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locad QMS</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background: #f5f3f0; color: #1a1a1a; min-height: 100vh; }
+a { text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font: inherit; }
+
+/* ── Config banner ────────────────────────────────────────────────────────── */
+#cfg-banner { background: #fef3c7; border-bottom: 1px solid #fcd34d;
+              padding: 10px 24px; font-size: 13px; color: #92400e;
+              display: flex; align-items: center; gap: 8px; }
+#cfg-banner strong { font-weight: 600; }
+#cfg-banner.hidden { display: none; }
+
+/* ── Topbar ───────────────────────────────────────────────────────────────── */
+#topbar { background: #060A06; height: 52px; display: flex; align-items: center;
+          padding: 0 24px; gap: 24px; position: sticky; top: 0; z-index: 100; }
+.tb-logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.tb-logo-icon { width: 26px; height: 26px; background: #16a34a; border-radius: 6px;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 12px; font-weight: 700; color: #fff; }
+.tb-logo-name { color: #fff; font-size: 14px; font-weight: 600; }
+.tb-logo-sub  { color: rgba(255,255,255,.45); font-size: 13px; }
+nav { display: flex; gap: 2px; }
+nav button { color: rgba(255,255,255,.6); font-size: 13px; font-weight: 500;
+             padding: 6px 12px; border-radius: 6px; transition: all .15s; }
+nav button:hover { color: #fff; background: rgba(255,255,255,.08); }
+nav button.active { color: #fff; background: rgba(255,255,255,.12); }
+.tb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.tb-user { color: rgba(255,255,255,.8); font-size: 13px; }
+.tb-avatar { width: 30px; height: 30px; border-radius: 50%; background: #16a34a;
+             display: flex; align-items: center; justify-content: center;
+             color: #fff; font-size: 12px; font-weight: 600; }
+.tb-signout { color: rgba(255,255,255,.4); font-size: 12px; padding: 4px 8px;
+              border-radius: 4px; }
+.tb-signout:hover { color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); }
+
+/* ── Views ────────────────────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Login screen ─────────────────────────────────────────────────────────── */
+#login-view { display: flex; align-items: center; justify-content: center;
+              min-height: 100vh; }
+.login-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 16px;
+              padding: 48px 40px; text-align: center; width: 100%; max-width: 380px; }
+.login-logo { display: flex; align-items: center; justify-content: center; gap: 10px;
+              margin-bottom: 28px; }
+.login-logo-icon { width: 36px; height: 36px; background: #060A06; border-radius: 8px;
+                   display: flex; align-items: center; justify-content: center; }
+.login-logo-icon svg { width: 20px; height: 20px; }
+.login-logo-name { font-size: 18px; font-weight: 700; color: #060A06; }
+.login-title { font-size: 20px; font-weight: 600; color: #111; margin-bottom: 8px; }
+.login-sub { font-size: 14px; color: #666; margin-bottom: 32px; }
+#google-signin-btn { display: flex; align-items: center; justify-content: center; gap: 10px;
+                     width: 100%; padding: 12px 20px; border: 1.5px solid #e0e0e0;
+                     border-radius: 10px; font-size: 14px; font-weight: 500; color: #333;
+                     background: #fff; transition: all .15s; }
+#google-signin-btn:hover { border-color: #16a34a; background: #f0fdf4; }
+#google-signin-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ── Dashboard ────────────────────────────────────────────────────────────── */
+#dash-view { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
+.dash-header { margin-bottom: 28px; }
+.dash-title { font-size: 28px; font-weight: 700; color: #111; margin-bottom: 4px; }
+.dash-sub { font-size: 14px; color: #666; }
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+.table-wrap { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+              overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600;
+           color: #888; text-transform: uppercase; letter-spacing: .4px;
+           background: #fafafa; border-bottom: 1px solid #eee; }
+tbody tr { border-bottom: 1px solid #f0f0f0; transition: background .1s; cursor: pointer; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f8fdf8; }
+tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
+.sop-code { color: #16a34a; font-weight: 600; font-size: 13px; }
+.sop-title { font-weight: 500; }
+.sop-meta { color: #999; font-size: 12px; }
+
+/* ── Status badges ────────────────────────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
+         border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.badge-review  { background: #fff7ed; color: #c2410c; }
+.badge-review::before  { background: #f97316; }
+.badge-approval { background: #eff6ff; color: #1d4ed8; }
+.badge-approval::before { background: #3b82f6; }
+.badge-approved { background: #f0fdf4; color: #166534; }
+.badge-approved::before { background: #16a34a; }
+.badge-returned { background: #fef2f2; color: #991b1b; }
+.badge-returned::before { background: #ef4444; }
+.badge-rejected { background: #fef2f2; color: #991b1b; }
+.badge-rejected::before { background: #dc2626; }
+.badge-draft    { background: #f5f5f5; color: #555; }
+.badge-draft::before    { background: #9ca3af; }
+
+/* ── Empty / loading ──────────────────────────────────────────────────────── */
+.empty { padding: 48px 24px; text-align: center; color: #888; }
+.empty-icon { font-size: 32px; margin-bottom: 8px; }
+.spinner-wrap { padding: 48px; text-align: center; }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 2.5px solid #e5e5e5;
+           border-top-color: #16a34a; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Detail view ──────────────────────────────────────────────────────────── */
+#detail-view { height: calc(100vh - 52px); display: none; flex-direction: column; }
+#detail-view.active { display: flex; }
+.detail-bar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 12px 24px;
+              display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.breadcrumb { font-size: 13px; color: #888; }
+.breadcrumb a { color: #16a34a; }
+.breadcrumb span { margin: 0 6px; }
+.detail-title { font-size: 20px; font-weight: 700; color: #111; }
+.detail-stage { display: flex; align-items: center; gap: 0; margin-left: auto; }
+.stage-item { display: flex; align-items: center; gap: 6px; font-size: 12px;
+              font-weight: 500; color: #aaa; }
+.stage-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #ddd;
+             display: flex; align-items: center; justify-content: center; font-size: 10px; }
+.stage-dot.done  { background: #16a34a; border-color: #16a34a; color: #fff; }
+.stage-dot.active { background: #060A06; border-color: #060A06; color: #fff; }
+.stage-line { width: 40px; height: 2px; background: #e5e5e5; }
+.stage-line.done { background: #16a34a; }
+.stage-item.done  { color: #166534; }
+.stage-item.active { color: #111; }
+
+.detail-body { display: flex; flex: 1; overflow: hidden; }
+.doc-panel { flex: 1; overflow: hidden; }
+.doc-panel iframe { width: 100%; height: 100%; border: none; }
+.doc-placeholder { height: 100%; display: flex; align-items: center; justify-content: center;
+                   flex-direction: column; gap: 12px; color: #888; background: #fafafa; }
+.doc-placeholder-icon { font-size: 40px; }
+
+.sidebar { width: 320px; flex-shrink: 0; background: #fff; border-left: 1px solid #e5e5e5;
+           overflow-y: auto; display: flex; flex-direction: column; }
+
+/* ── Sidebar sections ─────────────────────────────────────────────────────── */
+.sb-section { padding: 20px; border-bottom: 1px solid #f0f0f0; }
+.sb-section:last-child { border-bottom: none; }
+.sb-label { font-size: 11px; font-weight: 600; color: #aaa; text-transform: uppercase;
+            letter-spacing: .5px; margin-bottom: 14px; }
+.signoff-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.signoff-row:last-child { margin-bottom: 0; }
+.signoff-icon { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.si-done   { background: #f0fdf4; color: #16a34a; }
+.si-active { background: #060A06; color: #fff; }
+.si-pending { background: #f5f5f5; color: #aaa; }
+.signoff-info { flex: 1; min-width: 0; }
+.signoff-name { font-size: 13px; font-weight: 500; color: #111; white-space: nowrap;
+                overflow: hidden; text-overflow: ellipsis; }
+.signoff-role { font-size: 11px; color: #888; }
+.signoff-status { font-size: 11px; font-weight: 500; white-space: nowrap; }
+.ss-done    { color: #16a34a; }
+.ss-active  { color: #111; }
+.ss-pending { color: #aaa; }
+
+/* ── Decision section ─────────────────────────────────────────────────────── */
+.decision-area textarea { width: 100%; border: 1px solid #e0e0e0; border-radius: 8px;
+                          padding: 10px 12px; font: inherit; font-size: 13px; color: #333;
+                          resize: vertical; min-height: 72px; margin-bottom: 10px;
+                          outline: none; transition: border .15s; }
+.decision-area textarea:focus { border-color: #16a34a; }
+.decision-btn { display: block; width: 100%; padding: 10px 16px; border-radius: 8px;
+                font-size: 13px; font-weight: 500; text-align: center; margin-bottom: 8px;
+                transition: all .15s; border: none; cursor: pointer; }
+.decision-btn:last-child { margin-bottom: 0; }
+.db-approve { background: #f0fdf4; color: #16a34a; border: 1.5px solid #16a34a; }
+.db-approve:hover { background: #16a34a; color: #fff; }
+.db-changes { background: #fff7ed; color: #c2410c; border: 1.5px solid #fdba74; }
+.db-changes:hover { background: #fef3c7; }
+.db-reject  { background: #fef2f2; color: #dc2626; border: 1.5px solid #fca5a5; }
+.db-reject:hover { background: #fee2e2; }
+
+/* ── Activity log ─────────────────────────────────────────────────────────── */
+.activity-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.activity-row:last-child { margin-bottom: 0; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a;
+                flex-shrink: 0; margin-top: 4px; }
+.activity-text { font-size: 13px; color: #333; line-height: 1.4; }
+.activity-time { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+/* ── Audit trail ──────────────────────────────────────────────────────────── */
+#audit-view { max-width: 900px; margin: 0 auto; padding: 36px 24px; }
+.audit-table-wrap { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+                    overflow: hidden; }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+         background: #111; color: #fff; padding: 10px 20px; border-radius: 8px;
+         font-size: 13px; font-weight: 500; z-index: 9999; transition: transform .3s; }
+#toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ── Config banner (shows until GAS_URL is set) ────────────────────────── -->
+<div id="cfg-banner">
+  <strong>Setup required:</strong> Open this file and set <code>GAS_URL</code> at the top of the &lt;script&gt; to your GAS deployment URL.
+</div>
+
+<!-- ── Login ──────────────────────────────────────────────────────────────── -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2" width="7" height="7" rx="1.5" fill="#fff"/>
+          <rect x="11" y="2" width="7" height="7" rx="1.5" fill="#16a34a"/>
+          <rect x="2" y="11" width="7" height="7" rx="1.5" fill="#16a34a"/>
+          <rect x="11" y="11" width="7" height="7" rx="1.5" fill="#fff" opacity=".5"/>
+        </svg>
+      </div>
+      <span class="login-logo-name">Locad QMS</span>
+    </div>
+    <div class="login-title">Sign in</div>
+    <div class="login-sub">Enter your Locad email to access the SOP approval system.</div>
+    <form onsubmit="handleEmailSignIn(event)" style="text-align:left">
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Full name</label>
+        <input id="login-name" type="text" placeholder="e.g. Larry Capacete" required
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
+          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Work email</label>
+        <input id="login-email" type="email" placeholder="you@golocad.com" required
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
+          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+        <div id="login-err" style="font-size:12px;color:#dc2626;margin-top:4px;display:none">Must be a @golocad.com email address.</div>
+      </div>
+      <button type="submit"
+        style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s"
+        onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+        Continue
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Main app (shown after sign-in) ────────────────────────────────────── -->
+<div id="main-app" style="display:none">
+  <header id="topbar">
+    <div class="tb-logo">
+      <div class="tb-logo-icon">L</div>
+      <span class="tb-logo-name">Locad QMS</span>
+      <span class="tb-logo-sub">/ SOP Approvals</span>
+    </div>
+    <nav>
+      <button class="active" onclick="switchTab('approvals')">Approvals</button>
+      <button onclick="switchTab('documents')">Documents</button>
+      <button onclick="switchTab('audit')">Audit trail</button>
+    </nav>
+    <div class="tb-right">
+      <span class="tb-user" id="tb-user-name"></span>
+      <div class="tb-avatar" id="tb-avatar"></div>
+      <button class="tb-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <!-- Dashboard: My Approvals -->
+  <div id="dash-view" class="view active">
+    <div class="dash-header">
+      <div class="dash-title" id="dash-title">My approvals</div>
+      <div class="dash-sub" id="dash-sub">Loading…</div>
+    </div>
+    <div class="table-wrap">
+      <div id="dash-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Documents: All SOPs -->
+  <div id="docs-view" class="view">
+    <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
+      <div class="dash-header">
+        <div class="dash-title">All documents</div>
+        <div class="dash-sub" id="docs-sub">Loading…</div>
+      </div>
+      <div class="table-wrap">
+        <div id="docs-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail view -->
+  <div id="detail-view">
+    <div class="detail-bar">
+      <div>
+        <div class="breadcrumb">
+          <a href="#" onclick="backToDash()">Approvals</a>
+          <span>/</span>
+          <span id="det-code"></span>
+        </div>
+        <div class="detail-title" id="det-title"></div>
+        <div id="det-badge" style="margin-top:4px"></div>
+      </div>
+      <div class="detail-stage" id="det-stage"></div>
+    </div>
+    <div class="detail-body">
+      <div class="doc-panel" id="doc-panel">
+        <div class="doc-placeholder">
+          <div class="doc-placeholder-icon">📄</div>
+          <div>Loading document…</div>
+        </div>
+      </div>
+      <div class="sidebar" id="sidebar">
+        <div class="spinner-wrap"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit trail -->
+  <div id="audit-content" class="view">
+    <div id="audit-view">
+      <div class="dash-header">
+        <div class="dash-title">Audit trail</div>
+        <div class="dash-sub">All actions across all SOPs</div>
+      </div>
+      <div class="audit-table-wrap">
+        <div id="audit-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// !! CONFIGURE THESE TWO VALUES BEFORE DEPLOYING !!
+// ══════════════════════════════════════════════════════════════════════════════
+var GAS_URL = 'https://script.google.com/macros/s/AKfycby2uDYjT8c_NJS96EgHuQ_-N74zqJ4VLi5lhuACN3vnQZRqe_oAZvJfPo0CbmBwVL0deA/exec';
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── App state ─────────────────────────────────────────────────────────────────
+var App = {
+  user:        null,   // { email, name, idToken, initials }
+  currentTab:  'approvals',
+  myApprovals: [],
+  allSops:     [],
+  currentSop:  null
+};
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+window.onload = function() {
+  if (GAS_URL === 'YOUR_GAS_DEPLOYMENT_URL') {
+    document.getElementById('cfg-banner').classList.remove('hidden');
+  } else {
+    document.getElementById('cfg-banner').classList.add('hidden');
+  }
+};
+
+// ── Email sign-in ─────────────────────────────────────────────────────────────
+function handleEmailSignIn(e) {
+  e.preventDefault();
+  var name  = document.getElementById('login-name').value.trim();
+  var email = document.getElementById('login-email').value.trim().toLowerCase();
+  var errEl = document.getElementById('login-err');
+
+  if (!email.endsWith('@golocad.com')) {
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  App.user = {
+    email:    email,
+    name:     name,
+    initials: initials(name)
+  };
+  showApp();
+}
+
+function signOut() {
+  App.user = null;
+  document.getElementById('login-name').value  = '';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-view').style.display = 'flex';
+  document.getElementById('main-app').style.display   = 'none';
+}
+
+function initials(name) {
+  return (name || '').split(' ').filter(Boolean).map(function(w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+}
+
+function showApp() {
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('main-app').style.display   = 'block';
+  document.getElementById('tb-user-name').textContent = App.user.name;
+  document.getElementById('tb-avatar').textContent    = App.user.initials;
+  loadApprovals();
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  App.currentTab = tab;
+  // Hide detail
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('detail-view').classList.remove('active');
+
+  // Update nav
+  var navBtns = document.querySelectorAll('nav button');
+  navBtns[0].classList.toggle('active', tab === 'approvals');
+  navBtns[1].classList.toggle('active', tab === 'documents');
+  navBtns[2].classList.toggle('active', tab === 'audit');
+
+  // Show views
+  showView(tab === 'approvals' ? 'dash-view' :
+           tab === 'documents' ? 'docs-view' :
+                                 'audit-content');
+
+  if (tab === 'approvals' && App.myApprovals.length === 0) loadApprovals();
+  if (tab === 'documents' && App.allSops.length === 0)     loadAllSops();
+  if (tab === 'audit')                                       loadAudit();
+}
+
+function showView(id) {
+  ['dash-view', 'docs-view', 'audit-content'].forEach(function(v) {
+    var el = document.getElementById(v);
+    if (el) { el.classList.toggle('active', v === id); }
+  });
+}
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+function apiGet(action, extraParams) {
+  var params = 'action=' + action + '&email=' + encodeURIComponent(App.user.email);
+  if (extraParams) params += '&' + extraParams;
+  return fetch(GAS_URL + '?' + params)
+    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (r.error === 'unauthorized') { signOut(); throw new Error('Access denied. Check your email address.'); }
+      return r;
+    });
+}
+
+function apiPost(body) {
+  body.email = App.user.email;
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body)
+  }).then(function(r) { return r.json(); });
+}
+
+// ── Load approvals dashboard ──────────────────────────────────────────────────
+function loadApprovals() {
+  if (!App.user) return;
+  document.getElementById('dash-table-body').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+
+  apiGet('myApprovals').then(function(r) {
+    App.myApprovals = r.data || [];
+    renderApprovalsTable();
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function renderApprovalsTable() {
+  var list = App.myApprovals;
+  var count = list.length;
+  document.getElementById('dash-title').textContent = 'My approvals';
+  document.getElementById('dash-sub').textContent =
+    count === 0 ? 'Nothing waiting on you right now.' :
+    count === 1 ? '1 document is waiting on you' :
+                  count + ' documents are waiting on you';
+
+  if (count === 0) {
+    document.getElementById('dash-table-body').innerHTML =
+      '<div class="empty"><div class="empty-icon">✅</div>You\'re all caught up!</div>';
+    return;
+  }
+
+  var html = '<table><thead><tr>' +
+    '<th>SOP</th><th>Title</th><th>Version</th><th>Your role</th><th>Prepared by</th><th>Status</th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(sop) {
+    html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
+      '<td><span class="sop-code">' + esc(sop.id) + '</span></td>' +
+      '<td><span class="sop-title">' + esc(sop.title) + '</span></td>' +
+      '<td class="sop-meta">' + esc(sop.version) + '</td>' +
+      '<td class="sop-meta">' + esc(sop.role) + '</td>' +
+      '<td class="sop-meta">' + esc(sop.prepName) + '</td>' +
+      '<td>' + statusBadge(sop.status) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('dash-table-body').innerHTML = html;
+}
+
+// ── Load all SOPs ─────────────────────────────────────────────────────────────
+function loadAllSops() {
+  document.getElementById('docs-table-body').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  apiGet('allSops').then(function(r) {
+    App.allSops = r.data || [];
+    var count = App.allSops.length;
+    document.getElementById('docs-sub').textContent = count + ' SOP' + (count !== 1 ? 's' : '') + ' total';
+    if (count === 0) {
+      document.getElementById('docs-table-body').innerHTML = '<div class="empty">No SOPs found.</div>';
+      return;
+    }
+    var html = '<table><thead><tr>' +
+      '<th>SOP</th><th>Title</th><th>Version</th><th>Prepared by</th><th>Reviewer</th><th>Status</th>' +
+      '</tr></thead><tbody>';
+    App.allSops.forEach(function(sop) {
+      html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
+        '<td><span class="sop-code">' + esc(sop.id) + '</span></td>' +
+        '<td><span class="sop-title">' + esc(sop.title) + '</span></td>' +
+        '<td class="sop-meta">' + esc(sop.version) + '</td>' +
+        '<td class="sop-meta">' + esc(sop.prepName) + '</td>' +
+        '<td class="sop-meta">' + esc(sop.revName) + '</td>' +
+        '<td>' + statusBadge(sop.status) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('docs-table-body').innerHTML = html;
+  }).catch(function(err) { showToast(err.message); });
+}
+
+// ── Load audit trail ──────────────────────────────────────────────────────────
+function loadAudit() {
+  document.getElementById('audit-body').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  apiGet('auditLog').then(function(r) {
+    var events = r.data || [];
+    if (events.length === 0) {
+      document.getElementById('audit-body').innerHTML = '<div class="empty">No audit events yet.</div>';
+      return;
+    }
+    var html = '<table><thead><tr>' +
+      '<th>Time</th><th>SOP</th><th>Title</th><th>Action</th><th>Actor</th>' +
+      '</tr></thead><tbody>';
+    events.forEach(function(ev) {
+      html += '<tr>' +
+        '<td class="sop-meta">' + fmtDate(ev.at) + '</td>' +
+        '<td><span class="sop-code">' + esc(ev.sop) + '</span></td>' +
+        '<td>' + esc(ev.title) + '</td>' +
+        '<td>' + esc(ev.action) + '</td>' +
+        '<td class="sop-meta">' + esc(ev.actor) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('audit-body').innerHTML = html;
+  }).catch(function(err) { showToast(err.message); });
+}
+
+// ── Open SOP detail ───────────────────────────────────────────────────────────
+function openSop(code) {
+  // Hide dashboard, show detail
+  ['dash-view', 'docs-view', 'audit-content'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  var detEl = document.getElementById('detail-view');
+  detEl.style.display = 'flex';
+  detEl.classList.add('active');
+
+  document.getElementById('det-code').textContent  = code;
+  document.getElementById('det-title').textContent = '';
+  document.getElementById('det-badge').innerHTML   = '';
+  document.getElementById('det-stage').innerHTML   = '';
+  document.getElementById('doc-panel').innerHTML   =
+    '<div class="doc-placeholder"><div class="doc-placeholder-icon">📄</div><div>Loading document…</div></div>';
+  document.getElementById('sidebar').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+
+  apiGet('detail', 'code=' + encodeURIComponent(code)).then(function(r) {
+    if (r.error) { showToast('Could not load SOP: ' + r.error); return; }
+    App.currentSop = r.data;
+    renderDetail(r.data);
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function backToDash() {
+  var detEl = document.getElementById('detail-view');
+  detEl.style.display = 'none';
+  detEl.classList.remove('active');
+  App.currentSop = null;
+
+  // Re-show last tab
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' : 'audit-content');
+}
+
+function renderDetail(sop) {
+  document.getElementById('det-title').textContent = sop.title;
+  document.getElementById('det-badge').innerHTML   = statusBadge(sop.status);
+
+  // Stage indicator
+  var stages = [
+    { label: 'Author',  key: 'author'   },
+    { label: 'Review',  key: 'in_review' },
+    { label: 'Approve', key: 'in_approval' }
+  ];
+  var statusOrder = { 'draft': 0, 'in_review': 1, 'in_approval': 2, 'approved': 3 };
+  var cur = statusOrder[sop.status] !== undefined ? statusOrder[sop.status] : 0;
+  var stageHtml = '';
+  stages.forEach(function(s, i) {
+    var stageIdx = i; // 0=author,1=review,2=approve
+    var cls = cur > stageIdx ? 'done' : cur === stageIdx ? 'active' : '';
+    var icon = cur > stageIdx ? '✓' : (i + 1);
+    stageHtml += '<div class="stage-item ' + cls + '">' +
+      '<div class="stage-dot ' + cls + '">' + icon + '</div>' +
+      s.label + '</div>';
+    if (i < stages.length - 1) {
+      stageHtml += '<div class="stage-line ' + (cur > stageIdx ? 'done' : '') + '"></div>';
+    }
+  });
+  document.getElementById('det-stage').innerHTML = stageHtml;
+
+  // Document iframe
+  if (sop.fileId) {
+    var previewUrl = 'https://drive.google.com/file/d/' + sop.fileId + '/preview';
+    document.getElementById('doc-panel').innerHTML =
+      '<iframe src="' + previewUrl + '" allow="autoplay" allowfullscreen></iframe>';
+  } else {
+    document.getElementById('doc-panel').innerHTML =
+      '<div class="doc-placeholder"><div class="doc-placeholder-icon">📄</div>' +
+      '<div>No document attached.</div></div>';
+  }
+
+  // Sidebar
+  renderSidebar(sop);
+}
+
+function renderSidebar(sop) {
+  var html = '';
+
+  // Sign-offs
+  html += '<div class="sb-section"><div class="sb-label">Sign-offs</div>';
+  (sop.signoffs || []).forEach(function(sf) {
+    var iconCls = sf.status === 'done' ? 'si-done' : sf.status === 'active' ? 'si-active' : 'si-pending';
+    var icon    = sf.status === 'done' ? '✓' : sf.role[0];
+    var stCls   = 'ss-' + sf.status;
+    var stLabel = sf.status === 'done' ? (fmtDate(sf.at) || 'Signed') :
+                  sf.status === 'active' ? 'Pending' : '—';
+    html += '<div class="signoff-row">' +
+      '<div class="signoff-icon ' + iconCls + '">' + icon + '</div>' +
+      '<div class="signoff-info">' +
+        '<div class="signoff-name">' + esc(sf.name || sf.email) + '</div>' +
+        '<div class="signoff-role">' + esc(sf.role) + '</div>' +
+      '</div>' +
+      '<div class="signoff-status ' + stCls + '">' + stLabel + '</div>' +
+    '</div>';
+    if (sf.comments) {
+      html += '<div style="margin-left:42px;margin-top:-6px;margin-bottom:10px;font-size:12px;color:#666;font-style:italic">"' + esc(sf.comments) + '"</div>';
+    }
+  });
+  html += '</div>';
+
+  // Decision (only if viewer has a role)
+  if (sop.viewerRole) {
+    html += '<div class="sb-section"><div class="sb-label">Your decision · ' +
+      (sop.viewerRole === 'reviewer' ? 'Reviewer' : 'Approver') + '</div>' +
+      '<div class="decision-area">' +
+      '<textarea id="dec-comments" placeholder="Add comments (required if returning/rejecting)…"></textarea>';
+
+    if (sop.viewerRole === 'reviewer') {
+      html += '<button class="decision-btn db-approve" onclick="submitDecision(\'approve\')">Approve — pass to approvers</button>' +
+              '<button class="decision-btn db-changes" onclick="submitDecision(\'request_changes\')">Request changes</button>';
+    } else {
+      html += '<button class="decision-btn db-approve" onclick="submitDecision(\'approve\')">Approve</button>' +
+              '<button class="decision-btn db-reject"  onclick="submitDecision(\'reject\')">Reject</button>';
+    }
+    html += '</div></div>';
+  }
+
+  // Activity
+  if (sop.activity && sop.activity.length > 0) {
+    html += '<div class="sb-section"><div class="sb-label">Activity</div>';
+    sop.activity.forEach(function(ev) {
+      html += '<div class="activity-row">' +
+        '<div class="activity-dot"></div>' +
+        '<div><div class="activity-text"><strong>' + esc(ev.actor) + '</strong> ' + esc(ev.action) + '</div>' +
+        '<div class="activity-time">' + fmtDate(ev.at) + '</div></div>' +
+        '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Completed copies
+  if (sop.masterUrl || sop.controlledUrl) {
+    html += '<div class="sb-section"><div class="sb-label">Approved copies</div>';
+    if (sop.masterUrl)     html += '<a href="' + sop.masterUrl     + '" target="_blank" style="display:block;color:#16a34a;font-size:13px;margin-bottom:6px">📗 Master copy</a>';
+    if (sop.controlledUrl) html += '<a href="' + sop.controlledUrl + '" target="_blank" style="display:block;color:#16a34a;font-size:13px">📘 Controlled copy</a>';
+    html += '</div>';
+  }
+
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+// ── Submit a reviewer/approver decision ──────────────────────────────────────
+function submitDecision(decision) {
+  var sop      = App.currentSop;
+  var comments = (document.getElementById('dec-comments') || {}).value || '';
+
+  if ((decision === 'request_changes' || decision === 'reject') && !comments.trim()) {
+    showToast('Please add comments explaining the reason.');
+    return;
+  }
+
+  var label = decision === 'approve' ? 'Submitting approval…' :
+              decision === 'reject'  ? 'Submitting rejection…' : 'Returning to preparer…';
+  showToast(label);
+
+  apiPost({ action: 'submitDecision', code: sop.id, decision: decision, comments: comments })
+    .then(function(r) {
+      if (r.ok) {
+        showToast('Done! SOP status: ' + r.newStatus.replace('_', ' '));
+        // Refresh
+        App.myApprovals = [];
+        App.allSops = [];
+        setTimeout(function() { openSop(sop.id); }, 1200);
+      } else {
+        showToast('Error: ' + (r.message || r.error));
+      }
+    })
+    .catch(function(err) { showToast('Request failed: ' + err.message); });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function statusBadge(status) {
+  var map = {
+    'in_review':    ['badge-review',   'Awaiting review'],
+    'in_approval':  ['badge-approval', 'Awaiting approval'],
+    'approved':     ['badge-approved', 'Approved'],
+    'returned':     ['badge-returned', 'Returned'],
+    'rejected':     ['badge-rejected', 'Rejected'],
+    'draft':        ['badge-draft',    'Draft']
+  };
+  var entry = map[status] || ['badge-draft', status || '—'];
+  return '<span class="badge ' + entry[0] + '">' + entry[1] + '</span>';
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString('en-SG', { day:'numeric', month:'short', year:'numeric' }) +
+           ' · ' + d.toLocaleTimeString('en-SG', { hour:'2-digit', minute:'2-digit' });
+  } catch(e) { return iso; }
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+var _toastTimer;
+function showToast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() { el.classList.remove('show'); }, 3500);
+}
+</script>
+</body>
+</html>
