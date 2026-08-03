@@ -379,6 +379,34 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     </div>
 
     <div class="form-section">
+      <div class="form-section-title">Prepared by</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Full name *</label>
+          <input id="f-prep-name" type="text" placeholder="e.g. Juan dela Cruz">
+          <div class="field-hint">Name of the person who prepared this SOP.</div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Signature *</label>
+        <div id="sig-drop" onclick="document.getElementById('f-sig-file').click()"
+          style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:border .15s;background:#fafafa"
+          ondragover="event.preventDefault();this.style.borderColor='#16a34a'"
+          ondragleave="this.style.borderColor='#e0e0e0'"
+          ondrop="handleSigDrop(event)">
+          <div id="sig-preview-wrap" style="display:none;margin-bottom:8px">
+            <img id="sig-preview" style="max-height:60px;max-width:240px;border:1px solid #eee;border-radius:4px;padding:4px;background:#fff">
+          </div>
+          <div id="sig-drop-text" style="font-size:13px;color:#888">Click to upload or drag signature image (PNG, JPG)</div>
+          <input id="f-sig-file" type="file" accept="image/png,image/jpeg,image/gif" style="display:none" onchange="handleSigSelect(this)">
+        </div>
+        <div id="sig-clear-wrap" style="display:none;margin-top:6px">
+          <button type="button" onclick="clearSig()" style="font-size:12px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove signature</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title">Upload document</div>
       <div class="field">
         <div class="file-drop" id="file-drop" onclick="document.getElementById('f-file').click()"
@@ -948,6 +976,7 @@ function adminResetPwd(email) {
 
 // ── Open SOP detail ───────────────────────────────────────────────────────────
 function openSop(code) {
+  _decisionSigDataUrl = null; // reset signature for each SOP opened
   // Hide dashboard, show detail
   ['dash-view', 'docs-view', 'audit-content'].forEach(function(id) {
     var el = document.getElementById(id);
@@ -1055,6 +1084,26 @@ function renderSidebar(sop) {
     html += '<div class="sb-section"><div class="sb-label">Your decision · ' +
       (sop.viewerRole === 'reviewer' ? 'Reviewer' : 'Approver') + '</div>' +
       '<div class="decision-area">' +
+
+      // Signature upload
+      '<div style="margin-bottom:10px">' +
+        '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
+        '<div id="dec-sig-drop" onclick="document.getElementById(\'dec-sig-file\').click()" ' +
+          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s" ' +
+          'ondragover="event.preventDefault();this.style.borderColor=\'#16a34a\'" ' +
+          'ondragleave="this.style.borderColor=\'#e0e0e0\'" ' +
+          'ondrop="handleDecisionSigDrop(event)">' +
+          '<div id="dec-sig-preview-wrap" style="display:none;margin-bottom:6px">' +
+            '<img id="dec-sig-preview" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff">' +
+          '</div>' +
+          '<div id="dec-sig-text" style="font-size:12px;color:#aaa">Click or drag to upload your e-signature (PNG, JPG)</div>' +
+        '</div>' +
+        '<input id="dec-sig-file" type="file" accept="image/png,image/jpeg" style="display:none" onchange="handleDecisionSigSelect(this)">' +
+        '<div id="dec-sig-clear" style="display:none;margin-top:4px">' +
+          '<button type="button" onclick="clearDecisionSig()" style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
+        '</div>' +
+      '</div>' +
+
       '<textarea id="dec-comments" placeholder="Add comments (required if returning/rejecting)…"></textarea>';
 
     if (sop.viewerRole === 'reviewer') {
@@ -1091,10 +1140,47 @@ function renderSidebar(sop) {
   document.getElementById('sidebar').innerHTML = html;
 }
 
+// ── Decision signature ────────────────────────────────────────────────────────
+var _decisionSigDataUrl = null;
+
+function handleDecisionSigSelect(input) {
+  if (input.files && input.files[0]) setDecisionSig(input.files[0]);
+}
+function handleDecisionSigDrop(e) {
+  e.preventDefault();
+  document.getElementById('dec-sig-drop').style.borderColor = '#e0e0e0';
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) setDecisionSig(e.dataTransfer.files[0]);
+}
+function setDecisionSig(file) {
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    _decisionSigDataUrl = ev.target.result;
+    document.getElementById('dec-sig-preview').src              = _decisionSigDataUrl;
+    document.getElementById('dec-sig-preview-wrap').style.display = 'block';
+    document.getElementById('dec-sig-clear').style.display        = 'block';
+    document.getElementById('dec-sig-text').style.display         = 'none';
+    document.getElementById('dec-sig-drop').style.borderColor     = '#16a34a';
+  };
+  reader.readAsDataURL(file);
+}
+function clearDecisionSig() {
+  _decisionSigDataUrl = null;
+  document.getElementById('dec-sig-preview-wrap').style.display = 'none';
+  document.getElementById('dec-sig-clear').style.display        = 'none';
+  document.getElementById('dec-sig-text').style.display         = 'block';
+  document.getElementById('dec-sig-drop').style.borderColor     = '#e0e0e0';
+  document.getElementById('dec-sig-file').value = '';
+}
+
 // ── Submit a reviewer/approver decision ──────────────────────────────────────
 function submitDecision(decision) {
   var sop      = App.currentSop;
   var comments = (document.getElementById('dec-comments') || {}).value || '';
+
+  if (!_decisionSigDataUrl) {
+    showToast('Please upload your signature before submitting.');
+    return;
+  }
 
   if ((decision === 'request_changes' || decision === 'reject') && !comments.trim()) {
     showToast('Please add comments explaining the reason.');
@@ -1105,7 +1191,7 @@ function submitDecision(decision) {
               decision === 'reject'  ? 'Submitting rejection…' : 'Returning to preparer…';
   showToast(label);
 
-  apiPost({ action: 'submitDecision', code: sop.id, decision: decision, comments: comments })
+  apiPost({ action: 'submitDecision', code: sop.id, decision: decision, comments: comments, sig: _decisionSigDataUrl })
     .then(function(r) {
       if (r.ok) {
         showToast('Done! SOP status: ' + r.newStatus.replace('_', ' '));
@@ -1149,6 +1235,7 @@ function esc(s) {
 
 // ── New SOP form ──────────────────────────────────────────────────────────────
 var _selectedFile = null;
+var _prepSigDataUrl = null;
 
 function showNewSopForm() {
   ['dash-view','docs-view','audit-content'].forEach(function(id){
@@ -1157,12 +1244,47 @@ function showNewSopForm() {
   document.getElementById('detail-view').style.display = 'none';
   document.getElementById('new-sop-view').classList.add('active');
   document.getElementById('new-sop-view').style.display = 'block';
-  // Pre-fill preparer as current user
-  _selectedFile = null;
+  // Pre-fill preparer name from logged-in user
+  document.getElementById('f-prep-name').value = App.user.name || '';
+  _selectedFile    = null;
+  _prepSigDataUrl  = null;
   document.getElementById('file-drop-text').textContent = 'Click to upload or drag and drop';
   document.getElementById('file-drop').classList.remove('has-file');
+  document.getElementById('sig-preview-wrap').style.display = 'none';
+  document.getElementById('sig-clear-wrap').style.display   = 'none';
+  document.getElementById('sig-drop-text').style.display    = 'block';
   document.getElementById('form-error').style.display = 'none';
   document.getElementById('btn-submit-sop').disabled = false;
+}
+
+// ── Preparer signature upload ─────────────────────────────────────────────────
+function handleSigSelect(input) {
+  if (input.files && input.files[0]) setSig(input.files[0]);
+}
+function handleSigDrop(e) {
+  e.preventDefault();
+  document.getElementById('sig-drop').style.borderColor = '#e0e0e0';
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) setSig(e.dataTransfer.files[0]);
+}
+function setSig(file) {
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    _prepSigDataUrl = ev.target.result;
+    document.getElementById('sig-preview').src         = _prepSigDataUrl;
+    document.getElementById('sig-preview-wrap').style.display = 'block';
+    document.getElementById('sig-clear-wrap').style.display   = 'block';
+    document.getElementById('sig-drop-text').style.display    = 'none';
+    document.getElementById('sig-drop').style.borderColor     = '#16a34a';
+  };
+  reader.readAsDataURL(file);
+}
+function clearSig() {
+  _prepSigDataUrl = null;
+  document.getElementById('sig-preview-wrap').style.display = 'none';
+  document.getElementById('sig-clear-wrap').style.display   = 'none';
+  document.getElementById('sig-drop-text').style.display    = 'block';
+  document.getElementById('sig-drop').style.borderColor     = '#e0e0e0';
+  document.getElementById('f-sig-file').value = '';
 }
 
 function backFromNewSop() {
@@ -1200,6 +1322,7 @@ function submitNewSop() {
   var code     = (document.getElementById('f-code').value || '').trim().toUpperCase();
   var title    = (document.getElementById('f-title').value || '').trim();
   var version  = (document.getElementById('f-version').value || '').trim();
+  var prepName = (document.getElementById('f-prep-name').value || '').trim();
   var revName  = (document.getElementById('f-rev-name').value || '').trim();
   var revEmail = (document.getElementById('f-rev-email').value || '').trim().toLowerCase();
   var ap1Name  = (document.getElementById('f-ap1-name').value || '').trim();
@@ -1211,9 +1334,11 @@ function submitNewSop() {
 
   // Validate
   var errors = [];
-  if (!code)    errors.push('SOP code is required.');
-  if (!title)   errors.push('Title is required.');
-  if (!version) errors.push('Version is required.');
+  if (!code)     errors.push('SOP code is required.');
+  if (!title)    errors.push('Title is required.');
+  if (!version)  errors.push('Version is required.');
+  if (!prepName)       errors.push('Preparer name is required.');
+  if (!_prepSigDataUrl) errors.push('Preparer signature is required.');
   if (!_selectedFile) errors.push('Please upload a document.');
   if (!revName || !revEmail) errors.push('Reviewer name and email are required.');
   if (!ap1Name || !ap1Email) errors.push('Approver 1 name and email are required.');
@@ -1251,7 +1376,8 @@ function submitNewSop() {
       id:       code,
       title:    title,
       version:  version,
-      prepName: App.user.name,
+      prepName: prepName,
+      prepSig:  _prepSigDataUrl || '',
       mimeType: mimeType,
       fileName: _selectedFile.name,
       fileB64:  b64,
