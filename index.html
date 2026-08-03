@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Locad QMS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap">
 <style>
 /* ── Reset & base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -389,19 +390,15 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
       <div class="field" style="margin-top:12px">
         <label>Signature *</label>
-        <div id="sig-drop" onclick="document.getElementById('f-sig-file').click()"
-          style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:border .15s;background:#fafafa"
-          ondragover="event.preventDefault();this.style.borderColor='#16a34a'"
-          ondragleave="this.style.borderColor='#e0e0e0'"
-          ondrop="handleSigDrop(event)">
-          <div id="sig-preview-wrap" style="display:none;margin-bottom:8px">
-            <img id="sig-preview" style="max-height:60px;max-width:240px;border:1px solid #eee;border-radius:4px;padding:4px;background:#fff">
+        <div id="prep-sig-box" onclick="openSigModal('prep')"
+          style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">
+          <div id="prep-sig-preview-wrap" style="display:none;margin-bottom:6px">
+            <img id="prep-sig-preview" style="max-height:60px;max-width:240px;border:1px solid #eee;border-radius:4px;padding:4px;background:#fff">
           </div>
-          <div id="sig-drop-text" style="font-size:13px;color:#888">Click to upload or drag signature image (PNG, JPG)</div>
-          <input id="f-sig-file" type="file" accept="image/png,image/jpeg,image/gif" style="display:none" onchange="handleSigSelect(this)">
+          <div id="prep-sig-text" style="font-size:13px;color:#888">✍ Click to draw, type, or upload signature</div>
         </div>
-        <div id="sig-clear-wrap" style="display:none;margin-top:6px">
-          <button type="button" onclick="clearSig()" style="font-size:12px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove signature</button>
+        <div id="prep-sig-clear" style="display:none;margin-top:6px">
+          <button type="button" onclick="event.stopPropagation();clearPrepSig()" style="font-size:12px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>
         </div>
       </div>
     </div>
@@ -1085,22 +1082,18 @@ function renderSidebar(sop) {
       (sop.viewerRole === 'reviewer' ? 'Reviewer' : 'Approver') + '</div>' +
       '<div class="decision-area">' +
 
-      // Signature upload
+      // Signature
       '<div style="margin-bottom:10px">' +
         '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
-        '<div id="dec-sig-drop" onclick="document.getElementById(\'dec-sig-file\').click()" ' +
-          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s" ' +
-          'ondragover="event.preventDefault();this.style.borderColor=\'#16a34a\'" ' +
-          'ondragleave="this.style.borderColor=\'#e0e0e0\'" ' +
-          'ondrop="handleDecisionSigDrop(event)">' +
+        '<div id="dec-sig-box" onclick="openSigModal(\'decision\')" ' +
+          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">' +
           '<div id="dec-sig-preview-wrap" style="display:none;margin-bottom:6px">' +
             '<img id="dec-sig-preview" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff">' +
           '</div>' +
-          '<div id="dec-sig-text" style="font-size:12px;color:#aaa">Click or drag to upload your e-signature (PNG, JPG)</div>' +
+          '<div id="dec-sig-text" style="font-size:12px;color:#aaa">✍ Click to draw, type, or upload</div>' +
         '</div>' +
-        '<input id="dec-sig-file" type="file" accept="image/png,image/jpeg" style="display:none" onchange="handleDecisionSigSelect(this)">' +
         '<div id="dec-sig-clear" style="display:none;margin-top:4px">' +
-          '<button type="button" onclick="clearDecisionSig()" style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
+          '<button type="button" onclick="event.stopPropagation();clearDecisionSig()" style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
         '</div>' +
       '</div>' +
 
@@ -1140,36 +1133,19 @@ function renderSidebar(sop) {
   document.getElementById('sidebar').innerHTML = html;
 }
 
-// ── Decision signature ────────────────────────────────────────────────────────
+// ── Decision signature state ──────────────────────────────────────────────────
 var _decisionSigDataUrl = null;
 
-function handleDecisionSigSelect(input) {
-  if (input.files && input.files[0]) setDecisionSig(input.files[0]);
-}
-function handleDecisionSigDrop(e) {
-  e.preventDefault();
-  document.getElementById('dec-sig-drop').style.borderColor = '#e0e0e0';
-  if (e.dataTransfer.files && e.dataTransfer.files[0]) setDecisionSig(e.dataTransfer.files[0]);
-}
-function setDecisionSig(file) {
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    _decisionSigDataUrl = ev.target.result;
-    document.getElementById('dec-sig-preview').src              = _decisionSigDataUrl;
-    document.getElementById('dec-sig-preview-wrap').style.display = 'block';
-    document.getElementById('dec-sig-clear').style.display        = 'block';
-    document.getElementById('dec-sig-text').style.display         = 'none';
-    document.getElementById('dec-sig-drop').style.borderColor     = '#16a34a';
-  };
-  reader.readAsDataURL(file);
-}
 function clearDecisionSig() {
   _decisionSigDataUrl = null;
-  document.getElementById('dec-sig-preview-wrap').style.display = 'none';
-  document.getElementById('dec-sig-clear').style.display        = 'none';
-  document.getElementById('dec-sig-text').style.display         = 'block';
-  document.getElementById('dec-sig-drop').style.borderColor     = '#e0e0e0';
-  document.getElementById('dec-sig-file').value = '';
+  var pw = document.getElementById('dec-sig-preview-wrap');
+  var dc = document.getElementById('dec-sig-clear');
+  var dt = document.getElementById('dec-sig-text');
+  var db = document.getElementById('dec-sig-box');
+  if (pw) pw.style.display = 'none';
+  if (dc) dc.style.display = 'none';
+  if (dt) dt.style.display = 'block';
+  if (db) db.style.borderColor = '#e0e0e0';
 }
 
 // ── Submit a reviewer/approver decision ──────────────────────────────────────
@@ -1250,41 +1226,149 @@ function showNewSopForm() {
   _prepSigDataUrl  = null;
   document.getElementById('file-drop-text').textContent = 'Click to upload or drag and drop';
   document.getElementById('file-drop').classList.remove('has-file');
-  document.getElementById('sig-preview-wrap').style.display = 'none';
-  document.getElementById('sig-clear-wrap').style.display   = 'none';
-  document.getElementById('sig-drop-text').style.display    = 'block';
+  document.getElementById('prep-sig-preview-wrap').style.display = 'none';
+  document.getElementById('prep-sig-clear').style.display        = 'none';
+  document.getElementById('prep-sig-text').style.display         = 'block';
+  document.getElementById('prep-sig-box').style.borderColor      = '#e0e0e0';
   document.getElementById('form-error').style.display = 'none';
   document.getElementById('btn-submit-sop').disabled = false;
 }
 
-// ── Preparer signature upload ─────────────────────────────────────────────────
-function handleSigSelect(input) {
-  if (input.files && input.files[0]) setSig(input.files[0]);
+// ── Unified signature modal ───────────────────────────────────────────────────
+var _sigTarget       = null;   // 'prep' | 'decision'
+var _sigUploadUrl    = null;   // data URL from upload tab
+var _sigDrawing      = false;
+var _sigCanvas, _sigCtx;
+var _currentSigTab   = 'draw';
+
+function openSigModal(target) {
+  _sigTarget     = target;
+  _sigUploadUrl  = null;
+  _currentSigTab = 'draw';
+  document.getElementById('sig-modal').style.display = 'flex';
+  document.getElementById('sig-upload-preview').style.display = 'none';
+  document.getElementById('sig-upload-text').style.display    = 'block';
+  document.getElementById('sig-type-input').value = '';
+  document.getElementById('sig-type-preview').textContent = '';
+  document.getElementById('sig-modal-upload-input').value = '';
+  sigTab('draw');
+  // Init canvas after display
+  setTimeout(function() {
+    _sigCanvas = document.getElementById('sig-canvas');
+    _sigCtx    = _sigCanvas.getContext('2d');
+    _sigCtx.strokeStyle = '#111';
+    _sigCtx.lineWidth   = 2.5;
+    _sigCtx.lineCap     = 'round';
+    _sigCtx.lineJoin    = 'round';
+    clearSigCanvas();
+    _bindCanvasEvents();
+  }, 50);
 }
-function handleSigDrop(e) {
-  e.preventDefault();
-  document.getElementById('sig-drop').style.borderColor = '#e0e0e0';
-  if (e.dataTransfer.files && e.dataTransfer.files[0]) setSig(e.dataTransfer.files[0]);
+function closeSigModal() {
+  document.getElementById('sig-modal').style.display = 'none';
+  _sigDrawing = false;
 }
-function setSig(file) {
+function sigTab(tab) {
+  _currentSigTab = tab;
+  ['draw','type','upload'].forEach(function(t) {
+    document.getElementById('sig-tab-' + t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('sig-tabn-' + t).classList.toggle('sig-tab-active', t === tab);
+  });
+  if (tab === 'draw' && _sigCanvas) clearSigCanvas();
+}
+function clearSigCanvas() {
+  if (!_sigCtx) return;
+  _sigCtx.clearRect(0, 0, _sigCanvas.width, _sigCanvas.height);
+  _sigCtx.fillStyle = '#fff';
+  _sigCtx.fillRect(0, 0, _sigCanvas.width, _sigCanvas.height);
+}
+function _bindCanvasEvents() {
+  function pos(e) {
+    var r = _sigCanvas.getBoundingClientRect();
+    var src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  }
+  _sigCanvas.onmousedown  = function(e) { _sigDrawing = true; _sigCtx.beginPath(); var p=pos(e); _sigCtx.moveTo(p.x,p.y); };
+  _sigCanvas.onmousemove  = function(e) { if(!_sigDrawing) return; var p=pos(e); _sigCtx.lineTo(p.x,p.y); _sigCtx.stroke(); };
+  _sigCanvas.onmouseup    = function()  { _sigDrawing = false; };
+  _sigCanvas.onmouseleave = function()  { _sigDrawing = false; };
+  _sigCanvas.ontouchstart = function(e) { e.preventDefault(); _sigDrawing=true; _sigCtx.beginPath(); var p=pos(e); _sigCtx.moveTo(p.x,p.y); };
+  _sigCanvas.ontouchmove  = function(e) { e.preventDefault(); if(!_sigDrawing) return; var p=pos(e); _sigCtx.lineTo(p.x,p.y); _sigCtx.stroke(); };
+  _sigCanvas.ontouchend   = function()  { _sigDrawing = false; };
+}
+function sigTypePreview() {
+  var txt = document.getElementById('sig-type-input').value;
+  document.getElementById('sig-type-preview').textContent = txt;
+}
+function handleSigModalUpload(input) {
+  if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(ev) {
-    _prepSigDataUrl = ev.target.result;
-    document.getElementById('sig-preview').src         = _prepSigDataUrl;
-    document.getElementById('sig-preview-wrap').style.display = 'block';
-    document.getElementById('sig-clear-wrap').style.display   = 'block';
-    document.getElementById('sig-drop-text').style.display    = 'none';
-    document.getElementById('sig-drop').style.borderColor     = '#16a34a';
+    _sigUploadUrl = ev.target.result;
+    document.getElementById('sig-upload-preview').src          = _sigUploadUrl;
+    document.getElementById('sig-upload-preview').style.display = 'block';
+    document.getElementById('sig-upload-text').style.display    = 'none';
   };
-  reader.readAsDataURL(file);
+  reader.readAsDataURL(input.files[0]);
 }
-function clearSig() {
+function applySig() {
+  var dataUrl = null;
+
+  if (_currentSigTab === 'draw') {
+    // Check canvas is not blank
+    var blank = document.createElement('canvas');
+    blank.width = _sigCanvas.width; blank.height = _sigCanvas.height;
+    var bCtx = blank.getContext('2d');
+    bCtx.fillStyle = '#fff'; bCtx.fillRect(0, 0, blank.width, blank.height);
+    if (_sigCanvas.toDataURL() === blank.toDataURL()) {
+      showToast('Please draw your signature first.'); return;
+    }
+    dataUrl = _sigCanvas.toDataURL('image/png');
+
+  } else if (_currentSigTab === 'type') {
+    var txt = document.getElementById('sig-type-input').value.trim();
+    if (!txt) { showToast('Please type your name.'); return; }
+    var c = document.createElement('canvas');
+    c.width = 400; c.height = 100;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle = '#111';
+    ctx.font = '56px "Dancing Script", cursive';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(txt, 16, 54);
+    dataUrl = c.toDataURL('image/png');
+
+  } else if (_currentSigTab === 'upload') {
+    if (!_sigUploadUrl) { showToast('Please upload a signature image.'); return; }
+    dataUrl = _sigUploadUrl;
+  }
+
+  if (!dataUrl) return;
+
+  if (_sigTarget === 'prep') {
+    _prepSigDataUrl = dataUrl;
+    document.getElementById('prep-sig-preview').src              = dataUrl;
+    document.getElementById('prep-sig-preview-wrap').style.display = 'block';
+    document.getElementById('prep-sig-clear').style.display        = 'block';
+    document.getElementById('prep-sig-text').style.display         = 'none';
+    document.getElementById('prep-sig-box').style.borderColor      = '#16a34a';
+  } else {
+    _decisionSigDataUrl = dataUrl;
+    document.getElementById('dec-sig-preview').src              = dataUrl;
+    document.getElementById('dec-sig-preview-wrap').style.display = 'block';
+    document.getElementById('dec-sig-clear').style.display        = 'block';
+    document.getElementById('dec-sig-text').style.display         = 'none';
+    document.getElementById('dec-sig-box').style.borderColor      = '#16a34a';
+  }
+  closeSigModal();
+}
+
+function clearPrepSig() {
   _prepSigDataUrl = null;
-  document.getElementById('sig-preview-wrap').style.display = 'none';
-  document.getElementById('sig-clear-wrap').style.display   = 'none';
-  document.getElementById('sig-drop-text').style.display    = 'block';
-  document.getElementById('sig-drop').style.borderColor     = '#e0e0e0';
-  document.getElementById('f-sig-file').value = '';
+  document.getElementById('prep-sig-preview-wrap').style.display = 'none';
+  document.getElementById('prep-sig-clear').style.display        = 'none';
+  document.getElementById('prep-sig-text').style.display         = 'block';
+  document.getElementById('prep-sig-box').style.borderColor      = '#e0e0e0';
 }
 
 function backFromNewSop() {
@@ -1426,6 +1510,58 @@ function showToast(msg) {
   _toastTimer = setTimeout(function() { el.classList.remove('show'); }, 3500);
 }
 </script>
+
+<!-- ── Signature Modal ───────────────────────────────────────────────────── -->
+<div id="sig-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden">
+    <!-- Header -->
+    <div style="padding:18px 24px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:600;color:#111">Add signature</div>
+      <button onclick="closeSigModal()" style="color:#999;font-size:20px;background:none;border:none;cursor:pointer;padding:2px 8px">×</button>
+    </div>
+    <!-- Tab nav -->
+    <div style="display:flex;border-bottom:1px solid #eee;background:#fafafa">
+      <button id="sig-tabn-draw"   onclick="sigTab('draw')"   style="flex:1;padding:10px;font:inherit;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;color:#888;transition:all .15s" class="sig-tab-active">✏️ Draw</button>
+      <button id="sig-tabn-type"   onclick="sigTab('type')"   style="flex:1;padding:10px;font:inherit;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;color:#888;transition:all .15s">Aa Type</button>
+      <button id="sig-tabn-upload" onclick="sigTab('upload')" style="flex:1;padding:10px;font:inherit;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;color:#888;transition:all .15s">📎 Upload</button>
+    </div>
+    <!-- Draw tab -->
+    <div id="sig-tab-draw" style="padding:16px 24px">
+      <div style="font-size:12px;color:#999;margin-bottom:8px">Draw your signature in the box below</div>
+      <canvas id="sig-canvas" width="432" height="130"
+        style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;cursor:crosshair;touch-action:none;display:block;background:#fff"></canvas>
+      <button onclick="clearSigCanvas()" style="margin-top:8px;font-size:12px;color:#888;background:none;border:none;cursor:pointer">↺ Clear</button>
+    </div>
+    <!-- Type tab -->
+    <div id="sig-tab-type" style="display:none;padding:16px 24px">
+      <div style="font-size:12px;color:#999;margin-bottom:8px">Type your name — it will be rendered as a signature</div>
+      <input id="sig-type-input" type="text" placeholder="e.g. Juan dela Cruz" oninput="sigTypePreview()"
+        style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;margin-bottom:12px"
+        onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+      <div style="border:1.5px solid #eee;border-radius:8px;padding:12px 16px;min-height:70px;background:#fff;display:flex;align-items:center">
+        <div id="sig-type-preview" style="font-family:'Dancing Script',cursive;font-size:48px;color:#111;line-height:1"></div>
+      </div>
+    </div>
+    <!-- Upload tab -->
+    <div id="sig-tab-upload" style="display:none;padding:16px 24px">
+      <div style="font-size:12px;color:#999;margin-bottom:8px">Upload a PNG or JPG of the signature</div>
+      <div onclick="document.getElementById('sig-modal-upload-input').click()"
+        style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:#fafafa">
+        <img id="sig-upload-preview" style="max-height:70px;max-width:300px;display:none;margin:0 auto 8px">
+        <div id="sig-upload-text" style="font-size:13px;color:#aaa">Click to choose file</div>
+      </div>
+      <input id="sig-modal-upload-input" type="file" accept="image/png,image/jpeg" style="display:none" onchange="handleSigModalUpload(this)">
+    </div>
+    <!-- Footer -->
+    <div style="padding:16px 24px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px">
+      <button onclick="closeSigModal()" style="padding:10px 18px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#555;background:#fff;cursor:pointer">Cancel</button>
+      <button onclick="applySig()" style="padding:10px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:500;cursor:pointer">Apply signature</button>
+    </div>
+  </div>
+</div>
+<style>
+.sig-tab-active { color:#16a34a !important; border-bottom-color:#16a34a !important; background:#fff !important; }
+</style>
 
 <!-- ── Change Password Modal ─────────────────────────────────────────────── -->
 <div id="change-pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;">
