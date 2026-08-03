@@ -48,24 +48,52 @@ nav button.active { color: #fff; background: rgba(255,255,255,.12); }
 .view.active { display: block; }
 
 /* ── Login screen ─────────────────────────────────────────────────────────── */
-#login-view { display: flex; align-items: center; justify-content: center;
-              min-height: 100vh; }
-.login-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 16px;
-              padding: 48px 40px; text-align: center; width: 100%; max-width: 380px; }
-.login-logo { display: flex; align-items: center; justify-content: center; gap: 10px;
-              margin-bottom: 28px; }
-.login-logo-icon { width: 36px; height: 36px; background: #060A06; border-radius: 8px;
+#login-view { display: flex; min-height: 100vh; }
+
+/* Left brand panel */
+.login-brand { width: 42%; background: #111111; display: flex; flex-direction: column;
+               align-items: center; justify-content: center; padding: 48px 40px;
+               flex-shrink: 0; position: relative; overflow: hidden; }
+.login-brand::before { content: ''; position: absolute; width: 340px; height: 340px;
+  border-radius: 50%; border: 1px solid #4ADE8014; top: -80px; left: -80px; }
+.login-brand::after  { content: ''; position: absolute; width: 240px; height: 240px;
+  border-radius: 50%; border: 1px solid #4ADE8010; bottom: -60px; right: -60px; }
+.login-brand-logo { font-size: 32px; font-weight: 800; color: #4ADE80;
+                    letter-spacing: 4px; margin-bottom: 6px; }
+.login-brand-tag  { font-size: 10px; color: #4ADE8066; letter-spacing: 2px;
+                    text-transform: uppercase; margin-bottom: 48px; }
+.login-brand-pill { background: #4ADE8014; border-left: 2px solid #4ADE80;
+                    color: #4ADE80; font-size: 12px; padding: 8px 16px;
+                    border-radius: 0 6px 6px 0; margin-bottom: 12px; width: 100%;
+                    max-width: 240px; }
+.login-brand-pill-muted { background: #ffffff08; border-left: 2px solid #ffffff15;
+                          color: #888; font-size: 12px; padding: 8px 16px;
+                          border-radius: 0 6px 6px 0; margin-bottom: 12px; width: 100%;
+                          max-width: 240px; }
+
+/* Right form panel */
+.login-form-panel { flex: 1; background: #fff; display: flex; align-items: center;
+                    justify-content: center; padding: 48px 40px; }
+.login-card { width: 100%; max-width: 360px; }
+.login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+.login-logo-icon { width: 36px; height: 36px; background: #111111; border-radius: 8px;
                    display: flex; align-items: center; justify-content: center; }
 .login-logo-icon svg { width: 20px; height: 20px; }
-.login-logo-name { font-size: 18px; font-weight: 700; color: #060A06; }
-.login-title { font-size: 20px; font-weight: 600; color: #111; margin-bottom: 8px; }
-.login-sub { font-size: 14px; color: #666; margin-bottom: 32px; }
+.login-logo-name { font-size: 17px; font-weight: 700; color: #111; }
+.login-title { font-size: 22px; font-weight: 700; color: #111; margin-bottom: 6px; }
+.login-sub { font-size: 14px; color: #666; margin-bottom: 28px; }
 #google-signin-btn { display: flex; align-items: center; justify-content: center; gap: 10px;
                      width: 100%; padding: 12px 20px; border: 1.5px solid #e0e0e0;
                      border-radius: 10px; font-size: 14px; font-weight: 500; color: #333;
                      background: #fff; transition: all .15s; }
-#google-signin-btn:hover { border-color: #16a34a; background: #f0fdf4; }
+#google-signin-btn:hover { border-color: #4ADE80; background: #f0fdf4; }
 #google-signin-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+@media (max-width: 640px) {
+  #login-view { flex-direction: column; }
+  .login-brand { width: 100%; min-height: 180px; padding: 32px 24px; }
+  .login-brand-pill, .login-brand-pill-muted { display: none; }
+  .login-form-panel { padding: 32px 24px; }
+}
 
 /* ── Dashboard ────────────────────────────────────────────────────────────── */
 #dash-view { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
@@ -250,40 +278,51 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
 <!-- ── Login ──────────────────────────────────────────────────────────────── -->
 <div id="login-view">
-  <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-icon">
-        <svg viewBox="0 0 20 20" fill="none">
-          <rect x="2" y="2" width="7" height="7" rx="1.5" fill="#fff"/>
-          <rect x="11" y="2" width="7" height="7" rx="1.5" fill="#16a34a"/>
-          <rect x="2" y="11" width="7" height="7" rx="1.5" fill="#16a34a"/>
-          <rect x="11" y="11" width="7" height="7" rx="1.5" fill="#fff" opacity=".5"/>
-        </svg>
+  <!-- Left brand panel -->
+  <div class="login-brand">
+    <div class="login-brand-logo">LOCAD</div>
+    <div class="login-brand-tag">Quality Management System</div>
+    <div class="login-brand-pill">SOP approvals &amp; control</div>
+    <div class="login-brand-pill-muted">Document versioning</div>
+    <div class="login-brand-pill-muted">Audit trail</div>
+  </div>
+  <!-- Right form panel -->
+  <div class="login-form-panel">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <svg viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="7" height="7" rx="1.5" fill="#4ADE80"/>
+            <rect x="11" y="2" width="7" height="7" rx="1.5" fill="#fff"/>
+            <rect x="2" y="11" width="7" height="7" rx="1.5" fill="#fff" opacity=".5"/>
+            <rect x="11" y="11" width="7" height="7" rx="1.5" fill="#4ADE80"/>
+          </svg>
+        </div>
+        <span class="login-logo-name">Locad QMS</span>
       </div>
-      <span class="login-logo-name">Locad QMS</span>
+      <div class="login-title">Sign in</div>
+      <div class="login-sub">Use your Locad QMS credentials to continue.</div>
+      <form onsubmit="handleLogin(event)" style="text-align:left">
+        <div style="margin-bottom:12px">
+          <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Work email</label>
+          <input id="login-email" type="email" placeholder="you@golocad.com" required
+            style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
+            onfocus="this.style.borderColor='#4ADE80'" onblur="this.style.borderColor='#e0e0e0'">
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Password</label>
+          <input id="login-password" type="password" placeholder="••••••••" required
+            style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
+            onfocus="this.style.borderColor='#4ADE80'" onblur="this.style.borderColor='#e0e0e0'">
+        </div>
+        <div id="login-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
+        <button type="submit" id="btn-login"
+          style="width:100%;padding:12px;background:#4ADE80;color:#000;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s"
+          onmouseover="this.style.background='#22c55e'" onmouseout="this.style.background='#4ADE80'">
+          Sign in
+        </button>
+      </form>
     </div>
-    <div class="login-title">Sign in</div>
-    <div class="login-sub">Use your Locad QMS credentials to continue.</div>
-    <form onsubmit="handleLogin(event)" style="text-align:left">
-      <div style="margin-bottom:12px">
-        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Work email</label>
-        <input id="login-email" type="email" placeholder="you@golocad.com" required
-          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
-          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
-      </div>
-      <div style="margin-bottom:16px">
-        <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Password</label>
-        <input id="login-password" type="password" placeholder="••••••••" required
-          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
-          onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
-      </div>
-      <div id="login-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
-      <button type="submit" id="btn-login"
-        style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s"
-        onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-        Sign in
-      </button>
-    </form>
   </div>
 </div>
 
@@ -813,9 +852,9 @@ function apiPost(body) {
   body.email = App.user.email;
   body.token = App.user.token;
   var payload = JSON.stringify(body);
-  // GAS sometimes redirects the first POST of a session to a GET internally,
-  // returning a non-JSON response. We retry once transparently if that happens.
-  function doFetch(isRetry) {
+  // GAS may redirect early POSTs, returning HTML instead of JSON.
+  // Retry up to 3 times with a 500ms gap to let the GAS instance warm up.
+  function doFetch(attempt) {
     return fetch(GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
@@ -825,13 +864,17 @@ function apiPost(body) {
         try {
           return JSON.parse(text);
         } catch(e) {
-          if (!isRetry) { return doFetch(true); } // silent retry
+          if (attempt < 3) {
+            return new Promise(function(res) {
+              setTimeout(function() { res(doFetch(attempt + 1)); }, 500);
+            });
+          }
           throw new Error('Server returned an unexpected response. Please try again.');
         }
       });
     });
   }
-  return doFetch(false);
+  return doFetch(1);
 }
 
 // ── Load approvals dashboard ──────────────────────────────────────────────────
