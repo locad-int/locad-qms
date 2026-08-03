@@ -1213,7 +1213,9 @@ function submitDecision(decision) {
   apiPost({ action: 'submitDecision', code: sop.id, decision: decision, comments: comments, sig: _decisionSigDataUrl })
     .then(function(r) {
       if (r.ok) {
-        showToast('Done! SOP status: ' + r.newStatus.replace('_', ' '));
+        var msg = 'Done! SOP status: ' + r.newStatus.replace(/_/g, ' ');
+        if (r.warning) msg += ' (⚠️ Signed copies: ' + r.warning + ')';
+        showToast(msg);
         // Refresh
         App.myApprovals = [];
         App.allSops = [];
