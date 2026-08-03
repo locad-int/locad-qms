@@ -1268,8 +1268,7 @@ function showNewSopForm() {
   document.getElementById('detail-view').style.display = 'none';
   document.getElementById('new-sop-view').classList.add('active');
   document.getElementById('new-sop-view').style.display = 'block';
-  // Pre-fill preparer name from logged-in user
-  document.getElementById('f-prep-name').value = App.user.name || '';
+  document.getElementById('f-prep-name').value = '';
   _selectedFile    = null;
   _prepSigDataUrl  = null;
   document.getElementById('file-drop-text').textContent = 'Click to upload or drag and drop';
