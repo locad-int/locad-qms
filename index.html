@@ -298,6 +298,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <button class="active" onclick="switchTab('approvals')">Approvals</button>
       <button onclick="switchTab('documents')">Documents</button>
       <button onclick="switchTab('audit')">Audit trail</button>
+      <button id="nav-admin" style="display:none" onclick="switchTab('admin')">Admin</button>
     </nav>
     <div class="tb-right">
       <span class="tb-user" id="tb-user-name"></span>
@@ -488,6 +489,58 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
   </div>
+
+  <!-- Admin panel (superuser only) -->
+  <div id="admin-view" class="view">
+    <div style="max-width:800px;margin:0 auto;padding:36px 24px">
+      <div class="dash-header" style="margin-bottom:32px">
+        <div class="dash-title">User Management</div>
+        <div class="dash-sub">Add and manage who can access Locad QMS</div>
+      </div>
+
+      <!-- Add user form -->
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:28px;margin-bottom:28px">
+        <div style="font-size:15px;font-weight:600;color:#111;margin-bottom:18px">Add new user</div>
+        <form onsubmit="adminAddUser(event)">
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="flex:2;min-width:200px">
+              <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Email address</label>
+              <input id="au-email" type="email" placeholder="user@golocad.com" required
+                style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
+                onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+            </div>
+            <div style="flex:1;min-width:160px">
+              <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Initial password</label>
+              <input id="au-pwd" type="text" placeholder="min 6 characters" required
+                style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
+                onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button type="submit" id="btn-au-add"
+                style="padding:10px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap">
+                Add user
+              </button>
+            </div>
+          </div>
+          <div id="au-err" style="font-size:12px;color:#dc2626;margin-top:8px;display:none"></div>
+          <div style="font-size:12px;color:#999;margin-top:8px">
+            The user will sign in with this email and their initial password. They can change it after logging in.
+          </div>
+        </form>
+      </div>
+
+      <!-- User list -->
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;overflow:hidden">
+        <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:15px;font-weight:600;color:#111">Current users</div>
+          <button onclick="loadUsers()" style="font-size:13px;color:#16a34a;background:none;border:none;cursor:pointer">↻ Refresh</button>
+        </div>
+        <div id="admin-user-list" style="padding:8px 0">
+          <div class="spinner-wrap"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Toast -->
@@ -511,7 +564,7 @@ var App = {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.onload = function() {
-  if (GAS_URL === 'https://script.google.com/macros/s/AKfycby2uDYjT8c_NJS96EgHuQ_-N74zqJ4VLi5lhuACN3vnQZRqe_oAZvJfPo0CbmBwVL0deA/exec') {
+  if (GAS_URL === 'YOUR_GAS_DEPLOYMENT_URL') {
     document.getElementById('cfg-banner').classList.remove('hidden');
   } else {
     document.getElementById('cfg-banner').classList.add('hidden');
@@ -648,39 +701,47 @@ function initials(name) {
   return (name || '').split(' ').filter(Boolean).map(function(w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
 }
 
+var SUPERUSER_EMAIL = 'larry.capacete@golocad.com'; // must match SUPERUSER_EMAIL in Script Properties
+
 function showApp() {
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('main-app').style.display   = 'block';
   document.getElementById('tb-user-name').textContent = App.user.name;
   document.getElementById('tb-avatar').textContent    = App.user.initials;
+  // Show Admin tab only for superuser
+  var isSu = App.user.email.toLowerCase() === SUPERUSER_EMAIL.toLowerCase();
+  document.getElementById('nav-admin').style.display = isSu ? 'inline-flex' : 'none';
   loadApprovals();
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
   App.currentTab = tab;
-  // Hide detail
   document.getElementById('detail-view').style.display = 'none';
   document.getElementById('detail-view').classList.remove('active');
 
-  // Update nav
+  // Update nav highlights
+  document.querySelectorAll('nav button').forEach(function(btn) { btn.classList.remove('active'); });
+  var tabIds = { approvals: 0, documents: 1, audit: 2, admin: 3 };
   var navBtns = document.querySelectorAll('nav button');
-  navBtns[0].classList.toggle('active', tab === 'approvals');
-  navBtns[1].classList.toggle('active', tab === 'documents');
-  navBtns[2].classList.toggle('active', tab === 'audit');
+  if (tab === 'approvals') navBtns[0].classList.add('active');
+  if (tab === 'documents') navBtns[1].classList.add('active');
+  if (tab === 'audit')     navBtns[2].classList.add('active');
+  if (tab === 'admin')     document.getElementById('nav-admin').classList.add('active');
 
-  // Show views
-  showView(tab === 'approvals' ? 'dash-view' :
-           tab === 'documents' ? 'docs-view' :
+  showView(tab === 'approvals' ? 'dash-view'      :
+           tab === 'documents' ? 'docs-view'       :
+           tab === 'admin'     ? 'admin-view'      :
                                  'audit-content');
 
   if (tab === 'approvals' && App.myApprovals.length === 0) loadApprovals();
   if (tab === 'documents' && App.allSops.length === 0)     loadAllSops();
-  if (tab === 'audit')                                       loadAudit();
+  if (tab === 'audit')                                      loadAudit();
+  if (tab === 'admin')                                      loadUsers();
 }
 
 function showView(id) {
-  ['dash-view', 'docs-view', 'audit-content'].forEach(function(v) {
+  ['dash-view', 'docs-view', 'audit-content', 'admin-view'].forEach(function(v) {
     var el = document.getElementById(v);
     if (el) { el.classList.toggle('active', v === id); }
   });
@@ -809,6 +870,80 @@ function loadAudit() {
     html += '</tbody></table>';
     document.getElementById('audit-body').innerHTML = html;
   }).catch(function(err) { showToast(err.message); });
+}
+
+// ── Admin: load users ─────────────────────────────────────────────────────────
+function loadUsers() {
+  document.getElementById('admin-user-list').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  apiGet('listUsers').then(function(r) {
+    var users = r.data || [];
+    if (users.length === 0) {
+      document.getElementById('admin-user-list').innerHTML = '<div class="empty">No users yet.</div>';
+      return;
+    }
+    var html = '<table><thead><tr><th>Email</th><th>Role</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+    users.forEach(function(u) {
+      html += '<tr>' +
+        '<td>' + esc(u.email) + '</td>' +
+        '<td><span class="badge ' + (u.isSuperuser ? 'badge-approved' : 'badge-approval') + '">' +
+          (u.isSuperuser ? 'Superuser' : 'User') + '</span></td>' +
+        '<td style="text-align:right">' +
+          (!u.isSuperuser
+            ? '<button onclick="adminResetPwd(\'' + esc(u.email) + '\')" ' +
+              'style="font-size:12px;color:#16a34a;background:none;border:none;cursor:pointer;margin-right:8px">Reset password</button>' +
+              '<button onclick="adminRemove(\'' + esc(u.email) + '\')" ' +
+              'style="font-size:12px;color:#dc2626;background:none;border:none;cursor:pointer">Remove</button>'
+            : '<span style="font-size:12px;color:#999">—</span>') +
+        '</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('admin-user-list').innerHTML = html;
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function adminAddUser(e) {
+  e.preventDefault();
+  var email = document.getElementById('au-email').value.trim().toLowerCase();
+  var pwd   = document.getElementById('au-pwd').value;
+  var errEl = document.getElementById('au-err');
+  errEl.style.display = 'none';
+  var btn = document.getElementById('btn-au-add');
+  btn.disabled = true; btn.textContent = 'Adding…';
+
+  apiPost({ action: 'addUser', newEmail: email, newPassword: pwd })
+    .then(function(r) {
+      btn.disabled = false; btn.textContent = 'Add user';
+      if (r.ok) {
+        document.getElementById('au-email').value = '';
+        document.getElementById('au-pwd').value   = '';
+        showToast('User ' + email + ' added.');
+        loadUsers();
+      } else {
+        errEl.textContent = r.message || 'Failed to add user.';
+        errEl.style.display = 'block';
+      }
+    }).catch(function() { btn.disabled = false; btn.textContent = 'Add user'; showToast('Network error.'); });
+}
+
+function adminRemove(email) {
+  if (!confirm('Remove ' + email + '? They will no longer be able to sign in.')) return;
+  apiPost({ action: 'removeUser', targetEmail: email })
+    .then(function(r) {
+      if (r.ok) { showToast(email + ' removed.'); loadUsers(); }
+      else showToast(r.message || 'Failed to remove user.');
+    }).catch(function() { showToast('Network error.'); });
+}
+
+function adminResetPwd(email) {
+  var newPwd = prompt('Set a new password for ' + email + ':');
+  if (!newPwd) return;
+  if (newPwd.length < 6) { alert('Password must be at least 6 characters.'); return; }
+  apiPost({ action: 'resetPassword', targetEmail: email, newPassword: newPwd })
+    .then(function(r) {
+      if (r.ok) showToast('Password reset for ' + email + '.');
+      else showToast(r.message || 'Failed to reset password.');
+    }).catch(function() { showToast('Network error.'); });
 }
 
 // ── Open SOP detail ───────────────────────────────────────────────────────────
