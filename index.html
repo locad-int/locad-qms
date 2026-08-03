@@ -597,6 +597,12 @@ window.onload = function() {
 };
 
 // ── Email + password sign-in ──────────────────────────────────────────────────
+// Pre-warm GAS on page load — fires silently in the background so the cold-start
+// delay happens while the user is reading the form, not after clicking Sign in.
+window.addEventListener('DOMContentLoaded', function() {
+  fetch(GAS_URL).catch(function() {});
+});
+
 function handleLogin(e) {
   e.preventDefault();
   var email    = document.getElementById('login-email').value.trim().toLowerCase();
@@ -614,12 +620,26 @@ function handleLogin(e) {
   btn.disabled    = true;
   btn.textContent = 'Signing in…';
 
-  fetch(GAS_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify({ action: 'login', email: email, password: password })
-  })
-    .then(function(r) { return r.json(); })
+  var payload = JSON.stringify({ action: 'login', email: email, password: password });
+
+  // Retry once if GAS returns non-JSON (redirect/cold-start quirk)
+  function doLoginFetch(isRetry) {
+    return fetch(GAS_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    payload
+    }).then(function(resp) {
+      return resp.text().then(function(text) {
+        try { return JSON.parse(text); }
+        catch(e) {
+          if (!isRetry) return doLoginFetch(true);
+          throw new Error('Unexpected server response');
+        }
+      });
+    });
+  }
+
+  doLoginFetch(false)
     .then(function(r) {
       btn.disabled    = false;
       btn.textContent = 'Sign in';
