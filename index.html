@@ -58,8 +58,6 @@ nav button.active { color: #fff; background: rgba(255,255,255,.12); }
   border-radius: 50%; border: 1px solid #4ADE8014; top: -80px; left: -80px; }
 .login-brand::after  { content: ''; position: absolute; width: 240px; height: 240px;
   border-radius: 50%; border: 1px solid #4ADE8010; bottom: -60px; right: -60px; }
-.login-brand-logo { font-size: 32px; font-weight: 800; color: #4ADE80;
-                    letter-spacing: 4px; margin-bottom: 6px; }
 .login-brand-tag  { font-size: 10px; color: #4ADE8066; letter-spacing: 2px;
                     text-transform: uppercase; margin-bottom: 48px; }
 .login-brand-pill { background: #4ADE8014; border-left: 2px solid #4ADE80;
@@ -75,19 +73,8 @@ nav button.active { color: #fff; background: rgba(255,255,255,.12); }
 .login-form-panel { flex: 1; background: #fff; display: flex; align-items: center;
                     justify-content: center; padding: 48px 40px; }
 .login-card { width: 100%; max-width: 360px; }
-.login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
-.login-logo-icon { width: 36px; height: 36px; background: #111111; border-radius: 8px;
-                   display: flex; align-items: center; justify-content: center; }
-.login-logo-icon svg { width: 20px; height: 20px; }
-.login-logo-name { font-size: 17px; font-weight: 700; color: #111; }
 .login-title { font-size: 22px; font-weight: 700; color: #111; margin-bottom: 6px; }
 .login-sub { font-size: 14px; color: #666; margin-bottom: 28px; }
-#google-signin-btn { display: flex; align-items: center; justify-content: center; gap: 10px;
-                     width: 100%; padding: 12px 20px; border: 1.5px solid #e0e0e0;
-                     border-radius: 10px; font-size: 14px; font-weight: 500; color: #333;
-                     background: #fff; transition: all .15s; }
-#google-signin-btn:hover { border-color: #4ADE80; background: #f0fdf4; }
-#google-signin-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 @media (max-width: 640px) {
   #login-view { flex-direction: column; }
   .login-brand { width: 100%; min-height: 180px; padding: 32px 24px; }
@@ -113,6 +100,8 @@ tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: #f8fdf8; }
 tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .sop-code { color: #16a34a; font-weight: 600; font-size: 13px; }
+.doctype-badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .3px;
+                 padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
 .sop-title { font-weight: 500; }
 .sop-meta { color: #999; font-size: 12px; }
 
@@ -223,7 +212,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .audit-table-wrap { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
                     overflow: hidden; }
 
-/* ── New SOP form ─────────────────────────────────────────────────────────── */
+/* ── New Document form ─────────────────────────────────────────────────────────── */
 #new-sop-view { display:none; max-width:680px; margin:0 auto; padding:36px 24px; }
 #new-sop-view.active { display:block; }
 .form-section { background:#fff; border:1px solid #e5e5e5; border-radius:12px;
@@ -272,7 +261,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 <body>
 
 <!-- ── Config banner (shows until GAS_URL is set) ────────────────────────── -->
-<div id="cfg-banner">
+<div id="cfg-banner" class="hidden">
   <strong>Setup required:</strong> Open this file and set <code>GAS_URL</code> at the top of the &lt;script&gt; to your GAS deployment URL.
 </div>
 
@@ -280,26 +269,24 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 <div id="login-view">
   <!-- Left brand panel -->
   <div class="login-brand">
-    <div class="login-brand-logo">LOCAD</div>
+    <svg width="160" height="31" viewBox="0 0 303 59" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:10px">
+      <g clip-path="url(#lc-clip)">
+        <path d="M20.6635 43.021V0H0V59H48.7294V43.021H20.6635Z" fill="white"/>
+        <path d="M174.332 23.5742V8.92472C174.332 3.9883 169.986 0 164.602 0H125.412C120.028 0 115.687 3.9883 115.687 8.92472V50.0753C115.687 55.0117 120.033 59 125.417 59H164.607C169.991 59 174.337 55.0117 174.337 50.0753V33.9675H153.669V43.021H136.355V14.6392H153.669V23.5742H174.337H174.332Z" fill="white"/>
+        <path d="M293.27 0H244.354V59H293.27C298.654 59 303 55.0117 303 50.0753V8.92472C303 3.9883 298.659 0 293.27 0ZM282.331 43.021H265.018V14.6392H282.331V43.021Z" fill="white"/>
+        <path d="M101.8 0H62.6149C57.2309 0 52.8896 3.9883 52.8896 8.92472V50.0753C52.8896 55.0117 57.2309 59 62.6149 59H101.805C107.189 59 111.53 55.0117 111.53 50.0753V8.92472C111.53 3.9883 107.189 0 101.8 0ZM90.5156 43.021H73.8216V40.6301H90.5156V43.021ZM90.5156 39.3368H73.8216V34.5601H90.5156V39.3368ZM90.5672 27.1709V33.21H73.8371V27.1709H69.0468L82.2047 14.6598L95.3524 27.1709H90.562H90.5672Z" fill="white"/>
+        <path d="M225.131 0H191.542L174.843 59H195.816L198.289 50.2402H218.39L220.862 59H241.794L225.131 0ZM202.078 36.817L208.339 14.6547L214.601 36.817H202.083H202.078Z" fill="white"/>
+      </g>
+      <defs><clipPath id="lc-clip"><rect width="303" height="59" fill="white"/></clipPath></defs>
+    </svg>
     <div class="login-brand-tag">Quality Management System</div>
-    <div class="login-brand-pill">SOP approvals &amp; control</div>
+    <div class="login-brand-pill">Document approvals &amp; control</div>
     <div class="login-brand-pill-muted">Document versioning</div>
     <div class="login-brand-pill-muted">Audit trail</div>
   </div>
   <!-- Right form panel -->
   <div class="login-form-panel">
     <div class="login-card">
-      <div class="login-logo">
-        <div class="login-logo-icon">
-          <svg viewBox="0 0 20 20" fill="none">
-            <rect x="2" y="2" width="7" height="7" rx="1.5" fill="#4ADE80"/>
-            <rect x="11" y="2" width="7" height="7" rx="1.5" fill="#fff"/>
-            <rect x="2" y="11" width="7" height="7" rx="1.5" fill="#fff" opacity=".5"/>
-            <rect x="11" y="11" width="7" height="7" rx="1.5" fill="#4ADE80"/>
-          </svg>
-        </div>
-        <span class="login-logo-name">Locad QMS</span>
-      </div>
       <div class="login-title">Sign in</div>
       <div class="login-sub">Use your Locad QMS credentials to continue.</div>
       <form onsubmit="handleLogin(event)" style="text-align:left">
@@ -332,7 +319,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div class="tb-logo">
       <div class="tb-logo-icon">L</div>
       <span class="tb-logo-name">Locad QMS</span>
-      <span class="tb-logo-sub">/ SOP Approvals</span>
+      <span class="tb-logo-sub">/ Document Approvals</span>
     </div>
     <nav>
       <button class="active" onclick="switchTab('approvals')">Approvals</button>
@@ -360,7 +347,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
                font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
                margin-top:4px;transition:background .15s"
         onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-        + New SOP
+        + New Document
       </button>
     </div>
     <div class="table-wrap">
@@ -381,7 +368,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
                  font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
                  margin-top:4px;transition:background .15s"
           onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-          + New SOP
+          + New Document
         </button>
       </div>
       <div class="table-wrap">
@@ -390,21 +377,35 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     </div>
   </div>
 
-  <!-- New SOP form -->
+  <!-- New Document form -->
   <div id="new-sop-view">
     <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
       <button onclick="backFromNewSop()"
         style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
                font:inherit;font-size:13px;cursor:pointer">← Back</button>
-      <div style="font-size:22px;font-weight:700;color:#111">New SOP</div>
+      <div style="font-size:22px;font-weight:700;color:#111">New document</div>
     </div>
 
     <div class="form-section">
       <div class="form-section-title">Document details</div>
-      <div class="field-row">
+      <div class="field">
+        <label>Document type *</label>
+        <select id="f-doctype" onchange="onDocTypeChange()"
+          style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;background:#fff;outline:none">
+          <option value="">Select a document level…</option>
+          <option value="QM">Level 1 — Quality Manual (QM)</option>
+          <option value="SOP">Level 2 — Standard Operating Procedure (SOP)</option>
+          <option value="WI">Level 3 — Work Instruction (WI)</option>
+          <option value="FM">Level 4 — Form / Checklist (FM)</option>
+        </select>
+        <div class="field-hint" id="doctype-hint">Determines the document level recorded in the QMS.</div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
         <div class="field">
-          <label>SOP code *</label>
-          <input id="f-code" type="text" placeholder="e.g. SOP-WH-001" oninput="this.value=this.value.toUpperCase()" style="text-transform:uppercase">
+          <label>Document ID *</label>
+          <input id="f-code" type="text"
+            placeholder="e.g., LPH-OPS-WH-GEN-QM-001 or LPH-OPS-WH-INB-SOP-001"
+            oninput="this.value=this.value.toUpperCase()" style="text-transform:uppercase">
           <div class="field-hint">Must be unique. Auto-converts to uppercase.</div>
         </div>
         <div class="field">
@@ -424,7 +425,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="field">
           <label>Full name *</label>
           <input id="f-prep-name" type="text" placeholder="e.g. Juan dela Cruz">
-          <div class="field-hint">Name of the person who prepared this SOP.</div>
+          <div class="field-hint">Name of the person who prepared this document.</div>
         </div>
       </div>
       <div class="field" style="margin-top:12px">
@@ -459,17 +460,26 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
 
-    <div class="form-section">
-      <div class="form-section-title">Reviewer</div>
-      <div class="field-row">
-        <div class="field">
-          <label>Full name *</label>
-          <input id="f-rev-name" type="text" placeholder="e.g. Juan dela Cruz">
+    <div class="form-section" id="rev-section">
+      <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center">
+        Reviewer <span style="font-size:11px;font-weight:400;color:#888">(optional)</span>
+        <span class="optional-toggle" id="rev-toggle" onclick="toggleRev()">+ Add</span>
+      </div>
+      <div id="rev-fields" style="display:none">
+        <div class="field-row">
+          <div class="field">
+            <label>Full name</label>
+            <input id="f-rev-name" type="text" placeholder="e.g. Juan dela Cruz">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="f-rev-email" type="email" placeholder="reviewer@golocad.com">
+          </div>
         </div>
-        <div class="field">
-          <label>Email *</label>
-          <input id="f-rev-email" type="email" placeholder="reviewer@golocad.com">
-        </div>
+      </div>
+      <div class="field-hint" id="rev-hint" style="margin-top:2px">
+        Skip the review step for documents approved directly, such as a Quality
+        Manual signed by the Country Director.
       </div>
     </div>
 
@@ -485,6 +495,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <input id="f-ap1-email" type="email" placeholder="approver@golocad.com">
         </div>
       </div>
+      <div class="field-hint">At least one approver is required for every document type.</div>
     </div>
 
     <div class="form-section" id="ap2-section">
@@ -546,7 +557,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div id="audit-view">
       <div class="dash-header">
         <div class="dash-title">Audit trail</div>
-        <div class="dash-sub">All actions across all SOPs</div>
+        <div class="dash-sub">All actions across all controlled documents</div>
       </div>
       <div class="audit-table-wrap">
         <div id="audit-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
@@ -575,7 +586,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
             </div>
             <div style="flex:1;min-width:160px">
               <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Initial password</label>
-              <input id="au-pwd" type="text" placeholder="min 6 characters" required
+              <input id="au-pwd" type="text" placeholder="min 8 characters" required
                 style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
                 onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
             </div>
@@ -636,10 +647,22 @@ window.onload = function() {
 };
 
 // ── Email + password sign-in ──────────────────────────────────────────────────
-// Pre-warm GAS on page load — fires silently in the background so the cold-start
-// delay happens while the user is reading the form, not after clicking Sign in.
+// Pre-warm GAS so the cold-start cost is paid while the user is still typing,
+// not after they click Sign in. We warm immediately, then again when they touch
+// the form, and keep a slow heartbeat so the instance doesn't go cold.
+var _warmTimer = null;
+function warmGas() { try { fetch(GAS_URL, { cache: 'no-store' }).catch(function() {}); } catch(e) {} }
+warmGas();
 window.addEventListener('DOMContentLoaded', function() {
-  fetch(GAS_URL).catch(function() {});
+  warmGas();
+  ['login-email', 'login-password'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('focus', warmGas, { once: true });
+  });
+  // Heartbeat every 4 min while the login screen is open (GAS goes cold ~5 min)
+  _warmTimer = setInterval(function() {
+    if (!App.user) warmGas(); else { clearInterval(_warmTimer); _warmTimer = null; }
+  }, 240000);
 });
 
 function handleLogin(e) {
@@ -661,24 +684,30 @@ function handleLogin(e) {
 
   var payload = JSON.stringify({ action: 'login', email: email, password: password });
 
-  // Retry once if GAS returns non-JSON (redirect/cold-start quirk)
-  function doLoginFetch(isRetry) {
+  // GAS sometimes internally redirects a POST to doGet. That yields either
+  // non-JSON HTML *or* the doGet "invalid_request" JSON — both mean the POST
+  // body never arrived, so retry rather than surfacing it as a login failure.
+  function doLoginFetch(attempt) {
     return fetch(GAS_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
       body:    payload
     }).then(function(resp) {
       return resp.text().then(function(text) {
-        try { return JSON.parse(text); }
-        catch(e) {
-          if (!isRetry) return doLoginFetch(true);
-          throw new Error('Unexpected server response');
+        var parsed = null;
+        try { parsed = JSON.parse(text); } catch(e) {}
+        if (parsed && !isPostLost(parsed)) return parsed;
+        if (attempt < 4) {
+          return new Promise(function(res) {
+            setTimeout(function() { res(doLoginFetch(attempt + 1)); }, 350);
+          });
         }
+        throw new Error('Unexpected server response');
       });
     });
   }
 
-  doLoginFetch(false)
+  doLoginFetch(1)
     .then(function(r) {
       btn.disabled    = false;
       btn.textContent = 'Sign in';
@@ -705,6 +734,26 @@ function handleLogin(e) {
 
 function signOut() {
   App.user = null;
+  // Clear all cached data — otherwise the next user to sign in on this browser
+  // sees the previous user's approvals and documents.
+  App.myApprovals = [];
+  App.allSops     = [];
+  App.currentSop  = null;
+  App.currentTab  = 'approvals';
+  _prepSigDataUrl     = null;
+  _decisionSigDataUrl = null;
+  _selectedFile       = null;
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  // Drop any document still held in memory as a blob URL
+  revokeDocPreview();
+  var dp = document.getElementById('doc-panel');
+  if (dp) dp.innerHTML = '';
+
+  ['detail-view', 'new-sop-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.style.display = 'none'; el.classList.remove('active'); }
+  });
+
   document.getElementById('login-email').value    = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-err').style.display = 'none';
@@ -747,42 +796,37 @@ function submitChangePwd(e) {
   btn.disabled    = true;
   btn.textContent = 'Saving…';
 
-  fetch(GAS_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body:    JSON.stringify({
-      action:      'changePassword',
-      email:       App.user.email,
-      token:       App.user.token,
-      currentPwd:  current,
-      newPwd:      newPwd
-    })
-  })
-    .then(function(r) { return r.json(); })
+  // Routed through apiPost so it gets the same POST-lost retry as every other
+  // mutation — a raw fetch here surfaced GAS's 'invalid_request' JSON to the user.
+  apiPost({ action: 'changePassword', currentPwd: current, newPwd: newPwd })
     .then(function(r) {
       btn.disabled    = false;
       btn.textContent = 'Save';
       if (r.ok) {
-        okEl.textContent   = 'Password changed successfully.';
-        okEl.style.display = 'block';
         document.getElementById('cp-current').value = '';
         document.getElementById('cp-new').value     = '';
         document.getElementById('cp-confirm').value = '';
+        // The server invalidates the session on change, so re-login is required
+        okEl.textContent   = 'Password changed. Please sign in again.';
+        okEl.style.display = 'block';
+        setTimeout(function() { closeChangePwd(); signOut(); }, 1800);
       } else {
         errEl.textContent   = r.message || 'Failed to change password.';
         errEl.style.display = 'block';
       }
     })
-    .catch(function() {
+    .catch(function(err) {
       btn.disabled    = false;
       btn.textContent = 'Save';
-      errEl.textContent   = 'Network error. Try again.';
+      errEl.textContent   = err.message || 'Network error. Try again.';
       errEl.style.display = 'block';
     });
 }
 
 function initials(name) {
-  return (name || '').split(' ').filter(Boolean).map(function(w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+  // Split on dots/underscores/hyphens too — names arrive as "larry.capacete"
+  return (name || '').split(/[\s._-]+/).filter(Boolean)
+    .map(function(w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
 }
 
 var SUPERUSER_EMAIL = 'larry.capacete@golocad.com'; // must match SUPERUSER_EMAIL in Script Properties
@@ -803,13 +847,16 @@ function switchTab(tab) {
   App.currentTab = tab;
   document.getElementById('detail-view').style.display = 'none';
   document.getElementById('detail-view').classList.remove('active');
-  // Always hide the New SOP form when switching tabs
+  // Always hide the New Document form when switching tabs
   document.getElementById('new-sop-view').style.display = 'none';
   document.getElementById('new-sop-view').classList.remove('active');
+  // Drop any document PDF still held as a blob URL
+  revokeDocPreview();
+  var _dp = document.getElementById('doc-panel');
+  if (_dp) _dp.innerHTML = '';
 
   // Update nav highlights
   document.querySelectorAll('nav button').forEach(function(btn) { btn.classList.remove('active'); });
-  var tabIds = { approvals: 0, documents: 1, audit: 2, admin: 3 };
   var navBtns = document.querySelectorAll('nav button');
   if (tab === 'approvals') navBtns[0].classList.add('active');
   if (tab === 'documents') navBtns[1].classList.add('active');
@@ -835,25 +882,45 @@ function showView(id) {
 }
 
 // ── API calls ─────────────────────────────────────────────────────────────────
+// Reads now go over POST too, so the session token travels in the request body
+// instead of the URL — query strings end up in server logs, browser history and
+// Referer headers. Signature kept for compatibility with existing call sites:
+// extraParams accepts either a 'k=v&k2=v2' string or a plain object.
 function apiGet(action, extraParams) {
-  var params = 'action=' + action +
-               '&email=' + encodeURIComponent(App.user.email) +
-               '&token=' + encodeURIComponent(App.user.token);
-  if (extraParams) params += '&' + extraParams;
-  return fetch(GAS_URL + '?' + params)
-    .then(function(r) { return r.json(); })
-    .then(function(r) {
-      if (r.error === 'unauthorized') { signOut(); throw new Error('Session expired. Please sign in again.'); }
-      return r;
-    });
+  if (!App.user) return Promise.reject(new Error('Not signed in'));
+  var body = { action: action };
+  if (extraParams) {
+    if (typeof extraParams === 'string') {
+      extraParams.split('&').forEach(function(pair) {
+        if (!pair) return;
+        var i = pair.indexOf('=');
+        var k = i === -1 ? pair : pair.slice(0, i);
+        var v = i === -1 ? ''   : pair.slice(i + 1);
+        body[k] = decodeURIComponent(v);
+      });
+    } else {
+      Object.keys(extraParams).forEach(function(k) { body[k] = extraParams[k]; });
+    }
+  }
+  return apiPost(body).then(function(r) {
+    if (r.error === 'unauthorized') { signOut(); throw new Error('Session expired. Please sign in again.'); }
+    // Surface every other server error instead of letting callers render an
+    // empty list — an exception must not look like "no results".
+    if (r.error) throw new Error(r.message || r.error);
+    return r;
+  });
+}
+
+// True when the response proves our POST body never reached doPost — either
+// GAS returned HTML, or it redirected to doGet which answers 'invalid_request'.
+function isPostLost(parsed) {
+  return !parsed || parsed.error === 'invalid_request';
 }
 
 function apiPost(body) {
   body.email = App.user.email;
   body.token = App.user.token;
   var payload = JSON.stringify(body);
-  // GAS may redirect early POSTs, returning HTML instead of JSON.
-  // Retry up to 3 times with a 500ms gap to let the GAS instance warm up.
   function doFetch(attempt) {
     return fetch(GAS_URL, {
       method: 'POST',
@@ -861,16 +928,15 @@ function apiPost(body) {
       body: payload
     }).then(function(r) {
       return r.text().then(function(text) {
-        try {
-          return JSON.parse(text);
-        } catch(e) {
-          if (attempt < 3) {
-            return new Promise(function(res) {
-              setTimeout(function() { res(doFetch(attempt + 1)); }, 500);
-            });
-          }
-          throw new Error('Server returned an unexpected response. Please try again.');
+        var parsed = null;
+        try { parsed = JSON.parse(text); } catch(e) {}
+        if (parsed && !isPostLost(parsed)) return parsed;
+        if (attempt < 4) {
+          return new Promise(function(res) {
+            setTimeout(function() { res(doFetch(attempt + 1)); }, 350);
+          });
         }
+        throw new Error('Server returned an unexpected response. Please try again.');
       });
     });
   }
@@ -905,10 +971,11 @@ function renderApprovalsTable() {
   }
 
   var html = '<table><thead><tr>' +
-    '<th>SOP</th><th>Title</th><th>Version</th><th>Your role</th><th>Prepared by</th><th>Status</th>' +
+    '<th>Type</th><th>Document ID</th><th>Title</th><th>Version</th><th>Your role</th><th>Prepared by</th><th>Status</th>' +
     '</tr></thead><tbody>';
   list.forEach(function(sop) {
     html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
+      '<td>' + docTypeBadge(sop.docType) + '</td>' +
       '<td><span class="sop-code">' + esc(sop.id) + '</span></td>' +
       '<td><span class="sop-title">' + esc(sop.title) + '</span></td>' +
       '<td class="sop-meta">' + esc(sop.version) + '</td>' +
@@ -928,21 +995,23 @@ function loadAllSops() {
   apiGet('allSops').then(function(r) {
     App.allSops = r.data || [];
     var count = App.allSops.length;
-    document.getElementById('docs-sub').textContent = count + ' SOP' + (count !== 1 ? 's' : '') + ' total';
+    document.getElementById('docs-sub').textContent =
+      count + ' document' + (count !== 1 ? 's' : '') + ' total';
     if (count === 0) {
-      document.getElementById('docs-table-body').innerHTML = '<div class="empty">No SOPs found.</div>';
+      document.getElementById('docs-table-body').innerHTML = '<div class="empty">No documents found.</div>';
       return;
     }
     var html = '<table><thead><tr>' +
-      '<th>SOP</th><th>Title</th><th>Version</th><th>Prepared by</th><th>Reviewer</th><th>Status</th>' +
+      '<th>Type</th><th>Document ID</th><th>Title</th><th>Version</th><th>Prepared by</th><th>Reviewer</th><th>Status</th>' +
       '</tr></thead><tbody>';
     App.allSops.forEach(function(sop) {
       html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
+        '<td>' + docTypeBadge(sop.docType) + '</td>' +
         '<td><span class="sop-code">' + esc(sop.id) + '</span></td>' +
         '<td><span class="sop-title">' + esc(sop.title) + '</span></td>' +
         '<td class="sop-meta">' + esc(sop.version) + '</td>' +
         '<td class="sop-meta">' + esc(sop.prepName) + '</td>' +
-        '<td class="sop-meta">' + esc(sop.revName) + '</td>' +
+        '<td class="sop-meta">' + (sop.revName ? esc(sop.revName) : '<span style="color:#bbb">— none —</span>') + '</td>' +
         '<td>' + statusBadge(sop.status) + '</td>' +
         '</tr>';
     });
@@ -962,11 +1031,12 @@ function loadAudit() {
       return;
     }
     var html = '<table><thead><tr>' +
-      '<th>Time</th><th>SOP</th><th>Title</th><th>Action</th><th>Actor</th>' +
+      '<th>Time</th><th>Type</th><th>Document ID</th><th>Title</th><th>Action</th><th>Actor</th>' +
       '</tr></thead><tbody>';
     events.forEach(function(ev) {
       html += '<tr>' +
         '<td class="sop-meta">' + fmtDate(ev.at) + '</td>' +
+        '<td>' + docTypeBadge(ev.docType) + '</td>' +
         '<td><span class="sop-code">' + esc(ev.sop) + '</span></td>' +
         '<td>' + esc(ev.title) + '</td>' +
         '<td>' + esc(ev.action) + '</td>' +
@@ -1044,7 +1114,7 @@ function adminRemove(email) {
 function adminResetPwd(email) {
   var newPwd = prompt('Set a new password for ' + email + ':');
   if (!newPwd) return;
-  if (newPwd.length < 6) { alert('Password must be at least 6 characters.'); return; }
+  if (newPwd.length < 8) { alert('Password must be at least 8 characters.'); return; }
   apiPost({ action: 'resetPassword', targetEmail: email, newPassword: newPwd })
     .then(function(r) {
       if (r.ok) showToast('Password reset for ' + email + '.');
@@ -1074,7 +1144,14 @@ function openSop(code) {
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
 
   apiGet('detail', 'code=' + encodeURIComponent(code)).then(function(r) {
-    if (r.error) { showToast('Could not load SOP: ' + r.error); return; }
+    // The backend nests per-SOP errors inside `data`, so check both levels —
+    // otherwise a not_found renders an empty, broken detail page.
+    var inner = r.data && r.data.error;
+    if (r.error || !r.data || inner) {
+      showToast('Could not load document: ' + (inner || r.message || r.error || 'unknown error'));
+      backToDash();
+      return;
+    }
     App.currentSop = r.data;
     renderDetail(r.data);
   }).catch(function(err) { showToast(err.message); });
@@ -1085,46 +1162,58 @@ function backToDash() {
   detEl.style.display = 'none';
   detEl.classList.remove('active');
   App.currentSop = null;
+  revokeDocPreview();
 
   // Re-show last tab
   showView(App.currentTab === 'approvals' ? 'dash-view' :
-           App.currentTab === 'documents' ? 'docs-view' : 'audit-content');
+           App.currentTab === 'documents' ? 'docs-view' :
+           App.currentTab === 'admin'     ? 'admin-view' : 'audit-content');
 }
 
 function renderDetail(sop) {
   document.getElementById('det-title').textContent = sop.title;
-  document.getElementById('det-badge').innerHTML   = statusBadge(sop.status);
+  document.getElementById('det-badge').innerHTML   =
+    docTypeBadge(sop.docType) + ' ' + statusBadge(sop.status);
 
-  // Stage indicator
-  var stages = [
-    { label: 'Author',  key: 'author'   },
-    { label: 'Review',  key: 'in_review' },
-    { label: 'Approve', key: 'in_approval' }
-  ];
-  var statusOrder = { 'draft': 0, 'in_review': 1, 'in_approval': 2, 'approved': 3 };
-  var cur = statusOrder[sop.status] !== undefined ? statusOrder[sop.status] : 0;
+  // Stage indicator. The review stage is omitted entirely when the document has
+  // no reviewer, so documents approved directly don't show a phantom step.
+  var hasReviewer = (sop.signoffs || []).some(function(sf) { return sf.role === 'Reviewer'; });
+  var stages = hasReviewer
+    ? ['Author', 'Review', 'Approve']
+    : ['Author', 'Approve'];
+
+  // Map status onto this document's own stage list
+  var cur;
+  if (sop.status === 'approved')         cur = stages.length;
+  else if (sop.status === 'in_approval') cur = stages.length - 1;
+  else if (sop.status === 'in_review')   cur = 1;
+  else                                   cur = 0;
+
   var stageHtml = '';
-  stages.forEach(function(s, i) {
-    var stageIdx = i; // 0=author,1=review,2=approve
-    var cls = cur > stageIdx ? 'done' : cur === stageIdx ? 'active' : '';
-    var icon = cur > stageIdx ? '✓' : (i + 1);
+  stages.forEach(function(label, i) {
+    var cls  = cur > i ? 'done' : cur === i ? 'active' : '';
+    var icon = cur > i ? '✓' : (i + 1);
     stageHtml += '<div class="stage-item ' + cls + '">' +
       '<div class="stage-dot ' + cls + '">' + icon + '</div>' +
-      s.label + '</div>';
+      label + '</div>';
     if (i < stages.length - 1) {
-      stageHtml += '<div class="stage-line ' + (cur > stageIdx ? 'done' : '') + '"></div>';
+      stageHtml += '<div class="stage-line ' + (cur > i ? 'done' : '') + '"></div>';
     }
   });
   document.getElementById('det-stage').innerHTML = stageHtml;
 
-  // Document iframe
-  if (sop.fileId || sop.masterFileId) {
-    // Show the signed master copy once approved; fall back to original otherwise
-    var previewUrl = (sop.status === 'approved' && sop.masterFileId)
-      ? 'https://docs.google.com/document/d/' + sop.masterFileId + '/preview'
-      : 'https://drive.google.com/file/d/' + sop.fileId + '/preview';
+  // Document preview. Files are private in Drive, so we fetch the bytes through
+  // the authenticated proxy and render from a blob URL rather than pointing an
+  // iframe at a public Google link.
+  if (sop.isParty === false) {
+    // Visible in the register, but this person isn't party to the SOP
     document.getElementById('doc-panel').innerHTML =
-      '<iframe src="' + previewUrl + '" allow="autoplay" allowfullscreen></iframe>';
+      '<div class="doc-placeholder"><div class="doc-placeholder-icon">🔒</div>' +
+      '<div>You are not a preparer, reviewer or approver on this document,<br>' +
+      'so the document is not available to you.</div></div>';
+  } else if (sop.fileId || sop.masterFileId) {
+    var which = (sop.status === 'approved' && sop.masterFileId) ? 'master' : 'source';
+    loadDocPreview(sop.id, which);
   } else {
     document.getElementById('doc-panel').innerHTML =
       '<div class="doc-placeholder"><div class="doc-placeholder-icon">📄</div>' +
@@ -1133,6 +1222,37 @@ function renderDetail(sop) {
 
   // Sidebar
   renderSidebar(sop);
+}
+
+// ── Authenticated document preview ───────────────────────────────────────────
+// Revoke the previous blob URL on each load so we don't leak memory, and so a
+// signed-out user's document isn't left resident in the page.
+var _docBlobUrl = null;
+function revokeDocPreview() {
+  if (_docBlobUrl) { try { URL.revokeObjectURL(_docBlobUrl); } catch(e) {} _docBlobUrl = null; }
+}
+
+function loadDocPreview(code, which) {
+  var panel = document.getElementById('doc-panel');
+  revokeDocPreview();
+  panel.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+
+  apiGet('docPreview', { code: code, which: which })
+    .then(function(r) {
+      if (!r.ok || !r.b64) throw new Error(r.message || 'Preview unavailable.');
+      // base64 → Uint8Array → Blob (per-byte loop; no apply/spread, so large
+      // documents are safe from a call-stack overflow)
+      var raw = atob(r.b64);
+      var bytes = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      _docBlobUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      panel.innerHTML = '<iframe src="' + _docBlobUrl + '"></iframe>';
+    })
+    .catch(function(err) {
+      panel.innerHTML =
+        '<div class="doc-placeholder"><div class="doc-placeholder-icon">🔒</div>' +
+        '<div>' + esc(err.message || 'Could not load the document.') + '</div></div>';
+    });
 }
 
 function renderSidebar(sop) {
@@ -1154,9 +1274,12 @@ function renderSidebar(sop) {
       '</div>' +
       '<div class="signoff-status ' + stCls + '">' + stLabel + '</div>' +
     '</div>';
-    if (sf.status === 'done' && sf.sig) {
+    // Only render signatures that are genuinely inline image data URLs, and
+    // escape the value — sig is submitted by a client and must not be trusted
+    // to be safe inside an attribute.
+    if (sf.status === 'done' && sf.sig && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(sf.sig)) {
       html += '<div style="margin-left:42px;margin-top:-6px;margin-bottom:10px">' +
-        '<img src="' + sf.sig + '" style="max-height:38px;max-width:160px;border:1px solid #e5e5e5;border-radius:4px;background:#fff;padding:3px 6px;display:block">' +
+        '<img src="' + esc(sf.sig) + '" style="max-height:38px;max-width:160px;border:1px solid #e5e5e5;border-radius:4px;background:#fff;padding:3px 6px;display:block">' +
         '</div>';
     }
     if (sf.comments) {
@@ -1211,15 +1334,52 @@ function renderSidebar(sop) {
     html += '</div>';
   }
 
-  // Completed copies
-  if (sop.masterUrl || sop.controlledUrl) {
-    html += '<div class="sb-section"><div class="sb-label">Approved copies</div>';
-    if (sop.masterUrl)     html += '<a href="' + sop.masterUrl     + '" target="_blank" style="display:block;color:#16a34a;font-size:13px;margin-bottom:6px">📗 Master copy</a>';
-    if (sop.controlledUrl) html += '<a href="' + sop.controlledUrl + '" target="_blank" style="display:block;color:#16a34a;font-size:13px">📘 Controlled copy</a>';
+  // Completed copies. These are Drive links, so they only open for people who
+  // have been granted access to the file — that is intentional. Values are
+  // escaped and scheme-checked before being placed in an href.
+  if (sop.masterUrl || sop.controlledUrl || sop.controlledPdfUrl) {
+    var twoCopy = sop.copyMode !== 'single';
+    html += '<div class="sb-section"><div class="sb-label">' +
+      (twoCopy ? 'Approved copies' : 'Approved copy') + '</div>';
+    // In single-copy mode (QM / WI / FM) masterUrl IS the approved copy
+    html += docLink(sop.masterUrl, twoCopy ? '📗 Master copy (Doc)' : '📗 Approved copy (Doc)');
+    html += docLink(sop.controlledPdfUrl, twoCopy ? '📕 Controlled copy (PDF)' : '📕 Approved copy (PDF)');
+    if (twoCopy && !sop.controlledPdfUrl) html += docLink(sop.controlledUrl, '📘 Controlled copy (Doc)');
+    html += '<div style="font-size:11px;color:#999;margin-top:6px">Opens in Drive — requires file access.</div>';
     html += '</div>';
   }
 
+  // Superuser can record the link to the manually-produced controlled PDF so the
+  // QMS points at the issued document rather than the pre-conversion Doc.
+  if (sop.canEditLinks && sop.status === 'approved') {
+    html += '<div class="sb-section"><div class="sb-label">' +
+      (sop.copyMode === 'single' ? 'Approved PDF link' : 'Controlled PDF link') + '</div>' +
+      '<input id="ctrl-pdf-url" type="url" placeholder="https://drive.google.com/…" value="' +
+        esc(sop.controlledPdfUrl || '') + '" ' +
+        'style="width:100%;padding:7px 9px;border:1px solid #e0e0e0;border-radius:6px;font:inherit;font-size:12px;margin-bottom:6px">' +
+      '<button onclick="saveControlledPdf()" style="width:100%;padding:7px;background:#111;color:#fff;border:none;border-radius:6px;font:inherit;font-size:12px;font-weight:500;cursor:pointer">Save link</button>' +
+      '</div>';
+  }
+
   document.getElementById('sidebar').innerHTML = html;
+}
+
+// Renders a Drive/Docs link, refusing anything that isn't an https Google URL.
+function docLink(url, label) {
+  if (!url || !/^https:\/\/(drive|docs)\.google\.com\//.test(url)) return '';
+  return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" ' +
+    'style="display:block;color:#16a34a;font-size:13px;margin-bottom:6px">' + label + '</a>';
+}
+
+function saveControlledPdf() {
+  var el = document.getElementById('ctrl-pdf-url');
+  if (!el || !App.currentSop) return;
+  apiPost({ action: 'setControlledPdf', code: App.currentSop.id, url: el.value.trim() })
+    .then(function(r) {
+      if (r.ok) { showToast('Controlled PDF link saved.'); openSop(App.currentSop.id); }
+      else showToast('Error: ' + (r.message || r.error));
+    })
+    .catch(function(err) { showToast(err.message); });
 }
 
 // ── Decision signature state ──────────────────────────────────────────────────
@@ -1243,7 +1403,7 @@ function submitDecision(decision) {
   var comments = (document.getElementById('dec-comments') || {}).value || '';
 
   if (!_decisionSigDataUrl) {
-    showToast('Please upload your signature before submitting.');
+    showToast('Please add your signature before submitting.');
     return;
   }
 
@@ -1256,24 +1416,91 @@ function submitDecision(decision) {
               decision === 'reject'  ? 'Submitting rejection…' : 'Returning to preparer…';
   showToast(label);
 
+  // Disable the decision buttons so a slow round-trip can't be double-submitted
+  var decBtns = document.querySelectorAll('.decision-btn');
+  for (var i = 0; i < decBtns.length; i++) {
+    decBtns[i].disabled = true;
+    decBtns[i].style.opacity = '0.55';
+    decBtns[i].style.cursor = 'default';
+  }
+  function reenable() {
+    for (var j = 0; j < decBtns.length; j++) {
+      decBtns[j].disabled = false;
+      decBtns[j].style.opacity = '';
+      decBtns[j].style.cursor = '';
+    }
+  }
+
   apiPost({ action: 'submitDecision', code: sop.id, decision: decision, comments: comments, sig: _decisionSigDataUrl })
     .then(function(r) {
       if (r.ok) {
-        var msg = 'Done! SOP status: ' + r.newStatus.replace(/_/g, ' ');
-        if (r.warning) msg += ' (⚠️ Signed copies: ' + r.warning + ')';
+        var msg = 'Done! Document status: ' + r.newStatus.replace(/_/g, ' ');
+        if (r.warning)         msg += ' (⚠️ Signed copies: ' + r.warning + ')';
+        else if (r.finalizing) msg += ' — signed copies are generating in the background.';
         showToast(msg);
-        // Refresh
         App.myApprovals = [];
         App.allSops = [];
-        setTimeout(function() { openSop(sop.id); }, 1200);
+        setTimeout(function() { openSop(sop.id); }, 900);
+        // The master/controlled copies land ~30-60s later; refresh once they exist
+        // so the preview switches to the signed version without a manual reload.
+        if (r.finalizing) pollForSignedCopies(sop.id);
       } else {
+        reenable();
         showToast('Error: ' + (r.message || r.error));
       }
     })
-    .catch(function(err) { showToast('Request failed: ' + err.message); });
+    .catch(function(err) { reenable(); showToast('Request failed: ' + err.message); });
+}
+
+// Poll the detail endpoint until masterFileId appears (max ~5 min — the drainer
+// trigger runs every 5 min, then the job itself takes ~30-60s), then re-render
+// so the signed copy shows up without a manual reload.
+var _pollTimer = null;
+function pollForSignedCopies(code) {
+  if (_pollTimer) clearInterval(_pollTimer);
+  var tries = 0;
+  _pollTimer = setInterval(function() {
+    tries++;
+    if (tries > 40 || !App.user) { clearInterval(_pollTimer); _pollTimer = null; return; }
+    apiGet('detail', { code: code })
+      .then(function(r) {
+        if (r.ok && r.data && r.data.masterFileId) {
+          clearInterval(_pollTimer); _pollTimer = null;
+          showToast('Signed copies are ready.');
+          if (App.currentSop && App.currentSop.id === code) openSop(code);
+        }
+      })
+      .catch(function() {});
+  }, 10000);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Document types ────────────────────────────────────────────────────────────
+// Single source of truth for the four QMS levels. Mirrors DOC_TYPES in the
+// backend — keep the two in sync if you add a level.
+var DOC_TYPES = {
+  QM:  { level: 1, short: 'QM',  name: 'Quality Manual',               color: '#7c3aed', bg: '#f3e8ff' },
+  SOP: { level: 2, short: 'SOP', name: 'Standard Operating Procedure', color: '#0b5fa5', bg: '#e6f1fb' },
+  WI:  { level: 3, short: 'WI',  name: 'Work Instruction',             color: '#0f6e56', bg: '#e1f5ee' },
+  FM:  { level: 4, short: 'FM',  name: 'Form / Checklist',             color: '#854f0b', bg: '#faeeda' }
+};
+
+function docTypeInfo(t) {
+  return DOC_TYPES[String(t || '').toUpperCase()] || null;
+}
+
+function docTypeBadge(t) {
+  var d = docTypeInfo(t);
+  if (!d) return '<span class="doctype-badge" style="background:#f1f1f1;color:#888">—</span>';
+  return '<span class="doctype-badge" title="Level ' + d.level + ' — ' + esc(d.name) + '" ' +
+    'style="background:' + d.bg + ';color:' + d.color + '">' + d.short + '</span>';
+}
+
+function docTypeLabel(t) {
+  var d = docTypeInfo(t);
+  return d ? ('Level ' + d.level + ' — ' + d.name + ' (' + d.short + ')') : 'Unspecified type';
+}
+
 function statusBadge(status) {
   var map = {
     'in_review':    ['badge-review',   'Awaiting review'],
@@ -1297,10 +1524,13 @@ function fmtDate(iso) {
 }
 
 function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Single quotes and backticks matter: this output is interpolated into
+  // single-quoted onclick="fn('...')" attributes, and SOP codes are free text.
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
 }
 
-// ── New SOP form ──────────────────────────────────────────────────────────────
+// ── New Document form ──────────────────────────────────────────────────────────────
 var _selectedFile = null;
 var _prepSigDataUrl = null;
 
@@ -1309,9 +1539,30 @@ function showNewSopForm() {
     var el = document.getElementById(id); if(el) el.classList.remove('active');
   });
   document.getElementById('detail-view').style.display = 'none';
+  revokeDocPreview();
   document.getElementById('new-sop-view').classList.add('active');
   document.getElementById('new-sop-view').style.display = 'block';
-  document.getElementById('f-prep-name').value = '';
+
+  // Clear every field — a partial reset left the previous SOP's metadata in
+  // place and invited accidental near-duplicate submissions.
+  ['f-code','f-title','f-version','f-prep-name','f-rev-name','f-rev-email',
+   'f-ap1-name','f-ap1-email','f-ap2-name','f-ap2-email'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  var dt = document.getElementById('f-doctype');
+  if (dt) dt.value = '';
+  onDocTypeChange();
+
+  // Collapse both optional sections
+  ['ap2', 'rev'].forEach(function(k) {
+    var f = document.getElementById(k + '-fields');
+    if (f) f.style.display = 'none';
+    var t = document.getElementById(k + '-toggle');
+    if (t) t.textContent = '+ Add';
+  });
+  var rh = document.getElementById('rev-hint');
+  if (rh) rh.style.display = 'block';
+
   _selectedFile    = null;
   _prepSigDataUrl  = null;
   document.getElementById('file-drop-text').textContent = 'Click to upload or drag and drop';
@@ -1487,6 +1738,45 @@ function toggleAp2() {
   var shown  = fields.style.display !== 'none';
   fields.style.display = shown ? 'none' : 'block';
   toggle.textContent   = shown ? '+ Add' : '− Remove';
+  if (shown) {  // collapsing — clear so a hidden value can't be submitted
+    document.getElementById('f-ap2-name').value  = '';
+    document.getElementById('f-ap2-email').value = '';
+  }
+}
+
+function toggleRev() {
+  var fields = document.getElementById('rev-fields');
+  var toggle = document.getElementById('rev-toggle');
+  var hint   = document.getElementById('rev-hint');
+  var shown  = fields.style.display !== 'none';
+  fields.style.display = shown ? 'none' : 'block';
+  toggle.textContent   = shown ? '+ Add' : '− Remove';
+  if (hint) hint.style.display = shown ? 'block' : 'none';
+  if (shown) {
+    document.getElementById('f-rev-name').value  = '';
+    document.getElementById('f-rev-email').value = '';
+  }
+}
+
+// Level 1 (QM) is typically approved directly, so surface that hint when chosen.
+// Purely advisory — the reviewer step stays available for every type.
+function onDocTypeChange() {
+  var t = document.getElementById('f-doctype').value;
+  var d = docTypeInfo(t);
+  var hintEl = document.getElementById('doctype-hint');
+  if (hintEl) {
+    hintEl.textContent = d
+      ? docTypeLabel(t) + '. Approval flow is the same for every level.'
+      : 'Determines the document level recorded in the QMS.';
+  }
+  var revHint = document.getElementById('rev-hint');
+  if (revHint && t === 'QM') {
+    revHint.textContent = 'Quality Manuals are often approved directly — leave the ' +
+      'reviewer empty to send this straight to the approver.';
+  } else if (revHint) {
+    revHint.textContent = 'Skip the review step for documents approved directly, ' +
+      'such as a Quality Manual signed by the Country Director.';
+  }
 }
 
 function handleFileSelect(input) {
@@ -1517,17 +1807,23 @@ function submitNewSop() {
   var ap2Name  = (document.getElementById('f-ap2-name').value || '').trim();
   var ap2Email = (document.getElementById('f-ap2-email').value || '').trim().toLowerCase();
   var ap2shown = document.getElementById('ap2-fields').style.display !== 'none';
+  var revShown = document.getElementById('rev-fields').style.display !== 'none';
+  var docType  = (document.getElementById('f-doctype').value || '').trim();
   var errEl    = document.getElementById('form-error');
 
   // Validate
   var errors = [];
-  if (!code)     errors.push('SOP code is required.');
+  if (!docType)  errors.push('Please choose a document type.');
+  if (!DOC_TYPES[docType]) errors.push('That document type is not recognised.');
+  if (!code)     errors.push('Document ID is required.');
   if (!title)    errors.push('Title is required.');
   if (!version)  errors.push('Version is required.');
   if (!prepName)       errors.push('Preparer name is required.');
   if (!_prepSigDataUrl) errors.push('Preparer signature is required.');
   if (!_selectedFile) errors.push('Please upload a document.');
-  if (!revName || !revEmail) errors.push('Reviewer name and email are required.');
+  // Reviewer is optional, but if the section is open it must be filled in fully
+  if (revShown && (revName || revEmail) && (!revName || !revEmail))
+    errors.push('Enter both the reviewer name and email, or remove the reviewer.');
   if (!ap1Name || !ap1Email) errors.push('Approver 1 name and email are required.');
   if (ap2shown && (ap2Name || ap2Email) && (!ap2Name || !ap2Email)) errors.push('Both Approver 2 name and email are required.');
 
@@ -1561,6 +1857,7 @@ function submitNewSop() {
     apiPost({
       action:   'submitSop',
       id:       code,
+      docType:  docType,
       title:    title,
       version:  version,
       prepName: prepName,
@@ -1568,8 +1865,8 @@ function submitNewSop() {
       mimeType: mimeType,
       fileName: _selectedFile.name,
       fileB64:  b64,
-      revName:  revName,
-      revEmail: revEmail,
+      revName:  revShown ? revName  : '',
+      revEmail: revShown ? revEmail : '',
       ap1Name:  ap1Name,
       ap1Email: ap1Email,
       ap2Name:  ap2shown ? ap2Name : '',
@@ -1577,7 +1874,9 @@ function submitNewSop() {
     }).then(function(r) {
       progressFill.style.width = '100%';
       if (r.ok) {
-        showToast('SOP submitted! Reviewer has been notified via Slack.');
+        showToast((revShown && revEmail)
+          ? 'Document submitted — the reviewer has been notified via Slack.'
+          : 'Document submitted — it went straight to the approver, who has been notified.');
         App.myApprovals = [];
         App.allSops     = [];
         setTimeout(function() {
