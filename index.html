@@ -1072,8 +1072,11 @@ function renderDetail(sop) {
   document.getElementById('det-stage').innerHTML = stageHtml;
 
   // Document iframe
-  if (sop.fileId) {
-    var previewUrl = 'https://drive.google.com/file/d/' + sop.fileId + '/preview';
+  if (sop.fileId || sop.masterFileId) {
+    // Show the signed master copy once approved; fall back to original otherwise
+    var previewUrl = (sop.status === 'approved' && sop.masterFileId)
+      ? 'https://docs.google.com/document/d/' + sop.masterFileId + '/preview'
+      : 'https://drive.google.com/file/d/' + sop.fileId + '/preview';
     document.getElementById('doc-panel').innerHTML =
       '<iframe src="' + previewUrl + '" allow="autoplay" allowfullscreen></iframe>';
   } else {
