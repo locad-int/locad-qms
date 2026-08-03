@@ -1304,10 +1304,23 @@ function handleSigModalUpload(input) {
   if (!input.files || !input.files[0]) return;
   var reader = new FileReader();
   reader.onload = function(ev) {
-    _sigUploadUrl = ev.target.result;
-    document.getElementById('sig-upload-preview').src          = _sigUploadUrl;
-    document.getElementById('sig-upload-preview').style.display = 'block';
-    document.getElementById('sig-upload-text').style.display    = 'none';
+    var img = new Image();
+    img.onload = function() {
+      // Resize to max 400×120, export as JPEG to keep payload small
+      var MAX_W = 400, MAX_H = 120;
+      var ratio = Math.min(MAX_W / img.width, MAX_H / img.height, 1);
+      var c = document.createElement('canvas');
+      c.width  = Math.max(1, Math.round(img.width  * ratio));
+      c.height = Math.max(1, Math.round(img.height * ratio));
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      _sigUploadUrl = c.toDataURL('image/jpeg', 0.7);
+      document.getElementById('sig-upload-preview').src           = _sigUploadUrl;
+      document.getElementById('sig-upload-preview').style.display = 'block';
+      document.getElementById('sig-upload-text').style.display    = 'none';
+    };
+    img.src = ev.target.result;
   };
   reader.readAsDataURL(input.files[0]);
 }
@@ -1323,7 +1336,7 @@ function applySig() {
     if (_sigCanvas.toDataURL() === blank.toDataURL()) {
       showToast('Please draw your signature first.'); return;
     }
-    dataUrl = _sigCanvas.toDataURL('image/png');
+    dataUrl = _sigCanvas.toDataURL('image/jpeg', 0.6);
 
   } else if (_currentSigTab === 'type') {
     var txt = document.getElementById('sig-type-input').value.trim();
@@ -1336,11 +1349,11 @@ function applySig() {
     ctx.font = '56px "Dancing Script", cursive';
     ctx.textBaseline = 'middle';
     ctx.fillText(txt, 16, 54);
-    dataUrl = c.toDataURL('image/png');
+    dataUrl = c.toDataURL('image/jpeg', 0.6);
 
   } else if (_currentSigTab === 'upload') {
     if (!_sigUploadUrl) { showToast('Please upload a signature image.'); return; }
-    dataUrl = _sigUploadUrl;
+    dataUrl = _sigUploadUrl; // already compressed in handleSigModalUpload
   }
 
   if (!dataUrl) return;
