@@ -365,8 +365,8 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <div class="field-row">
         <div class="field">
           <label>SOP code *</label>
-          <input id="f-code" type="text" placeholder="e.g. SOP-WH-001">
-          <div class="field-hint">Must be unique. Use uppercase.</div>
+          <input id="f-code" type="text" placeholder="e.g. SOP-WH-001" oninput="this.value=this.value.toUpperCase()" style="text-transform:uppercase">
+          <div class="field-hint">Must be unique. Auto-converts to uppercase.</div>
         </div>
         <div class="field">
           <label>Version *</label>
@@ -764,6 +764,9 @@ function switchTab(tab) {
   App.currentTab = tab;
   document.getElementById('detail-view').style.display = 'none';
   document.getElementById('detail-view').classList.remove('active');
+  // Always hide the New SOP form when switching tabs
+  document.getElementById('new-sop-view').style.display = 'none';
+  document.getElementById('new-sop-view').classList.remove('active');
 
   // Update nav highlights
   document.querySelectorAll('nav button').forEach(function(btn) { btn.classList.remove('active'); });
