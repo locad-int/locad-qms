@@ -194,6 +194,45 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .audit-table-wrap { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
                     overflow: hidden; }
 
+/* ── New SOP form ─────────────────────────────────────────────────────────── */
+#new-sop-view { display:none; max-width:680px; margin:0 auto; padding:36px 24px; }
+#new-sop-view.active { display:block; }
+.form-section { background:#fff; border:1px solid #e5e5e5; border-radius:12px;
+                padding:24px; margin-bottom:16px; }
+.form-section-title { font-size:13px; font-weight:600; color:#111; margin-bottom:16px;
+                      padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
+.field { margin-bottom:14px; }
+.field:last-child { margin-bottom:0; }
+.field label { display:block; font-size:12px; font-weight:500; color:#555; margin-bottom:5px; }
+.field input, .field select {
+  width:100%; padding:9px 12px; border:1.5px solid #e0e0e0; border-radius:8px;
+  font:inherit; font-size:13px; color:#333; outline:none; transition:border .15s;
+  background:#fff; }
+.field input:focus, .field select:focus { border-color:#16a34a; }
+.field-hint { font-size:11px; color:#888; margin-top:4px; }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.file-drop { border:2px dashed #e0e0e0; border-radius:8px; padding:24px;
+             text-align:center; cursor:pointer; transition:all .15s; background:#fafafa; }
+.file-drop:hover { border-color:#16a34a; background:#f0fdf4; }
+.file-drop.has-file { border-color:#16a34a; background:#f0fdf4; }
+.file-drop-icon { font-size:28px; margin-bottom:6px; }
+.file-drop-text { font-size:13px; color:#555; }
+.file-drop-sub { font-size:11px; color:#999; margin-top:3px; }
+.optional-toggle { font-size:12px; color:#16a34a; cursor:pointer; font-weight:500;
+                   display:inline-flex; align-items:center; gap:4px; margin-top:4px; }
+.form-actions { display:flex; gap:10px; margin-top:8px; }
+.btn-submit { flex:1; padding:12px; background:#16a34a; color:#fff; border:none;
+              border-radius:8px; font:inherit; font-size:14px; font-weight:500;
+              cursor:pointer; transition:background .15s; }
+.btn-submit:hover { background:#15803d; }
+.btn-submit:disabled { background:#9ca3af; cursor:not-allowed; }
+.btn-cancel-form { padding:12px 20px; background:#fff; color:#333; border:1.5px solid #e0e0e0;
+                   border-radius:8px; font:inherit; font-size:14px; cursor:pointer; }
+.btn-cancel-form:hover { background:#f5f5f5; }
+.progress-bar { height:3px; background:#e5e5e5; border-radius:2px; margin-top:8px; display:none; }
+.progress-fill { height:100%; background:#16a34a; border-radius:2px; width:0%;
+                 transition:width .3s; }
+
 /* ── Toast ────────────────────────────────────────────────────────────────── */
 #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
          background: #111; color: #fff; padding: 10px 20px; border-radius: 8px;
@@ -269,9 +308,18 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
   <!-- Dashboard: My Approvals -->
   <div id="dash-view" class="view active">
-    <div class="dash-header">
-      <div class="dash-title" id="dash-title">My approvals</div>
-      <div class="dash-sub" id="dash-sub">Loading…</div>
+    <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="dash-title" id="dash-title">My approvals</div>
+        <div class="dash-sub" id="dash-sub">Loading…</div>
+      </div>
+      <button onclick="showNewSopForm()"
+        style="padding:9px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;
+               font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
+               margin-top:4px;transition:background .15s"
+        onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+        + New SOP
+      </button>
     </div>
     <div class="table-wrap">
       <div id="dash-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
@@ -281,13 +329,122 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
   <!-- Documents: All SOPs -->
   <div id="docs-view" class="view">
     <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
-      <div class="dash-header">
-        <div class="dash-title">All documents</div>
-        <div class="dash-sub" id="docs-sub">Loading…</div>
+      <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="dash-title">All documents</div>
+          <div class="dash-sub" id="docs-sub">Loading…</div>
+        </div>
+        <button onclick="showNewSopForm()"
+          style="padding:9px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;
+                 font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
+                 margin-top:4px;transition:background .15s"
+          onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+          + New SOP
+        </button>
       </div>
       <div class="table-wrap">
         <div id="docs-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- New SOP form -->
+  <div id="new-sop-view">
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <button onclick="backFromNewSop()"
+        style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
+               font:inherit;font-size:13px;cursor:pointer">← Back</button>
+      <div style="font-size:22px;font-weight:700;color:#111">New SOP</div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Document details</div>
+      <div class="field-row">
+        <div class="field">
+          <label>SOP code *</label>
+          <input id="f-code" type="text" placeholder="e.g. SOP-WH-001">
+          <div class="field-hint">Must be unique. Use uppercase.</div>
+        </div>
+        <div class="field">
+          <label>Version *</label>
+          <input id="f-version" type="text" placeholder="e.g. 1.0" value="1.0">
+        </div>
+      </div>
+      <div class="field">
+        <label>Title *</label>
+        <input id="f-title" type="text" placeholder="e.g. Warehouse Receiving Procedure">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Upload document</div>
+      <div class="field">
+        <div class="file-drop" id="file-drop" onclick="document.getElementById('f-file').click()"
+             ondragover="event.preventDefault();this.style.borderColor='#16a34a'"
+             ondragleave="this.style.borderColor='#e0e0e0'"
+             ondrop="handleFileDrop(event)">
+          <div class="file-drop-icon">📄</div>
+          <div class="file-drop-text" id="file-drop-text">Click to upload or drag and drop</div>
+          <div class="file-drop-sub">DOCX, DOC, or PDF</div>
+        </div>
+        <input id="f-file" type="file" accept=".docx,.doc,.pdf" style="display:none"
+               onchange="handleFileSelect(this)">
+        <div class="progress-bar" id="upload-progress"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Reviewer</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Full name *</label>
+          <input id="f-rev-name" type="text" placeholder="e.g. Juan dela Cruz">
+        </div>
+        <div class="field">
+          <label>Email *</label>
+          <input id="f-rev-email" type="email" placeholder="reviewer@golocad.com">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Approver 1</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Full name *</label>
+          <input id="f-ap1-name" type="text" placeholder="e.g. Larry Capacete">
+        </div>
+        <div class="field">
+          <label>Email *</label>
+          <input id="f-ap1-email" type="email" placeholder="approver@golocad.com">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section" id="ap2-section">
+      <div class="form-section-title" style="display:flex;justify-content:space-between;align-items:center">
+        Approver 2 <span style="font-size:11px;font-weight:400;color:#888">(optional)</span>
+        <span class="optional-toggle" id="ap2-toggle" onclick="toggleAp2()">+ Add</span>
+      </div>
+      <div id="ap2-fields" style="display:none">
+        <div class="field-row">
+          <div class="field">
+            <label>Full name</label>
+            <input id="f-ap2-name" type="text" placeholder="e.g. Maria Santos">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="f-ap2-email" type="email" placeholder="approver2@golocad.com">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="form-error" style="color:#dc2626;font-size:13px;margin-bottom:10px;display:none"></div>
+
+    <div class="form-actions">
+      <button class="btn-cancel-form" onclick="backFromNewSop()">Cancel</button>
+      <button class="btn-submit" id="btn-submit-sop" onclick="submitNewSop()">Submit for review</button>
     </div>
   </div>
 
@@ -752,6 +909,150 @@ function fmtDate(iso) {
 
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── New SOP form ──────────────────────────────────────────────────────────────
+var _selectedFile = null;
+
+function showNewSopForm() {
+  ['dash-view','docs-view','audit-content'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.classList.remove('active');
+  });
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('new-sop-view').classList.add('active');
+  document.getElementById('new-sop-view').style.display = 'block';
+  // Pre-fill preparer as current user
+  _selectedFile = null;
+  document.getElementById('file-drop-text').textContent = 'Click to upload or drag and drop';
+  document.getElementById('file-drop').classList.remove('has-file');
+  document.getElementById('form-error').style.display = 'none';
+  document.getElementById('btn-submit-sop').disabled = false;
+}
+
+function backFromNewSop() {
+  document.getElementById('new-sop-view').classList.remove('active');
+  document.getElementById('new-sop-view').style.display = 'none';
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' : 'audit-content');
+}
+
+function toggleAp2() {
+  var fields = document.getElementById('ap2-fields');
+  var toggle = document.getElementById('ap2-toggle');
+  var shown  = fields.style.display !== 'none';
+  fields.style.display = shown ? 'none' : 'block';
+  toggle.textContent   = shown ? '+ Add' : '− Remove';
+}
+
+function handleFileSelect(input) {
+  if (input.files && input.files[0]) setFile(input.files[0]);
+}
+
+function handleFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('file-drop').style.borderColor = '#e0e0e0';
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+}
+
+function setFile(file) {
+  _selectedFile = file;
+  document.getElementById('file-drop-text').textContent = '📄 ' + file.name;
+  document.getElementById('file-drop').classList.add('has-file');
+}
+
+function submitNewSop() {
+  var code     = (document.getElementById('f-code').value || '').trim().toUpperCase();
+  var title    = (document.getElementById('f-title').value || '').trim();
+  var version  = (document.getElementById('f-version').value || '').trim();
+  var revName  = (document.getElementById('f-rev-name').value || '').trim();
+  var revEmail = (document.getElementById('f-rev-email').value || '').trim().toLowerCase();
+  var ap1Name  = (document.getElementById('f-ap1-name').value || '').trim();
+  var ap1Email = (document.getElementById('f-ap1-email').value || '').trim().toLowerCase();
+  var ap2Name  = (document.getElementById('f-ap2-name').value || '').trim();
+  var ap2Email = (document.getElementById('f-ap2-email').value || '').trim().toLowerCase();
+  var ap2shown = document.getElementById('ap2-fields').style.display !== 'none';
+  var errEl    = document.getElementById('form-error');
+
+  // Validate
+  var errors = [];
+  if (!code)    errors.push('SOP code is required.');
+  if (!title)   errors.push('Title is required.');
+  if (!version) errors.push('Version is required.');
+  if (!_selectedFile) errors.push('Please upload a document.');
+  if (!revName || !revEmail) errors.push('Reviewer name and email are required.');
+  if (!ap1Name || !ap1Email) errors.push('Approver 1 name and email are required.');
+  if (ap2shown && (ap2Name || ap2Email) && (!ap2Name || !ap2Email)) errors.push('Both Approver 2 name and email are required.');
+
+  if (errors.length) {
+    errEl.textContent  = errors[0];
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  var btn = document.getElementById('btn-submit-sop');
+  btn.disabled     = true;
+  btn.textContent  = 'Uploading document…';
+
+  var progressBar  = document.getElementById('upload-progress');
+  var progressFill = document.getElementById('progress-fill');
+  progressBar.style.display = 'block';
+  progressFill.style.width  = '30%';
+
+  // Read file as base64
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    progressFill.style.width = '60%';
+    var dataUrl  = ev.target.result;
+    var b64      = dataUrl.split(',')[1];
+    var mimeType = _selectedFile.type || 'application/octet-stream';
+
+    btn.textContent = 'Saving to Drive…';
+    progressFill.style.width = '80%';
+
+    apiPost({
+      action:   'submitSop',
+      id:       code,
+      title:    title,
+      version:  version,
+      prepName: App.user.name,
+      mimeType: mimeType,
+      fileName: _selectedFile.name,
+      fileB64:  b64,
+      revName:  revName,
+      revEmail: revEmail,
+      ap1Name:  ap1Name,
+      ap1Email: ap1Email,
+      ap2Name:  ap2shown ? ap2Name : '',
+      ap2Email: ap2shown ? ap2Email : ''
+    }).then(function(r) {
+      progressFill.style.width = '100%';
+      if (r.ok) {
+        showToast('SOP submitted! Reviewer has been notified via Slack.');
+        App.myApprovals = [];
+        App.allSops     = [];
+        setTimeout(function() {
+          progressBar.style.display = 'none';
+          backFromNewSop();
+          switchTab('documents');
+          loadAllSops();
+        }, 800);
+      } else {
+        errEl.textContent  = 'Error: ' + (r.message || r.error || 'Submission failed.');
+        errEl.style.display = 'block';
+        btn.disabled    = false;
+        btn.textContent = 'Submit for review';
+        progressBar.style.display = 'none';
+      }
+    }).catch(function(err) {
+      errEl.textContent  = 'Network error: ' + err.message;
+      errEl.style.display = 'block';
+      btn.disabled    = false;
+      btn.textContent = 'Submit for review';
+      progressBar.style.display = 'none';
+    });
+  };
+  reader.readAsDataURL(_selectedFile);
 }
 
 var _toastTimer;
