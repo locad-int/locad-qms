@@ -1321,7 +1321,12 @@ function loadDocPreview(code, which) {
       var bytes = new Uint8Array(raw.length);
       for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
       _docBlobUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-      panel.innerHTML = '<iframe src="' + _docBlobUrl + '"></iframe>';
+      // #toolbar=0 hides the built-in PDF viewer's download / print / save
+      // controls. A deterrent for document control, not a security boundary —
+      // anyone who can read a document can still capture it.
+      panel.innerHTML =
+        '<iframe src="' + _docBlobUrl + '#toolbar=0&navpanes=0" ' +
+        'sandbox="allow-same-origin"></iframe>';
     })
     .catch(function(err) {
       panel.innerHTML =
