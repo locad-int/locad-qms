@@ -1324,9 +1324,12 @@ function loadDocPreview(code, which) {
       // #toolbar=0 hides the built-in PDF viewer's download / print / save
       // controls. A deterrent for document control, not a security boundary —
       // anyone who can read a document can still capture it.
-      panel.innerHTML =
-        '<iframe src="' + _docBlobUrl + '#toolbar=0&navpanes=0" ' +
-        'sandbox="allow-same-origin"></iframe>';
+      //
+      // Do NOT add a sandbox attribute here: Chrome refuses to render a PDF in a
+      // sandboxed iframe and shows "This page has been blocked by Chrome"
+      // instead. It buys nothing anyway, since the PDF is our own content
+      // fetched through the authenticated proxy.
+      panel.innerHTML = '<iframe src="' + _docBlobUrl + '#toolbar=0&navpanes=0"></iframe>';
     })
     .catch(function(err) {
       panel.innerHTML =
