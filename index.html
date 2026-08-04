@@ -637,6 +637,52 @@ var App = {
   currentSop:  null
 };
 
+// ── Session persistence ───────────────────────────────────────────────────────
+// Kept in sessionStorage, not localStorage, deliberately: this survives a page
+// refresh (the server session is valid for 8h, so being thrown back to the login
+// screen was pure friction) but is gone once the tab closes. On a shared machine
+// that means no token is left behind on disk.
+var SESSION_KEY = 'locad_qms_session';
+
+function saveSession() {
+  if (!App.user) return;
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      email:  App.user.email,
+      name:   App.user.name,
+      token:  App.user.token,
+      expiry: App.user.expiry || ''
+    }));
+  } catch(e) {}   // private mode / storage disabled — just don't persist
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+// Returns a stored session if one exists and hasn't expired, else null.
+function readSession() {
+  try {
+    var raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    var s = JSON.parse(raw);
+    if (!s || !s.email || !s.token) return null;
+    if (s.expiry && new Date(s.expiry) <= new Date()) { clearSession(); return null; }
+    return s;
+  } catch(e) { return null; }
+}
+
+// If we're going to restore a session, hide the login screen right now so it
+// never paints. This only touches the DOM — the actual restore has to wait for
+// window.onload, because showApp() reads vars assigned further down the script.
+(function hideLoginIfResuming() {
+  try {
+    if (!readSession()) return;
+    var lv = document.getElementById('login-view');
+    if (lv) lv.style.display = 'none';
+  } catch(e) {}
+})();
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 window.onload = function() {
   if (GAS_URL === 'YOUR_GAS_DEPLOYMENT_URL') {
@@ -644,6 +690,24 @@ window.onload = function() {
   } else {
     document.getElementById('cfg-banner').classList.add('hidden');
   }
+
+  // Restore the session so a refresh doesn't force a re-login. The token is
+  // still verified server-side on the first request — apiGet signs out on
+  // 'unauthorized' — so a revoked or expired token can't get anyone in.
+  var s = readSession();
+  if (!s) {
+    var lv = document.getElementById('login-view');
+    if (lv) lv.style.display = 'flex';   // undo the pre-emptive hide
+    return;
+  }
+  App.user = {
+    email:    s.email,
+    name:     s.name || s.email.split('@')[0],
+    token:    s.token,
+    expiry:   s.expiry || '',
+    initials: initials(s.name || s.email.split('@')[0])
+  };
+  showApp();
 };
 
 // ── Email + password sign-in ──────────────────────────────────────────────────
@@ -716,8 +780,10 @@ function handleLogin(e) {
           email:    email,
           name:     r.name || email.split('@')[0],
           token:    r.token,
+          expiry:   r.expiry || '',
           initials: initials(r.name || email.split('@')[0])
         };
+        saveSession();   // survive a refresh
         showApp();
       } else {
         errEl.textContent   = r.message || 'Invalid email or password.';
@@ -734,6 +800,7 @@ function handleLogin(e) {
 
 function signOut() {
   App.user = null;
+  clearSession();
   // Clear all cached data — otherwise the next user to sign in on this browser
   // sees the previous user's approvals and documents.
   App.myApprovals = [];
@@ -948,11 +1015,19 @@ function loadApprovals() {
   if (!App.user) return;
   document.getElementById('dash-table-body').innerHTML =
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  // Don't leave a stale count showing while we fetch — it read as
+  // "Nothing waiting on you" next to a spinner.
+  document.getElementById('dash-sub').textContent = 'Loading…';
 
   apiGet('myApprovals').then(function(r) {
     App.myApprovals = r.data || [];
     renderApprovalsTable();
-  }).catch(function(err) { showToast(err.message); });
+  }).catch(function(err) {
+    document.getElementById('dash-sub').textContent = 'Could not load your approvals.';
+    document.getElementById('dash-table-body').innerHTML =
+      '<div class="empty">' + esc(err.message) + '</div>';
+    showToast(err.message);
+  });
 }
 
 function renderApprovalsTable() {
