@@ -1414,19 +1414,30 @@ function renderSidebar(sop) {
   // escaped and scheme-checked before being placed in an href.
   if (sop.masterUrl || sop.controlledUrl || sop.controlledPdfUrl) {
     var twoCopy = sop.copyMode !== 'single';
+    var mFmt = (sop.masterFormat     === 'pdf') ? 'PDF' : 'Doc';
+    var cFmt = (sop.controlledFormat === 'pdf') ? 'PDF' : 'Doc';
+    var icon = function(f) { return f === 'PDF' ? '📕' : '📗'; };
+
     html += '<div class="sb-section"><div class="sb-label">' +
       (twoCopy ? 'Approved copies' : 'Approved copy') + '</div>';
     // In single-copy mode (QM / WI / FM) masterUrl IS the approved copy
-    html += docLink(sop.masterUrl, twoCopy ? '📗 Master copy (Doc)' : '📗 Approved copy (Doc)');
-    html += docLink(sop.controlledPdfUrl, twoCopy ? '📕 Controlled copy (PDF)' : '📕 Approved copy (PDF)');
-    if (twoCopy && !sop.controlledPdfUrl) html += docLink(sop.controlledUrl, '📘 Controlled copy (Doc)');
+    html += docLink(sop.masterUrl,
+      icon(mFmt) + ' ' + (twoCopy ? 'Master copy' : 'Approved copy') + ' (' + mFmt + ')');
+    if (twoCopy) html += docLink(sop.controlledUrl, icon(cFmt) + ' Controlled copy (' + cFmt + ')');
+    // Manually recorded PDF, only relevant if the copy above isn't already one
+    if (cFmt !== 'PDF' && mFmt !== 'PDF') {
+      html += docLink(sop.controlledPdfUrl, '📕 Controlled copy (PDF, manual)');
+    }
     html += '<div style="font-size:11px;color:#999;margin-top:6px">Opens in Drive — requires file access.</div>';
     html += '</div>';
   }
 
   // Superuser can record the link to the manually-produced controlled PDF so the
   // QMS points at the issued document rather than the pre-conversion Doc.
-  if (sop.canEditLinks && sop.status === 'approved') {
+  // Only offer the manual PDF field when the generated copy isn't already a PDF —
+  // otherwise it just invites two competing "controlled PDF" links.
+  var autoPdf = sop.controlledFormat === 'pdf' || sop.masterFormat === 'pdf';
+  if (sop.canEditLinks && sop.status === 'approved' && !autoPdf) {
     html += '<div class="sb-section"><div class="sb-label">' +
       (sop.copyMode === 'single' ? 'Approved PDF link' : 'Controlled PDF link') + '</div>' +
       '<input id="ctrl-pdf-url" type="url" placeholder="https://drive.google.com/…" value="' +
