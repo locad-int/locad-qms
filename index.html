@@ -1395,8 +1395,56 @@ function renderSidebar(sop) {
   });
   html += '</div>';
 
-  // Decision (only if viewer has a role)
-  if (sop.viewerRole) {
+  // Preparer acting on a returned document — revise and resubmit
+  if (sop.viewerRole === 'preparer_revise') {
+    var lastReturn = (sop.signoffs || []).filter(function(sf) {
+      return sf.role === 'Reviewer' && sf.comments;
+    })[0];
+    html += '<div class="sb-section"><div class="sb-label" style="color:#b45309">' +
+      'Changes requested</div><div class="decision-area">';
+    if (lastReturn && lastReturn.comments) {
+      html += '<div style="background:#fef3c7;border-radius:6px;padding:9px 11px;font-size:12px;' +
+        'color:#78350f;line-height:1.5;margin-bottom:10px">' + esc(lastReturn.comments) + '</div>';
+    }
+    html += '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:10px">' +
+      'Upload the revised document and re-sign. All previous signatures are cleared and ' +
+      'the document goes through review and approval again. The version stays v' +
+      esc(sop.version) + '.</div>' +
+
+      '<div style="margin-bottom:8px">' +
+        '<div id="rev-file-drop" onclick="document.getElementById(\'rev-file\').click()" ' +
+          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;' +
+          'cursor:pointer;background:#fafafa;font-size:12px;color:#888">' +
+          '<span id="rev-file-text">📄 Click to upload the revised file</span></div>' +
+        '<input id="rev-file" type="file" accept=".docx,.doc,.pdf" style="display:none" ' +
+          'onchange="handleRevisionFile(this)">' +
+      '</div>' +
+
+      '<div style="margin-bottom:8px">' +
+        '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;' +
+          'letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
+        '<div id="dec-sig-box" onclick="openSigModal(\'decision\')" ' +
+          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;' +
+          'cursor:pointer;background:#fafafa">' +
+          '<div id="dec-sig-preview-wrap" style="display:none;margin-bottom:6px">' +
+            '<img id="dec-sig-preview" style="max-height:50px;max-width:200px;border:1px solid #eee;' +
+              'border-radius:4px;padding:3px;background:#fff">' +
+          '</div>' +
+          '<div id="dec-sig-text" style="font-size:12px;color:#aaa">✍ Click to draw, type, or upload</div>' +
+        '</div>' +
+        '<div id="dec-sig-clear" style="display:none;margin-top:4px">' +
+          '<button type="button" onclick="event.stopPropagation();clearDecisionSig()" ' +
+            'style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<textarea id="rev-note" placeholder="What changed? (recorded in the audit trail)"></textarea>' +
+      '<button class="decision-btn db-approve" onclick="submitRevision()">Resubmit for review</button>' +
+      '</div></div>';
+  }
+
+  // Decision (only if viewer has a decision to make)
+  if (sop.viewerRole === 'reviewer' || sop.viewerRole === 'approver') {
     html += '<div class="sb-section"><div class="sb-label">Your decision · ' +
       (sop.viewerRole === 'reviewer' ? 'Reviewer' : 'Approver') + '</div>' +
       '<div class="decision-area">' +
@@ -1502,6 +1550,53 @@ function renderSidebar(sop) {
   }
 
   document.getElementById('sidebar').innerHTML = html;
+}
+
+// ── Revise a returned document ────────────────────────────────────────────────
+var _revisionFile = null;
+
+function handleRevisionFile(input) {
+  if (!input.files || !input.files[0]) return;
+  _revisionFile = input.files[0];
+  document.getElementById('rev-file-text').textContent = '📄 ' + _revisionFile.name;
+  document.getElementById('rev-file-drop').style.borderColor = '#4ADE80';
+}
+
+function submitRevision() {
+  var sop = App.currentSop;
+  if (!sop) return;
+  if (!_revisionFile)       { showToast('Please upload the revised document.'); return; }
+  if (!_decisionSigDataUrl) { showToast('Please add your signature.'); return; }
+
+  var note = (document.getElementById('rev-note') || {}).value || '';
+  var btns = document.querySelectorAll('.decision-btn');
+  for (var i = 0; i < btns.length; i++) { btns[i].disabled = true; btns[i].style.opacity = '0.55'; }
+  function reenable() {
+    for (var j = 0; j < btns.length; j++) { btns[j].disabled = false; btns[j].style.opacity = ''; }
+  }
+  showToast('Uploading revised document…');
+
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    apiPost({
+      action:   'resubmit',
+      code:     sop.id,
+      fileB64:  ev.target.result.split(',')[1],
+      mimeType: _revisionFile.type || 'application/octet-stream',
+      fileName: _revisionFile.name,
+      prepSig:  _decisionSigDataUrl,
+      note:     note.trim()
+    }).then(function(r) {
+      if (!r.ok) { reenable(); showToast('Error: ' + (r.message || r.error)); return; }
+      showToast('Resubmitted — now ' + r.newStatus.replace(/_/g, ' ') +
+                ' (revision ' + r.cycle + ').');
+      _revisionFile = null; _decisionSigDataUrl = null;
+      App.myApprovals = []; App.allSops = [];
+      setTimeout(function() { openSop(sop.id); }, 900);
+    }).catch(function(err) { reenable(); showToast(err.message); });
+  };
+  reader.onerror = function() { reenable(); showToast('Could not read that file.'); };
+  reader.readAsDataURL(_revisionFile);
 }
 
 function deleteDocument() {
