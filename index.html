@@ -1229,6 +1229,11 @@ function openSop(code) {
     }
     App.currentSop = r.data;
     renderDetail(r.data);
+    // Approved but copies not generated yet — watch for them so the page updates
+    // on its own, whether or not this session was the one that approved it.
+    if (r.data.status === 'approved' && !r.data.masterFileId) {
+      pollForSignedCopies(code);
+    }
   }).catch(function(err) { showToast(err.message); });
 }
 
@@ -1287,8 +1292,19 @@ function renderDetail(sop) {
       '<div>You are not a preparer, reviewer or approver on this document,<br>' +
       'so the document is not available to you.</div></div>';
   } else if (sop.fileId || sop.masterFileId) {
-    var which = (sop.status === 'approved' && sop.masterFileId) ? 'master' : 'source';
-    loadDocPreview(sop.id, which);
+    var signedReady = sop.status === 'approved' && sop.masterFileId;
+    var which = signedReady ? 'master' : 'source';
+    // Approved but the signed copy isn't generated yet: we fall back to the
+    // original upload, which has EMPTY signature cells by design. Say so
+    // explicitly — otherwise it reads as "the signatures are missing".
+    var notice = (sop.status === 'approved' && !sop.masterFileId)
+      ? 'Showing the original upload — signatures are not in this file. The signed ' +
+        'copy is still being generated (usually within 5 minutes) and will appear here ' +
+        'automatically.'
+      : (signedReady ? '' :
+         'Showing the document as submitted. Signatures are inserted into the signed ' +
+         'copy once the document is fully approved.');
+    loadDocPreview(sop.id, which, notice);
   } else {
     document.getElementById('doc-panel').innerHTML =
       '<div class="doc-placeholder"><div class="doc-placeholder-icon">📄</div>' +
@@ -1307,10 +1323,16 @@ function revokeDocPreview() {
   if (_docBlobUrl) { try { URL.revokeObjectURL(_docBlobUrl); } catch(e) {} _docBlobUrl = null; }
 }
 
-function loadDocPreview(code, which) {
+function loadDocPreview(code, which, notice) {
   var panel = document.getElementById('doc-panel');
   revokeDocPreview();
   panel.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+
+  // Banner shown above the document when what's on screen isn't the signed copy
+  var banner = notice
+    ? '<div style="background:#fef3c7;border-bottom:1px solid #fcd34d;padding:9px 14px;' +
+      'font-size:12px;color:#78350f;line-height:1.5">⚠️ ' + esc(notice) + '</div>'
+    : '';
 
   apiGet('docPreview', { code: code, which: which })
     .then(function(r) {
@@ -1329,7 +1351,9 @@ function loadDocPreview(code, which) {
       // sandboxed iframe and shows "This page has been blocked by Chrome"
       // instead. It buys nothing anyway, since the PDF is our own content
       // fetched through the authenticated proxy.
-      panel.innerHTML = '<iframe src="' + _docBlobUrl + '#toolbar=0&navpanes=0"></iframe>';
+      panel.innerHTML = banner +
+        '<iframe src="' + _docBlobUrl + '#toolbar=0&navpanes=0" ' +
+        'style="height:' + (banner ? 'calc(100% - 38px)' : '100%') + '"></iframe>';
     })
     .catch(function(err) {
       panel.innerHTML =
@@ -1420,6 +1444,14 @@ function renderSidebar(sop) {
   // Completed copies. These are Drive links, so they only open for people who
   // have been granted access to the file — that is intentional. Values are
   // escaped and scheme-checked before being placed in an href.
+  // Approved, but nothing generated yet — make the pending state explicit
+  if (sop.status === 'approved' && !sop.masterUrl && !sop.controlledUrl) {
+    html += '<div class="sb-section"><div class="sb-label">Approved copies</div>' +
+      '<div style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:6px;' +
+      'padding:8px 10px;line-height:1.5">Being generated — usually ready within 5 ' +
+      'minutes. This page refreshes itself when they appear.</div></div>';
+  }
+
   if (sop.masterUrl || sop.controlledUrl || sop.controlledPdfUrl) {
     var twoCopy = sop.copyMode !== 'single';
     var mFmt = (sop.masterFormat     === 'pdf') ? 'PDF' : 'Doc';
@@ -1455,7 +1487,48 @@ function renderSidebar(sop) {
       '</div>';
   }
 
+  // Withdraw the document entirely. Deleting files in Drive by hand does not do
+  // this — the state record is what keeps a document in the register.
+  if (sop.canEditLinks) {
+    html += '<div class="sb-section" style="border-top:1px solid #eee;padding-top:12px">' +
+      '<div class="sb-label" style="color:#b91c1c">Danger zone</div>' +
+      '<button onclick="deleteDocument()" ' +
+      'style="width:100%;padding:8px;background:#fff;color:#b91c1c;border:1px solid #fca5a5;' +
+      'border-radius:6px;font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+      'Delete this document</button>' +
+      '<div style="font-size:11px;color:#999;margin-top:6px;line-height:1.5">Removes it from ' +
+      'the register and moves its files to Drive bin (recoverable for 30 days).</div>' +
+      '</div>';
+  }
+
   document.getElementById('sidebar').innerHTML = html;
+}
+
+function deleteDocument() {
+  var sop = App.currentSop;
+  if (!sop) return;
+  // Approved documents are controlled records — require the id to be typed out
+  var msg = sop.status === 'approved'
+    ? 'This document is APPROVED. Deleting removes it from the register and ' +
+      'trashes its master and controlled copies.\n\nType the document ID to confirm:'
+    : 'Delete ' + sop.id + '? Its files move to Drive bin.\n\nType the document ID to confirm:';
+  var typed = prompt(msg, '');
+  if (typed === null) return;
+  if (typed.trim().toUpperCase() !== sop.id.toUpperCase()) {
+    showToast('Document ID did not match — nothing was deleted.');
+    return;
+  }
+  showToast('Deleting…');
+  apiPost({ action: 'deleteDocument', code: sop.id })
+    .then(function(r) {
+      if (!r.ok) { showToast('Error: ' + (r.message || r.error)); return; }
+      showToast('Deleted ' + r.code + '.' +
+        (r.failed && r.failed.length ? ' Some files could not be trashed — check Drive.' : ''));
+      App.myApprovals = []; App.allSops = [];
+      backToDash();
+      if (App.currentTab === 'documents') loadAllSops(); else loadApprovals();
+    })
+    .catch(function(err) { showToast(err.message); });
 }
 
 // Renders a Drive/Docs link, refusing anything that isn't an https Google URL.
