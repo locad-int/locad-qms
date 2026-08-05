@@ -122,6 +122,26 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .badge-draft    { background: #f5f5f5; color: #555; }
 .badge-draft::before    { background: #9ca3af; }
 
+/* ── Periodic review pills ────────────────────────────────────────────────── */
+.rv { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px;
+      border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.rv-overdue  { background: #fef2f2; color: #991b1b; }
+.rv-due_soon { background: #fff7ed; color: #c2410c; }
+.rv-ok       { background: #f0fdf4; color: #166534; }
+.rv-unset    { background: #f5f5f5; color: #777; }
+
+/* ── Filter controls ──────────────────────────────────────────────────────── */
+.docs-filter { padding: 9px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px;
+               font: inherit; font-size: 13px; background: #fff; color: #333;
+               outline: none; cursor: pointer; }
+
+/* ── Distribution / acknowledgement list ──────────────────────────────────── */
+.dist-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.dist-row:last-child { border-bottom: none; }
+.dist-ack   { color: #166534; font-size: 12px; white-space: nowrap; }
+.dist-wait  { color: #b45309; font-size: 12px; white-space: nowrap; }
+
 /* ── Empty / loading ──────────────────────────────────────────────────────── */
 .empty { padding: 48px 24px; text-align: center; color: #888; }
 .empty-icon { font-size: 32px; margin-bottom: 8px; }
@@ -353,6 +373,18 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div class="table-wrap">
       <div id="dash-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
     </div>
+
+    <!-- Documents due or overdue for periodic review. Hidden entirely when
+         nothing is due, so a clean register shows a clean dashboard. -->
+    <div id="dash-review-block" style="display:none;margin-top:28px">
+      <div class="dash-header">
+        <div class="dash-title" style="font-size:18px">Due for review</div>
+        <div class="dash-sub" id="dash-review-sub"></div>
+      </div>
+      <div class="table-wrap">
+        <div id="dash-review-body"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Documents: All SOPs -->
@@ -371,6 +403,43 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           + New Document
         </button>
       </div>
+
+      <!-- Search and filters. Filtering happens in the browser against the list
+           already loaded, so typing is instant and costs no server round-trip. -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+        <input id="docs-search" type="search" placeholder="Search ID, title or person…"
+          oninput="applyDocsFilter()"
+          style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
+                 border-radius:8px;font:inherit;font-size:13px;outline:none">
+        <select id="docs-filter-type" onchange="applyDocsFilter()" class="docs-filter">
+          <option value="">All types</option>
+          <option value="QM">Level 1 — QM</option>
+          <option value="SOP">Level 2 — SOP</option>
+          <option value="WI">Level 3 — WI</option>
+          <option value="FM">Level 4 — FM</option>
+        </select>
+        <select id="docs-filter-status" onchange="applyDocsFilter()" class="docs-filter">
+          <option value="">All statuses</option>
+          <option value="approved">Approved</option>
+          <option value="in_review">In review</option>
+          <option value="in_approval">In approval</option>
+          <option value="returned">Returned</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <select id="docs-filter-review" onchange="applyDocsFilter()" class="docs-filter">
+          <option value="">Any review status</option>
+          <option value="overdue">Review overdue</option>
+          <option value="due_soon">Review due soon</option>
+          <option value="due">Overdue or due soon</option>
+          <option value="ok">Review not due</option>
+        </select>
+        <button onclick="exportRegister()" id="btn-export-register"
+          style="padding:9px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
+                 font:inherit;font-size:13px;cursor:pointer;white-space:nowrap">
+          ⬇ Export register
+        </button>
+      </div>
+
       <div class="table-wrap">
         <div id="docs-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
       </div>
@@ -406,7 +475,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <input id="f-code" type="text"
             placeholder="e.g., LPH-OPS-WH-GEN-QM-001 or LPH-OPS-WH-INB-SOP-001"
             oninput="this.value=this.value.toUpperCase()" style="text-transform:uppercase">
-          <div class="field-hint">Must be unique. Auto-converts to uppercase.</div>
+          <div class="field-hint">Must be unique. Letters, numbers and hyphens only — auto-converts to uppercase.</div>
         </div>
         <div class="field">
           <label>Version *</label>
@@ -416,6 +485,15 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <div class="field">
         <label>Title *</label>
         <input id="f-title" type="text" placeholder="e.g. Warehouse Receiving Procedure">
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field">
+          <label>Next review date</label>
+          <input id="f-review-date" type="date">
+          <div class="field-hint">When this document must next be reviewed.
+            Leave blank for 12 months from today.</div>
+        </div>
+        <div class="field"></div>
       </div>
     </div>
 
@@ -897,6 +975,8 @@ function initials(name) {
 }
 
 var SUPERUSER_EMAIL = 'larry.capacete@golocad.com'; // must match SUPERUSER_EMAIL in Script Properties
+// Cosmetic only — used in placeholder text. The backend enforces the real check.
+var ALLOWED_DOMAIN = 'golocad.com';
 
 function showApp() {
   document.getElementById('login-view').style.display = 'none';
@@ -1019,6 +1099,10 @@ function loadApprovals() {
   // "Nothing waiting on you" next to a spinner.
   document.getElementById('dash-sub').textContent = 'Loading…';
 
+  // The review list is a second, independent fetch: a failure there must not
+  // stop your approvals rendering, which is the reason you opened the page.
+  loadReviewDue();
+
   apiGet('myApprovals').then(function(r) {
     App.myApprovals = r.data || [];
     renderApprovalsTable();
@@ -1063,36 +1147,210 @@ function renderApprovalsTable() {
   document.getElementById('dash-table-body').innerHTML = html;
 }
 
-// ── Load all SOPs ─────────────────────────────────────────────────────────────
+// ── Documents due for periodic review ─────────────────────────────────────────
+// Shows everyone's, not just yours: an overdue document is a system-wide problem,
+// and the owner may well be the person who has stopped looking at it.
+function loadReviewDue() {
+  var block = document.getElementById('dash-review-block');
+  apiGet('reviewDue').then(function(r) {
+    var rows = (r.data || []).filter(function(d) {
+      return d.reviewStatus === 'overdue' || d.reviewStatus === 'due_soon';
+    });
+    if (!rows.length) { block.style.display = 'none'; return; }
+
+    var overdue = rows.filter(function(d) { return d.reviewStatus === 'overdue'; }).length;
+    document.getElementById('dash-review-sub').textContent =
+      overdue ? overdue + ' overdue, ' + (rows.length - overdue) + ' due soon'
+              : rows.length + ' due within the next month';
+
+    var html = '<table><thead><tr>' +
+      '<th>Type</th><th>Document ID</th><th>Title</th><th>Version</th>' +
+      '<th>Owner</th><th>Due</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function(d) {
+      html += '<tr onclick="openSop(\'' + esc(d.id) + '\')">' +
+        '<td>' + docTypeBadge(d.docType) + '</td>' +
+        '<td><span class="sop-code">' + esc(d.id) + '</span></td>' +
+        '<td><span class="sop-title">' + esc(d.title) + '</span></td>' +
+        '<td class="sop-meta">' + esc(d.version) + '</td>' +
+        '<td class="sop-meta">' + esc(d.prepName || d.prepEmail || '—') + '</td>' +
+        '<td>' + reviewPill({ status: 'approved', reviewStatus: d.reviewStatus,
+                              daysUntilReview: d.daysUntil, reviewDate: d.reviewDate }) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('dash-review-body').innerHTML = html;
+    block.style.display = '';
+  }).catch(function() {
+    // Silent: this is supplementary. The Slack digest is the real prompt.
+    block.style.display = 'none';
+  });
+}
+
+// ── Load all documents ────────────────────────────────────────────────────────
 function loadAllSops() {
   document.getElementById('docs-table-body').innerHTML =
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
   apiGet('allSops').then(function(r) {
     App.allSops = r.data || [];
-    var count = App.allSops.length;
-    document.getElementById('docs-sub').textContent =
-      count + ' document' + (count !== 1 ? 's' : '') + ' total';
-    if (count === 0) {
-      document.getElementById('docs-table-body').innerHTML = '<div class="empty">No documents found.</div>';
-      return;
-    }
-    var html = '<table><thead><tr>' +
-      '<th>Type</th><th>Document ID</th><th>Title</th><th>Version</th><th>Prepared by</th><th>Reviewer</th><th>Status</th>' +
-      '</tr></thead><tbody>';
-    App.allSops.forEach(function(sop) {
-      html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
-        '<td>' + docTypeBadge(sop.docType) + '</td>' +
-        '<td><span class="sop-code">' + esc(sop.id) + '</span></td>' +
-        '<td><span class="sop-title">' + esc(sop.title) + '</span></td>' +
-        '<td class="sop-meta">' + esc(sop.version) + '</td>' +
-        '<td class="sop-meta">' + esc(sop.prepName) + '</td>' +
-        '<td class="sop-meta">' + (sop.revName ? esc(sop.revName) : '<span style="color:#bbb">— none —</span>') + '</td>' +
-        '<td>' + statusBadge(sop.status) + '</td>' +
-        '</tr>';
-    });
-    html += '</tbody></table>';
-    document.getElementById('docs-table-body').innerHTML = html;
+    applyDocsFilter();
   }).catch(function(err) { showToast(err.message); });
+}
+
+// ── Search and filter ─────────────────────────────────────────────────────────
+// Runs entirely against the already-loaded list. The register is small enough
+// (tens to low hundreds of documents) that filtering in the browser is instant,
+// and it means no extra Apps Script round-trip per keystroke.
+function docsFilterState() {
+  function val(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : '';
+  }
+  return {
+    q: val('docs-search').toLowerCase().trim(),
+    type: val('docs-filter-type'),
+    status: val('docs-filter-status'),
+    review: val('docs-filter-review')
+  };
+}
+
+function docsMatches(sop, f) {
+  if (f.type && (sop.docType || 'SOP') !== f.type) return false;
+  if (f.status && sop.status !== f.status) return false;
+
+  if (f.review) {
+    var rs = sop.reviewStatus || '';
+    if (f.review === 'due') {
+      if (rs !== 'overdue' && rs !== 'due_soon') return false;
+    } else if (rs !== f.review) return false;
+  }
+
+  if (f.q) {
+    // Match across everything a person might remember about a document: its ID,
+    // its title, and the names of the people involved.
+    var hay = [sop.id, sop.title, sop.version, sop.prepName, sop.revName, sop.ap1Name]
+      .join(' ').toLowerCase();
+    // Lowercase here rather than trusting the caller to have done it — this is
+    // the only place that decides whether a match happened.
+    // Every whitespace-separated term must appear, so "receiving juan" narrows
+    // rather than widening the way an OR match would.
+    var terms = String(f.q).toLowerCase().trim().split(/\s+/);
+    for (var i = 0; i < terms.length; i++) {
+      if (hay.indexOf(terms[i]) === -1) return false;
+    }
+  }
+  return true;
+}
+
+function applyDocsFilter() {
+  var all = App.allSops || [];
+  var f = docsFilterState();
+  var rows = all.filter(function(s) { return docsMatches(s, f); });
+  var filtering = !!(f.q || f.type || f.status || f.review);
+
+  document.getElementById('docs-sub').textContent = filtering
+    ? rows.length + ' of ' + all.length + ' document' + (all.length !== 1 ? 's' : '')
+    : all.length + ' document' + (all.length !== 1 ? 's' : '') + ' total';
+
+  var body = document.getElementById('docs-table-body');
+  if (!all.length) {
+    body.innerHTML = '<div class="empty">No documents found.</div>';
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>' +
+      'Nothing matches those filters.' +
+      '<div style="margin-top:10px"><button onclick="clearDocsFilter()" ' +
+      'style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;' +
+      'font:inherit;font-size:13px;cursor:pointer">Clear filters</button></div></div>';
+    return;
+  }
+
+  var html = '<table><thead><tr>' +
+    '<th>Type</th><th>Document ID</th><th>Title</th><th>Version</th>' +
+    '<th>Prepared by</th><th>Next review</th><th>Read</th><th>Status</th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(function(sop) {
+    html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
+      '<td>' + docTypeBadge(sop.docType) + '</td>' +
+      '<td><span class="sop-code">' + esc(sop.id) + '</span></td>' +
+      '<td><span class="sop-title">' + esc(sop.title) + '</span></td>' +
+      '<td class="sop-meta">' + esc(sop.version) + '</td>' +
+      '<td class="sop-meta">' + esc(sop.prepName) + '</td>' +
+      '<td>' + reviewPill(sop) + '</td>' +
+      '<td class="sop-meta">' + ackCell(sop) + '</td>' +
+      '<td>' + statusBadge(sop.status) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+function clearDocsFilter() {
+  ['docs-search', 'docs-filter-type', 'docs-filter-status', 'docs-filter-review']
+    .forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  applyDocsFilter();
+}
+
+// ── Review status display ─────────────────────────────────────────────────────
+function reviewPill(sop) {
+  // Only an approved document has a meaningful review date. One still in the
+  // workflow is being looked at right now.
+  if (sop.status !== 'approved') return '<span style="color:#ccc">—</span>';
+  var rs = sop.reviewStatus || 'unset';
+  var n = sop.daysUntilReview;
+  var label;
+  if (rs === 'unset')        label = 'not set';
+  else if (rs === 'overdue') label = 'overdue ' + Math.abs(n) + 'd';
+  else if (rs === 'due_soon')label = 'in ' + n + 'd';
+  else                       label = sop.reviewDate || '';
+  var title = sop.reviewDate ? 'Next review: ' + sop.reviewDate : 'No review date set';
+  return '<span class="rv rv-' + rs + '" title="' + esc(title) + '">' + esc(label) + '</span>';
+}
+
+function ackCell(sop) {
+  var total = sop.distCount || 0;
+  if (!total) return '<span style="color:#ccc">—</span>';
+  var done = sop.ackCount || 0;
+  var colour = done >= total ? '#166534' : '#b45309';
+  return '<span style="color:' + colour + '">' + done + '/' + total + '</span>';
+}
+
+// ── Register export ───────────────────────────────────────────────────────────
+// The server builds the CSV (it has every field) and also files a dated copy in
+// Drive as the retained record; the browser downloads the same bytes.
+function exportRegister() {
+  var btn = document.getElementById('btn-export-register');
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Building…';
+
+  apiPost({ action: 'exportRegister' }).then(function(r) {
+    if (!r.ok) throw new Error(r.message || 'Could not build the register.');
+
+    // A BOM so Excel opens UTF-8 correctly — without it accented names and the
+    // em dashes in document titles come out as mojibake.
+    var blob = new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = r.filename || 'QMS Document Register.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+
+    showToast(r.count + ' document' + (r.count !== 1 ? 's' : '') + ' exported' +
+              (r.driveUrl ? ' — a copy is filed in Drive.' : '.'));
+  }).catch(function(err) {
+    showToast(err.message);
+  }).then(function() {
+    btn.disabled = false;
+    btn.textContent = original;
+  });
 }
 
 // ── Load audit trail ──────────────────────────────────────────────────────────
@@ -1285,7 +1543,14 @@ function renderDetail(sop) {
   // Document preview. Files are private in Drive, so we fetch the bytes through
   // the authenticated proxy and render from a blob URL rather than pointing an
   // iframe at a public Google link.
-  if (sop.isParty === false) {
+  var isRecipient = sop.ack && sop.ack.youAreOnList;
+  if (sop.isParty === false && isRecipient && sop.status === 'approved') {
+    // A controlled copy holder who isn't party to the approval. They can read the
+    // issued copy — being asked to acknowledge a document you can't open is not a
+    // workable ask — but not the master or the working source.
+    loadDocPreview(sop.id, 'issued',
+      'This is the issued controlled copy. Read it, then confirm in the sidebar.');
+  } else if (sop.isParty === false) {
     // Visible in the register, but this person isn't party to the SOP
     document.getElementById('doc-panel').innerHTML =
       '<div class="doc-placeholder"><div class="doc-placeholder-icon">🔒</div>' +
@@ -1554,6 +1819,33 @@ function renderSidebar(sop) {
       '</div>';
   }
 
+  // ── Periodic review ─────────────────────────────────────────────────────────
+  if (sop.status === 'approved') html += reviewSection(sop);
+
+  // ── Read and acknowledge (the recipient's own action) ───────────────────────
+  if (sop.status === 'approved' && sop.ack && sop.ack.youAreOnList) {
+    html += '<div class="sb-section"><div class="sb-label">Your acknowledgement</div>';
+    if (sop.ack.youHave) {
+      html += '<div style="background:#f0fdf4;border-radius:6px;padding:9px 11px;font-size:12px;' +
+        'color:#166534;line-height:1.5">✓ You acknowledged reading v' + esc(sop.ack.version) +
+        '.</div>';
+    } else {
+      html += '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:8px">' +
+        'You hold a controlled copy of this document. Read v' + esc(sop.ack.version) +
+        ', then confirm below. Your name and the time are recorded.</div>' +
+        '<button id="btn-ack" onclick="acknowledgeRead()" ' +
+        'style="width:100%;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:6px;' +
+        'font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+        '✓ I have read v' + esc(sop.ack.version) + '</button>';
+    }
+    html += '</div>';
+  }
+
+  // ── Controlled copy distribution ────────────────────────────────────────────
+  if (sop.isParty && (sop.distribution.length || sop.canManageDistribution)) {
+    html += distributionSection(sop);
+  }
+
   // Version history — superseded versions with who signed and what changed
   if (sop.versions && sop.versions.length) {
     html += '<div class="sb-section"><div class="sb-label">Version history</div>';
@@ -1641,6 +1933,16 @@ function renderSidebar(sop) {
 
       '<textarea id="rv-note" placeholder="What changed and why? Required — goes into the revision history."></textarea>' +
 
+      '<div style="margin:8px 0">' +
+        '<label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;' +
+          'letter-spacing:.4px;display:block;margin-bottom:4px">Next review date</label>' +
+        '<input id="rv-review-date" type="date" value="' + esc(sop.suggestedReviewDate || '') + '" ' +
+          'style="width:100%;padding:7px 9px;border:1px solid #e0e0e0;border-radius:6px;' +
+          'font:inherit;font-size:12px">' +
+        '<div style="font-size:11px;color:#999;margin-top:3px">A substantive revision restarts ' +
+          'the review clock. Ignored for an editorial-only change.</div>' +
+      '</div>' +
+
       '<div style="border-top:1px solid #eee;margin:10px 0 8px;padding-top:9px">' +
         '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;' +
           'letter-spacing:.4px;margin-bottom:6px">Type of change *</div>' +
@@ -1704,6 +2006,242 @@ function renderSidebar(sop) {
   }
 
   document.getElementById('sidebar').innerHTML = html;
+}
+
+// ── Periodic review section ───────────────────────────────────────────────────
+// Two distinct actions, deliberately not merged:
+//   • "Reviewed — no change needed" writes a dated record of a review. That is
+//     the evidence an auditor asks for.
+//   • "Change the date" just moves the deadline. It must not be able to look
+//     like evidence of a review, so it is a separate, plainer control.
+function reviewSection(sop) {
+  var rs = sop.reviewStatus || 'unset';
+  var n = sop.daysUntilReview;
+  var tone = rs === 'overdue' ? { bg: '#fef2f2', fg: '#991b1b' }
+           : rs === 'due_soon' ? { bg: '#fff7ed', fg: '#9a3412' }
+           : rs === 'unset'    ? { bg: '#f7f7f7', fg: '#555' }
+                               : { bg: '#f0fdf4', fg: '#166534' };
+  var headline =
+      rs === 'overdue'  ? 'Overdue by ' + Math.abs(n) + ' day' + (Math.abs(n) === 1 ? '' : 's')
+    : rs === 'due_soon' ? 'Due in ' + n + ' day' + (n === 1 ? '' : 's')
+    : rs === 'unset'    ? 'No review date set'
+                        : 'Next review ' + esc(sop.reviewDate);
+
+  var html = '<div class="sb-section"><div class="sb-label">Periodic review</div>' +
+    '<div style="background:' + tone.bg + ';border-radius:6px;padding:9px 11px;font-size:12px;' +
+    'color:' + tone.fg + ';line-height:1.5">' + headline +
+    (sop.reviewDate && rs !== 'ok' ? '<div style="opacity:.8;margin-top:2px">Due ' +
+      esc(sop.reviewDate) + '</div>' : '') +
+    (sop.lastReviewedAt ? '<div style="opacity:.8;margin-top:2px">Last reviewed ' +
+      fmtDate(sop.lastReviewedAt) + '</div>' : '') +
+    '</div>';
+
+  // Past "reviewed, no change" decisions
+  if (sop.reviews && sop.reviews.length) {
+    html += '<div style="margin-top:9px">';
+    for (var i = sop.reviews.length - 1; i >= 0; i--) {
+      var rv = sop.reviews[i];
+      html += '<div style="border-left:2px solid #e5e5e5;padding:0 0 6px 9px;margin-bottom:6px">' +
+        '<div style="font-size:11px;color:#666">Reviewed ' + fmtDate(rv.at) +
+        ' — v' + esc(rv.version) + ', no change needed</div>' +
+        (rv.note ? '<div style="font-size:11px;color:#888;font-style:italic">"' +
+          esc(rv.note) + '"</div>' : '') +
+        '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (sop.canManageReview) {
+    html += '<div style="margin-top:10px;border-top:1px solid #eee;padding-top:9px">' +
+      '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:7px">' +
+      'If the document is still correct, record the review below. If it needs to change, ' +
+      'use <strong>Revise</strong> instead — a revision counts as the review.</div>' +
+
+      '<textarea id="pr-note" placeholder="What did you check? e.g. Confirmed steps still ' +
+      'match current WMS process; no changes required."></textarea>' +
+
+      '<div style="margin:7px 0">' +
+        '<label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;' +
+          'letter-spacing:.4px;display:block;margin-bottom:4px">Next review date</label>' +
+        '<input id="pr-next" type="date" value="' + esc(sop.suggestedReviewDate || '') + '" ' +
+          'style="width:100%;padding:7px 9px;border:1px solid #e0e0e0;border-radius:6px;' +
+          'font:inherit;font-size:12px">' +
+      '</div>' +
+
+      '<button id="btn-confirm-review" onclick="confirmReviewed()" ' +
+      'style="width:100%;padding:8px;background:#111;color:#fff;border:none;border-radius:6px;' +
+      'font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+      'Record review — no change needed</button>' +
+
+      '<button onclick="justChangeReviewDate()" ' +
+      'style="width:100%;padding:7px;margin-top:6px;background:#fff;color:#555;' +
+      'border:1px solid #d0d0d0;border-radius:6px;font:inherit;font-size:11px;cursor:pointer">' +
+      'Only change the date (not a review)</button>' +
+      '</div>';
+  }
+
+  return html + '</div>';
+}
+
+function confirmReviewed() {
+  var sop = App.currentSop;
+  if (!sop) return;
+  var note = (document.getElementById('pr-note').value || '').trim();
+  var next = document.getElementById('pr-next').value || '';
+  if (!note) { showToast('Say what you checked — that is the record of the review.'); return; }
+
+  var btn = document.getElementById('btn-confirm-review');
+  btn.disabled = true;
+  btn.textContent = 'Recording…';
+
+  apiPost({ action: 'confirmReviewed', code: sop.id, note: note, reviewDate: next })
+    .then(function(r) {
+      if (!r.ok) throw new Error(r.message || 'Could not record the review.');
+      showToast('Review recorded. Next review ' + r.reviewDate + '.');
+      openSop(sop.id);
+    })
+    .catch(function(err) {
+      showToast(err.message);
+      btn.disabled = false;
+      btn.textContent = 'Record review — no change needed';
+    });
+}
+
+function justChangeReviewDate() {
+  var sop = App.currentSop;
+  if (!sop) return;
+  var next = document.getElementById('pr-next').value || '';
+  if (!next) { showToast('Pick a date first.'); return; }
+  if (!confirm('Move the review date to ' + next + ' without recording a review?\n\n' +
+               'This is logged as a date change, not as evidence that the document ' +
+               'was reviewed.')) return;
+
+  apiPost({ action: 'setReviewDate', code: sop.id, reviewDate: next })
+    .then(function(r) {
+      if (!r.ok) throw new Error(r.message || 'Could not change the date.');
+      showToast('Review date moved to ' + r.reviewDate + '.');
+      openSop(sop.id);
+    })
+    .catch(function(err) { showToast(err.message); });
+}
+
+// ── Controlled copy distribution section ──────────────────────────────────────
+// The list of who holds a controlled copy. It drives who is expected to
+// acknowledge each new version, and it is what makes recall of superseded copies
+// demonstrable rather than assumed.
+function distributionSection(sop) {
+  var ack = sop.ack || { recipients: [], total: 0, done: 0, version: sop.version };
+  var html = '<div class="sb-section"><div class="sb-label">Controlled copy holders</div>';
+
+  if (!ack.total) {
+    html += '<div style="font-size:11px;color:#888;line-height:1.5">' +
+      'Nobody is recorded as holding a controlled copy yet.</div>';
+  } else {
+    var pct = ack.total ? Math.round((ack.done / ack.total) * 100) : 0;
+    html += '<div style="font-size:12px;color:#444;margin-bottom:7px">' +
+      ack.done + ' of ' + ack.total + ' acknowledged v' + esc(ack.version) +
+      '<div style="height:5px;background:#eee;border-radius:3px;margin-top:5px;overflow:hidden">' +
+      '<div style="height:100%;width:' + pct + '%;background:' +
+      (pct === 100 ? '#16a34a' : '#f59e0b') + '"></div></div></div>';
+
+    ack.recipients.forEach(function(r) {
+      html += '<div class="dist-row">' +
+        '<div><div style="color:#333">' + esc(r.name || r.email) + '</div>' +
+        '<div style="color:#aaa;font-size:11px">' + esc(r.location || r.email) + '</div></div>' +
+        (r.acknowledgedAt
+          ? '<div class="dist-ack">✓ ' + fmtDate(r.acknowledgedAt) + '</div>'
+          : '<div class="dist-wait">awaiting</div>') +
+        '</div>';
+    });
+  }
+
+  if (sop.canManageDistribution) {
+    // One address per line, "name, email, location". A textarea rather than a
+    // row builder: editing a list of a dozen people is faster as text, and it
+    // pastes straight out of a spreadsheet.
+    var seed = (sop.distribution || []).map(function(r) {
+      return [r.name || '', r.email || '', r.location || '']
+        .join(', ').replace(/(,\s*)+$/, '');
+    }).join('\n');
+
+    html += '<div style="margin-top:10px;border-top:1px solid #eee;padding-top:9px">' +
+      '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:6px">' +
+      'One person per line as <strong>Name, email, location</strong>. ' +
+      'Email is the only required part. Saving replaces the whole list.</div>' +
+      '<textarea id="dist-text" style="min-height:80px;font-family:ui-monospace,Menlo,monospace;' +
+      'font-size:11px" placeholder="Juan dela Cruz, juan@' + esc(ALLOWED_DOMAIN) +
+      ', Manila Hub">' + esc(seed) + '</textarea>' +
+      '<button id="btn-save-dist" onclick="saveDistribution()" ' +
+      'style="width:100%;padding:8px;margin-top:6px;background:#111;color:#fff;border:none;' +
+      'border-radius:6px;font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+      'Save distribution list</button>' +
+      '</div>';
+  }
+
+  return html + '</div>';
+}
+
+function saveDistribution() {
+  var sop = App.currentSop;
+  if (!sop) return;
+  var raw = document.getElementById('dist-text').value || '';
+
+  var recipients = raw.split('\n').map(function(line) {
+    var parts = line.split(',').map(function(p) { return p.trim(); }).filter(function(p) { return p; });
+    if (!parts.length) return null;
+    // The email is whichever field has an @ — so "juan@x.com" alone works, and
+    // so does "Juan dela Cruz, juan@x.com, Manila".
+    var emailIdx = -1;
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].indexOf('@') !== -1) { emailIdx = i; break; }
+    }
+    if (emailIdx === -1) return null;
+    var rest = parts.filter(function(_, i) { return i !== emailIdx; });
+    return { email: parts[emailIdx], name: rest[0] || '', location: rest[1] || '' };
+  }).filter(function(r) { return r; });
+
+  var skipped = raw.split('\n').filter(function(l) { return l.trim(); }).length - recipients.length;
+
+  var btn = document.getElementById('btn-save-dist');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  apiPost({ action: 'setDistribution', code: sop.id, recipients: recipients })
+    .then(function(r) {
+      if (!r.ok) throw new Error(r.message || 'Could not save the list.');
+      var msg = r.count + ' recipient' + (r.count !== 1 ? 's' : '') + ' saved.';
+      if (skipped > 0) msg += ' ' + skipped + ' line(s) had no email address and were skipped.';
+      if (r.message) msg += ' ' + r.message;
+      showToast(msg);
+      openSop(sop.id);
+    })
+    .catch(function(err) {
+      showToast(err.message);
+      btn.disabled = false;
+      btn.textContent = 'Save distribution list';
+    });
+}
+
+function acknowledgeRead() {
+  var sop = App.currentSop;
+  if (!sop) return;
+  var btn = document.getElementById('btn-ack');
+  btn.disabled = true;
+  btn.textContent = 'Recording…';
+
+  apiPost({ action: 'acknowledgeRead', code: sop.id })
+    .then(function(r) {
+      if (!r.ok) throw new Error(r.message || 'Could not record your acknowledgement.');
+      showToast(r.alreadyAcknowledged
+        ? 'Already recorded for v' + r.version + '.'
+        : 'Recorded — thank you.');
+      openSop(sop.id);
+    })
+    .catch(function(err) {
+      showToast(err.message);
+      btn.disabled = false;
+      btn.textContent = '✓ I have read v' + (sop.ack ? sop.ack.version : sop.version);
+    });
 }
 
 // ── Revise a returned document ────────────────────────────────────────────────
@@ -1809,7 +2347,9 @@ function submitRevisedVersion() {
       fileB64:  ev.target.result.split(',')[1],
       mimeType: _revisionFile.type || 'application/octet-stream',
       fileName: _revisionFile.name,
-      prepSig:  _decisionSigDataUrl || ''
+      prepSig:  _decisionSigDataUrl || '',
+      // Ignored on the editorial path — a typo fix doesn't restart the clock.
+      reviewDate: (document.getElementById('rv-review-date') || {}).value || ''
     }).then(function(r) {
       if (!r.ok) { reenable(); showToast('Error: ' + (r.message || r.error)); return; }
       var msg = editorial
@@ -2075,9 +2615,18 @@ function showNewSopForm() {
   // Clear every field — a partial reset left the previous SOP's metadata in
   // place and invited accidental near-duplicate submissions.
   ['f-code','f-title','f-version','f-prep-name','f-rev-name','f-rev-email',
-   'f-ap1-name','f-ap1-email','f-ap2-name','f-ap2-email'].forEach(function(id) {
+   'f-ap1-name','f-ap1-email','f-ap2-name','f-ap2-email','f-review-date'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.value = '';
   });
+  // Pre-fill the review date 12 months out rather than leaving it blank — the
+  // default is what almost every document wants, and it makes the field's
+  // meaning obvious at a glance.
+  var rd = document.getElementById('f-review-date');
+  if (rd) {
+    var d = new Date();
+    d.setMonth(d.getMonth() + 12);
+    rd.value = d.toISOString().slice(0, 10);
+  }
   var dt = document.getElementById('f-doctype');
   if (dt) dt.value = '';
   onDocTypeChange();
@@ -2399,7 +2948,10 @@ function submitNewSop() {
       ap1Name:  ap1Name,
       ap1Email: ap1Email,
       ap2Name:  ap2shown ? ap2Name : '',
-      ap2Email: ap2shown ? ap2Email : ''
+      ap2Email: ap2shown ? ap2Email : '',
+      // Blank is fine — the backend defaults to 12 months out, so no document
+      // enters the register without a review date.
+      reviewDate: (document.getElementById('f-review-date') || {}).value || ''
     }).then(function(r) {
       progressFill.style.width = '100%';
       if (r.ok) {
