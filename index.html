@@ -1326,7 +1326,14 @@ function revokeDocPreview() {
 function loadDocPreview(code, which, notice) {
   var panel = document.getElementById('doc-panel');
   revokeDocPreview();
-  panel.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  // The first view of a document renders and caches its PDF server-side, so it
+  // is noticeably slower than subsequent views. Say so rather than showing a
+  // bare spinner that looks stalled.
+  panel.innerHTML = '<div class="doc-placeholder">' +
+    '<div class="spinner" style="margin:0 auto 12px"></div>' +
+    '<div style="font-size:13px;color:#666">Loading document…</div>' +
+    '<div style="font-size:11px;color:#aaa;margin-top:5px">' +
+    'The first view of a document takes a few seconds; after that it is cached.</div></div>';
 
   // Banner shown above the document when what's on screen isn't the signed copy
   var banner = notice
@@ -1556,6 +1563,9 @@ function renderSidebar(sop) {
       html += '<div style="border-left:2px solid ' + (pending ? '#93c5fd' : '#e5e5e5') +
         ';padding:0 0 8px 10px;margin-bottom:8px">' +
         '<div style="font-size:12px;font-weight:600;color:#444">v' + esc(v.version) +
+          (v.revisionType === 'editorial'
+            ? ' <span style="font-size:10px;font-weight:500;background:#fef3c7;color:#78350f;' +
+              'padding:1px 5px;border-radius:3px;vertical-align:1px">EDITORIAL</span>' : '') +
           ' <span style="font-weight:400;color:#999">' +
           (pending ? '→ being replaced by v' + esc(v.supersededBy) + ' (still effective)'
                    : '→ superseded by v' + esc(v.supersededBy)) + '</span></div>' +
@@ -1630,7 +1640,52 @@ function renderSidebar(sop) {
       '</div>' +
 
       '<textarea id="rv-note" placeholder="What changed and why? Required — goes into the revision history."></textarea>' +
-      '<button class="decision-btn db-approve" onclick="submitRevisedVersion()">Submit new version</button>' +
+
+      '<div style="border-top:1px solid #eee;margin:10px 0 8px;padding-top:9px">' +
+        '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;' +
+          'letter-spacing:.4px;margin-bottom:6px">Type of change *</div>' +
+        '<label style="display:block;font-size:12px;color:#333;margin-bottom:5px;cursor:pointer">' +
+          '<input type="radio" name="rv-kind" value="substantive" checked ' +
+            'onchange="onRevKindChange()" style="margin-right:6px">' +
+          'Substantive — full review and approval</label>' +
+        '<label style="display:block;font-size:12px;color:#333;cursor:pointer">' +
+          '<input type="radio" name="rv-kind" value="editorial" ' +
+            'onchange="onRevKindChange()" style="margin-right:6px">' +
+          'Editorial only — typo, formatting, no change of meaning</label>' +
+        '<div id="rv-kind-hint" style="font-size:11px;color:#666;line-height:1.5;margin-top:7px;' +
+          'background:#f7f7f7;border-radius:6px;padding:7px 9px">' +
+          'Goes through the full chain again: everyone re-signs.</div>' +
+      '</div>' +
+
+      '<button class="decision-btn db-approve" onclick="submitRevisedVersion()">' +
+        '<span id="rv-submit-label">Submit new version</span></button>' +
+      '</div></div>';
+  }
+
+  // Designated authoriser confirming an editorial revision.
+  // No signature: the record is the name, timestamp and stated reason, and the
+  // document keeps its original signatures untouched.
+  if (sop.viewerRole === 'editorial_confirm') {
+    html += '<div class="sb-section"><div class="sb-label" style="color:#b45309">' +
+      'Confirm editorial change</div><div class="decision-area">' +
+      '<div style="background:#fef3c7;border-radius:6px;padding:9px 11px;font-size:12px;' +
+        'color:#78350f;line-height:1.5;margin-bottom:9px">' +
+        '<strong>v' + esc(sop.version) + '</strong> is offered as an <strong>editorial</strong> ' +
+        'revision. The existing approval signatures carry over and nothing is added to ' +
+        'the document.' +
+        (sop.revisionNoteCurrent
+          ? '<div style="margin-top:6px">Declared change: \u201c' + esc(sop.revisionNoteCurrent) + '\u201d</div>'
+          : '') +
+      '</div>' +
+      '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:9px">' +
+        'Confirm only if the change genuinely does not alter requirements, responsibilities ' +
+        'or process steps. Your name, the time and the reason are recorded \u2014 no signature ' +
+        'is needed.</div>' +
+      '<textarea id="dec-comments" placeholder="Comments (required if sending back for full review)\u2026"></textarea>' +
+      '<button class="decision-btn db-approve" onclick="submitDecision(\'approve\')">' +
+        'Confirm \u2014 editorial only</button>' +
+      '<button class="decision-btn db-reject" onclick="submitDecision(\'reject\')">' +
+        'Not editorial \u2014 send back for full review</button>' +
       '</div></div>';
   }
 
@@ -1687,21 +1742,55 @@ function downloadSource() {
     .catch(function(err) { showToast(err.message); });
 }
 
+function revKind() {
+  var r = document.querySelector('input[name="rv-kind"]:checked');
+  return r ? r.value : 'substantive';
+}
+
+// Editorial revisions carry the existing signatures, so the owner doesn't re-sign
+// and the hint/button change to reflect a confirmation step rather than a rerun.
+function onRevKindChange() {
+  var editorial = revKind() === 'editorial';
+  var hint = document.getElementById('rv-kind-hint');
+  var lbl  = document.getElementById('rv-submit-label');
+  if (hint) {
+    hint.innerHTML = editorial
+      ? 'Existing approval signatures carry over. Approver 1 confirms it really is ' +
+        'editorial, then the copies regenerate. <strong>No re-review.</strong>'
+      : 'Goes through the full chain again: everyone re-signs.';
+    hint.style.background = editorial ? '#fef3c7' : '#f7f7f7';
+    hint.style.color      = editorial ? '#78350f' : '#666';
+  }
+  if (lbl) lbl.textContent = editorial ? 'Submit editorial revision' : 'Submit new version';
+  // The owner's signature is only needed for a substantive revision
+  var sigWrap = document.getElementById('dec-sig-box');
+  if (sigWrap && sigWrap.parentElement) {
+    sigWrap.parentElement.style.display = editorial ? 'none' : '';
+  }
+}
+
 function submitRevisedVersion() {
   var sop = App.currentSop;
   if (!sop) return;
-  var version = ((document.getElementById('rv-version') || {}).value || '').trim();
-  var note    = ((document.getElementById('rv-note')    || {}).value || '').trim();
+  var version   = ((document.getElementById('rv-version') || {}).value || '').trim();
+  var note      = ((document.getElementById('rv-note')    || {}).value || '').trim();
+  var editorial = revKind() === 'editorial';
 
   if (!version) { showToast('Enter the new version number.'); return; }
   if (version === sop.version) { showToast('The new version must differ from v' + sop.version + '.'); return; }
   if (!_revisionFile)       { showToast('Upload the revised document.'); return; }
-  if (!_decisionSigDataUrl) { showToast('Add your signature.'); return; }
+  if (!editorial && !_decisionSigDataUrl) { showToast('Add your signature.'); return; }
   if (!note)                { showToast('Describe what changed — it goes into the revision history.'); return; }
 
-  if (!confirm('Submit v' + version + ' of ' + sop.id + '?\n\n' +
-               'v' + sop.version + ' stays effective until the new version is approved. ' +
-               'The document goes through review and approval again.')) return;
+  var msg = editorial
+    ? 'Submit v' + version + ' of ' + sop.id + ' as an EDITORIAL revision?\n\n' +
+      'The existing approval signatures will carry over — no re-review. ' +
+      'Approver 1 must confirm the change really is editorial.\n\n' +
+      'Only do this for typos, formatting or wording that does not change meaning.'
+    : 'Submit v' + version + ' of ' + sop.id + '?\n\n' +
+      'v' + sop.version + ' stays effective until the new version is approved. ' +
+      'The document goes through review and approval again.';
+  if (!confirm(msg)) return;
 
   var btns = document.querySelectorAll('.decision-btn');
   for (var i = 0; i < btns.length; i++) { btns[i].disabled = true; btns[i].style.opacity = '0.55'; }
@@ -1713,18 +1802,21 @@ function submitRevisedVersion() {
   var reader = new FileReader();
   reader.onload = function(ev) {
     apiPost({
-      action:   'revise',
+      action:   editorial ? 'reviseEditorial' : 'revise',
       code:     sop.id,
       version:  version,
       note:     note,
       fileB64:  ev.target.result.split(',')[1],
       mimeType: _revisionFile.type || 'application/octet-stream',
       fileName: _revisionFile.name,
-      prepSig:  _decisionSigDataUrl
+      prepSig:  _decisionSigDataUrl || ''
     }).then(function(r) {
       if (!r.ok) { reenable(); showToast('Error: ' + (r.message || r.error)); return; }
-      var msg = 'v' + r.version + ' submitted — now ' + r.newStatus.replace(/_/g, ' ') +
-                '. v' + r.supersededVersion + ' stays effective until this is approved.';
+      var msg = editorial
+        ? 'v' + r.version + ' submitted as editorial — Approver 1 has been asked to confirm. ' +
+          'v' + r.supersededVersion + ' stays effective until then.'
+        : 'v' + r.version + ' submitted — now ' + r.newStatus.replace(/_/g, ' ') +
+          '. v' + r.supersededVersion + ' stays effective until this is approved.';
       showToast(msg);
       _revisionFile = null; _decisionSigDataUrl = null;
       App.myApprovals = []; App.allSops = [];
@@ -1837,7 +1929,9 @@ function submitDecision(decision) {
   var sop      = App.currentSop;
   var comments = (document.getElementById('dec-comments') || {}).value || '';
 
-  if (!_decisionSigDataUrl) {
+  // The editorial confirmation is deliberately signature-free
+  var editorialConfirm = sop && sop.viewerRole === 'editorial_confirm';
+  if (!editorialConfirm && !_decisionSigDataUrl) {
     showToast('Please add your signature before submitting.');
     return;
   }
