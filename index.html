@@ -1500,6 +1500,18 @@ function renderSidebar(sop) {
       'minute. This page refreshes itself when they appear.</div></div>';
   }
 
+  // A new version is in the pipeline but the old one is still the effective
+  // document. Say so plainly — otherwise the links below look like the new version.
+  var revisionInFlight = sop.effectiveVersion && sop.effectiveVersion !== sop.version;
+  if (revisionInFlight) {
+    html += '<div class="sb-section"><div class="sb-label">Currently effective</div>' +
+      '<div style="font-size:12px;color:#1e40af;background:#e6f1fb;border-radius:6px;' +
+      'padding:8px 10px;line-height:1.5"><strong>v' + esc(sop.effectiveVersion) +
+      '</strong> remains in force. v' + esc(sop.version) + ' is still going through ' +
+      'approval — the copies below are v' + esc(sop.effectiveVersion) +
+      ' and stay current until v' + esc(sop.version) + ' is approved.</div></div>';
+  }
+
   if (sop.masterUrl || sop.controlledUrl || sop.controlledPdfUrl) {
     var twoCopy = sop.copyMode !== 'single';
     var mFmt = (sop.masterFormat     === 'pdf') ? 'PDF' : 'Doc';
@@ -1540,24 +1552,30 @@ function renderSidebar(sop) {
     html += '<div class="sb-section"><div class="sb-label">Version history</div>';
     for (var vi = sop.versions.length - 1; vi >= 0; vi--) {
       var v = sop.versions[vi];
-      html += '<div style="border-left:2px solid #e5e5e5;padding:0 0 8px 10px;margin-bottom:8px">' +
+      var pending = !v.retiredAt;   // still in its live folder, not yet moved
+      html += '<div style="border-left:2px solid ' + (pending ? '#93c5fd' : '#e5e5e5') +
+        ';padding:0 0 8px 10px;margin-bottom:8px">' +
         '<div style="font-size:12px;font-weight:600;color:#444">v' + esc(v.version) +
-          ' <span style="font-weight:400;color:#999">→ superseded by v' + esc(v.supersededBy) + '</span></div>' +
+          ' <span style="font-weight:400;color:#999">' +
+          (pending ? '→ being replaced by v' + esc(v.supersededBy) + ' (still effective)'
+                   : '→ superseded by v' + esc(v.supersededBy)) + '</span></div>' +
         (v.changeNote ? '<div style="font-size:11px;color:#666;font-style:italic;margin-top:2px">"' +
           esc(v.changeNote) + '"</div>' : '') +
         '<div style="font-size:11px;color:#999;margin-top:3px">Approved ' + fmtDate(v.approvedAt) + '</div>' +
         (v.obsoleteMasterId
           ? '<a href="https://drive.google.com/file/d/' + esc(v.obsoleteMasterId) + '/view" ' +
             'target="_blank" rel="noopener noreferrer" ' +
-            'style="font-size:11px;color:#888;display:inline-block;margin-top:3px">📄 obsolete master</a>' : '') +
+            'style="font-size:11px;color:#888;display:inline-block;margin-top:3px">📄 ' +
+            (pending ? 'master (live)' : 'obsolete master') + '</a>' : '') +
         (v.obsoleteCtrlId
           ? ' <a href="https://drive.google.com/file/d/' + esc(v.obsoleteCtrlId) + '/view" ' +
             'target="_blank" rel="noopener noreferrer" ' +
-            'style="font-size:11px;color:#888;display:inline-block;margin-top:3px">📄 obsolete controlled</a>' : '') +
+            'style="font-size:11px;color:#888;display:inline-block;margin-top:3px">📄 ' +
+            (pending ? 'controlled (live)' : 'obsolete controlled') + '</a>' : '') +
         '</div>';
     }
     html += '<div style="font-size:11px;color:#999">Obsolete copies live in 99 Obsolete and are ' +
-      'retained as records.</div></div>';
+      'retained as records once the replacement is approved.</div></div>';
   }
 
   // Start a new version of an approved document (process change)
@@ -1567,7 +1585,8 @@ function renderSidebar(sop) {
       '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:9px">' +
       'Edit the <strong>source</strong>, not the master copy — the master carries v' +
       esc(sop.version) + '’s signatures and watermark and stays as that version’s record. ' +
-      'On approval, v' + esc(sop.version) + '’s copies move to 99 Obsolete.</div>' +
+      'v' + esc(sop.version) + ' stays in force and its copies stay live until the new ' +
+      'version is approved — only then do they move to 99 Obsolete.</div>' +
 
       '<button onclick="downloadSource()" ' +
       'style="width:100%;padding:8px;background:#fff;border:1px solid #d0d0d0;border-radius:6px;' +
@@ -1681,8 +1700,8 @@ function submitRevisedVersion() {
   if (!note)                { showToast('Describe what changed — it goes into the revision history.'); return; }
 
   if (!confirm('Submit v' + version + ' of ' + sop.id + '?\n\n' +
-               'v' + sop.version + '’s master and controlled copies will move to 99 Obsolete, ' +
-               'and the document goes through review and approval again.')) return;
+               'v' + sop.version + ' stays effective until the new version is approved. ' +
+               'The document goes through review and approval again.')) return;
 
   var btns = document.querySelectorAll('.decision-btn');
   for (var i = 0; i < btns.length; i++) { btns[i].disabled = true; btns[i].style.opacity = '0.55'; }
@@ -1705,9 +1724,7 @@ function submitRevisedVersion() {
     }).then(function(r) {
       if (!r.ok) { reenable(); showToast('Error: ' + (r.message || r.error)); return; }
       var msg = 'v' + r.version + ' submitted — now ' + r.newStatus.replace(/_/g, ' ') +
-                '. v' + r.supersededVersion + ' moved to 99 Obsolete.';
-      if (r.retireFailed && r.retireFailed.length)
-        msg += ' ⚠️ Some old copies could not be moved — check Drive.';
+                '. v' + r.supersededVersion + ' stays effective until this is approved.';
       showToast(msg);
       _revisionFile = null; _decisionSigDataUrl = null;
       App.myApprovals = []; App.allSops = [];
