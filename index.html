@@ -488,7 +488,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <div class="field-row">
         <div class="field">
           <label>Full name *</label>
-          <input id="f-ap1-name" type="text" placeholder="e.g. Larry Capacete">
+          <input id="f-ap1-name" type="text" placeholder="e.g. Juan dela Cruz">
         </div>
         <div class="field">
           <label>Email *</label>
@@ -1299,7 +1299,7 @@ function renderDetail(sop) {
     // explicitly — otherwise it reads as "the signatures are missing".
     var notice = (sop.status === 'approved' && !sop.masterFileId)
       ? 'Showing the original upload — signatures are not in this file. The signed ' +
-        'copy is still being generated (usually within 5 minutes) and will appear here ' +
+        'copy is generating now (usually under a minute) and will appear here ' +
         'automatically.'
       : (signedReady ? '' :
          'Showing the document as submitted. Signatures are inserted into the signed ' +
@@ -1496,8 +1496,8 @@ function renderSidebar(sop) {
   if (sop.status === 'approved' && !sop.masterUrl && !sop.controlledUrl) {
     html += '<div class="sb-section"><div class="sb-label">Approved copies</div>' +
       '<div style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:6px;' +
-      'padding:8px 10px;line-height:1.5">Being generated — usually ready within 5 ' +
-      'minutes. This page refreshes itself when they appear.</div></div>';
+      'padding:8px 10px;line-height:1.5">Being generated — usually ready within a ' +
+      'minute. This page refreshes itself when they appear.</div></div>';
   }
 
   if (sop.masterUrl || sop.controlledUrl || sop.controlledPdfUrl) {
@@ -1698,7 +1698,7 @@ function submitDecision(decision) {
       if (r.ok) {
         var msg = 'Done! Document status: ' + r.newStatus.replace(/_/g, ' ');
         if (r.warning)         msg += ' (⚠️ Signed copies: ' + r.warning + ')';
-        else if (r.finalizing) msg += ' — signed copies are generating in the background.';
+        else if (r.finalizing) msg += ' — signed copies are generating now.';
         showToast(msg);
         App.myApprovals = [];
         App.allSops = [];
