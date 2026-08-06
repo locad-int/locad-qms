@@ -398,56 +398,76 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
       <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
         <div>
-          <div class="dash-title">All documents</div>
+          <div class="dash-title" id="docs-title">All documents</div>
           <div class="dash-sub" id="docs-sub">Loading…</div>
         </div>
-        <button onclick="showNewSopForm()"
-          style="padding:9px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;
-                 font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
-                 margin-top:4px;transition:background .15s"
-          onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-          + New Document
-        </button>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button onclick="exportRegister()" id="btn-export-register"
+            style="padding:9px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
+                   font:inherit;font-size:13px;cursor:pointer;white-space:nowrap">
+            ⬇ Export register
+          </button>
+          <button onclick="showNewSopForm()"
+            style="padding:9px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;
+                   font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
+                   transition:background .15s"
+            onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+            + New Document
+          </button>
+        </div>
       </div>
 
-      <!-- Search and filters. Filtering happens in the browser against the list
-           already loaded, so typing is instant and costs no server round-trip. -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-        <input id="docs-search" type="search" placeholder="Search ID, title or person…"
-          oninput="applyDocsFilter()"
-          style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
-                 border-radius:8px;font:inherit;font-size:13px;outline:none">
-        <select id="docs-filter-type" onchange="applyDocsFilter()" class="docs-filter">
-          <option value="">All types</option>
-          <option value="QM">Level 1 — QM</option>
-          <option value="SOP">Level 2 — SOP</option>
-          <option value="WI">Level 3 — WI</option>
-          <option value="FM">Level 4 — FM</option>
-        </select>
-        <select id="docs-filter-status" onchange="applyDocsFilter()" class="docs-filter">
-          <option value="">All statuses</option>
-          <option value="approved">Approved</option>
-          <option value="in_review">In review</option>
-          <option value="in_approval">In approval</option>
-          <option value="returned">Returned</option>
-          <option value="rejected">Rejected</option>
-        </select>
-        <select id="docs-filter-review" onchange="applyDocsFilter()" class="docs-filter">
-          <option value="">Any review status</option>
-          <option value="overdue">Review overdue</option>
-          <option value="due_soon">Review due soon</option>
-          <option value="due">Overdue or due soon</option>
-          <option value="ok">Review not due</option>
-        </select>
-        <button onclick="exportRegister()" id="btn-export-register"
-          style="padding:9px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
-                 font:inherit;font-size:13px;cursor:pointer;white-space:nowrap">
-          ⬇ Export register
-        </button>
-      </div>
+      <!-- Folder view: lands here first. Each tile is a document type/level,
+           matching the Drive folder structure (01 Quality Manual, 02 SOP, etc)
+           so the grouping matches what's already familiar. Click a tile to
+           drill into a filtered list; "All documents" bypasses foldering
+           entirely for anyone who wants to search across every type at once. -->
+      <div id="docs-folders" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:8px"></div>
 
-      <div class="table-wrap">
-        <div id="docs-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+      <!-- Drilled-in view: a specific folder's filtered list, or the
+           unfiltered "All documents" view. Hidden until a folder is opened. -->
+      <div id="docs-drilldown" style="display:none">
+        <button onclick="closeDocsFolder()"
+          style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
+                 font:inherit;font-size:13px;cursor:pointer;margin-bottom:14px">
+          ← All folders
+        </button>
+
+        <!-- Search and filters. Filtering happens in the browser against the
+             list already loaded, so typing is instant and costs no server
+             round-trip. -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+          <input id="docs-search" type="search" placeholder="Search ID, title or person…"
+            oninput="applyDocsFilter()"
+            style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
+                   border-radius:8px;font:inherit;font-size:13px;outline:none">
+          <select id="docs-filter-type" onchange="applyDocsFilter()" class="docs-filter">
+            <option value="">All types</option>
+            <option value="QM">Level 1 — QM</option>
+            <option value="SOP">Level 2 — SOP</option>
+            <option value="WI">Level 3 — WI</option>
+            <option value="FM">Level 4 — FM</option>
+          </select>
+          <select id="docs-filter-status" onchange="applyDocsFilter()" class="docs-filter">
+            <option value="">All statuses</option>
+            <option value="approved">Approved</option>
+            <option value="in_review">In review</option>
+            <option value="in_approval">In approval</option>
+            <option value="returned">Returned</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <select id="docs-filter-review" onchange="applyDocsFilter()" class="docs-filter">
+            <option value="">Any review status</option>
+            <option value="overdue">Review overdue</option>
+            <option value="due_soon">Review due soon</option>
+            <option value="due">Overdue or due soon</option>
+            <option value="ok">Review not due</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <div id="docs-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -718,7 +738,11 @@ var App = {
   currentTab:  'approvals',
   myApprovals: [],
   allSops:     [],
-  currentSop:  null
+  currentSop:  null,
+  // Which "folder" is open in the Documents tab: null means showing the
+  // folder grid, 'ALL' means the unfiltered drilldown, or a type code
+  // ('QM'/'SOP'/'WI'/'FM') means that type's filtered drilldown.
+  docsFolder:  null
 };
 
 // ── Session persistence ───────────────────────────────────────────────────────
@@ -923,6 +947,7 @@ function signOut() {
   App.allSops     = [];
   App.currentSop  = null;
   App.currentTab  = 'approvals';
+  App.docsFolder  = null;
   _prepSigDataUrl     = null;
   _decisionSigDataUrl = null;
   _selectedFile       = null;
@@ -936,6 +961,10 @@ function signOut() {
     var el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.classList.remove('active'); }
   });
+  // Reset Documents back to the folder grid so the next sign-in (possibly a
+  // different person on a shared machine) doesn't land mid-drilldown.
+  var dd = document.getElementById('docs-drilldown');
+  if (dd) dd.style.display = 'none';
 
   document.getElementById('login-email').value    = '';
   document.getElementById('login-password').value = '';
@@ -1258,12 +1287,108 @@ function loadReviewDue() {
 
 // ── Load all documents ────────────────────────────────────────────────────────
 function loadAllSops() {
-  document.getElementById('docs-table-body').innerHTML =
-    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  if (App.docsFolder) {
+    document.getElementById('docs-table-body').innerHTML =
+      '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  }
   apiGet('allSops').then(function(r) {
     App.allSops = r.data || [];
-    applyDocsFilter();
+    renderDocsFolders();
+    if (App.docsFolder) applyDocsFilter();
   }).catch(function(err) { showToast(err.message); });
+}
+
+// ── Document folders ───────────────────────────────────────────────────────────
+// Lands on a folder grid grouped by document type/level — matching the Drive
+// folder structure (01 Quality Manual, 02 SOP, 03 WI, 04 Forms) — rather than
+// one long flat table. "All documents" is kept as an explicit way out of
+// foldering for anyone who wants to search across every type at once.
+function docsFolderCounts() {
+  var counts = { QM: 0, SOP: 0, WI: 0, FM: 0 };
+  var due    = { QM: 0, SOP: 0, WI: 0, FM: 0 };
+  (App.allSops || []).forEach(function(s) {
+    // Same fallback as docsMatches: a document with no recorded type predates
+    // multi-level support and was always a SOP.
+    var t = String(s.docType || 'SOP').toUpperCase();
+    if (counts[t] === undefined) t = 'SOP';
+    counts[t]++;
+    if (s.reviewStatus === 'overdue' || s.reviewStatus === 'due_soon') due[t]++;
+  });
+  return { counts: counts, due: due };
+}
+
+function renderDocsFolders() {
+  var el = document.getElementById('docs-folders');
+  if (!el) return;
+  if (App.docsFolder) { el.style.display = 'none'; return; }
+  el.style.display = 'grid';
+
+  var stats = docsFolderCounts();
+  var order = ['QM', 'SOP', 'WI', 'FM'];
+  var html = order.map(function(t) {
+    var d = DOC_TYPES[t];
+    var count = stats.counts[t] || 0;
+    var due   = stats.due[t] || 0;
+    return '<div onclick="openDocsFolder(\'' + t + '\')" tabindex="0" ' +
+      'onkeydown="if(event.key===\'Enter\')openDocsFolder(\'' + t + '\')" ' +
+      'style="background:#fff;border:1.5px solid #ececec;border-radius:12px;padding:20px;' +
+      'cursor:pointer;transition:border-color .15s" ' +
+      'onmouseover="this.style.borderColor=\'' + d.color + '\'" ' +
+      'onmouseout="this.style.borderColor=\'#ececec\'">' +
+      '<div style="width:40px;height:40px;border-radius:9px;background:' + d.bg + ';color:' + d.color + ';' +
+        'display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-bottom:14px">' +
+        d.short + '</div>' +
+      '<div style="font-weight:600;font-size:14px;color:#111;margin-bottom:3px">' + esc(d.name) + '</div>' +
+      '<div style="font-size:12px;color:#999">Level ' + d.level + '</div>' +
+      '<div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">' +
+        '<span style="font-size:22px;font-weight:700;color:#111">' + count + '</span>' +
+        (due ? '<span class="rv rv-overdue" style="font-size:11px">' + due + ' due</span>' : '') +
+      '</div></div>';
+  }).join('');
+
+  html += '<div onclick="openDocsFolder(\'ALL\')" tabindex="0" ' +
+    'onkeydown="if(event.key===\'Enter\')openDocsFolder(\'ALL\')" ' +
+    'style="background:#fafafa;border:1.5px dashed #d5d5d5;border-radius:12px;padding:20px;' +
+    'cursor:pointer;display:flex;flex-direction:column;justify-content:center;' +
+    'transition:border-color .15s" ' +
+    'onmouseover="this.style.borderColor=\'#999\'" onmouseout="this.style.borderColor=\'#d5d5d5\'">' +
+    '<div style="font-size:20px;margin-bottom:10px">🔍</div>' +
+    '<div style="font-weight:600;font-size:14px;color:#111;margin-bottom:3px">All documents</div>' +
+    '<div style="font-size:12px;color:#999">Search across every type</div></div>';
+
+  el.innerHTML = html;
+}
+
+function openDocsFolder(type) {
+  App.docsFolder = type;
+  document.getElementById('docs-folders').style.display    = 'none';
+  document.getElementById('docs-drilldown').style.display   = 'block';
+  document.getElementById('docs-title').textContent =
+    type === 'ALL' ? 'All documents' : (DOC_TYPES[type] ? DOC_TYPES[type].name : 'Documents');
+
+  // Inside a specific type folder, the folder itself IS the type filter — hide
+  // that dropdown rather than leaving a redundant, editable control that could
+  // be changed to silently step outside the folder you thought you were in.
+  var typeSelect = document.getElementById('docs-filter-type');
+  if (type === 'ALL') {
+    typeSelect.value    = '';
+    typeSelect.disabled = false;
+    typeSelect.style.display = '';
+  } else {
+    typeSelect.value    = type;
+    typeSelect.disabled = true;
+    typeSelect.style.display = 'none';
+  }
+  document.getElementById('docs-search').value = '';
+  document.getElementById('docs-filter-status').value = '';
+  document.getElementById('docs-filter-review').value = '';
+  applyDocsFilter();
+}
+
+function closeDocsFolder() {
+  App.docsFolder = null;
+  document.getElementById('docs-drilldown').style.display = 'none';
+  renderDocsFolders();
 }
 
 // ── Search and filter ─────────────────────────────────────────────────────────
@@ -1314,16 +1439,25 @@ function docsMatches(sop, f) {
 function applyDocsFilter() {
   var all = App.allSops || [];
   var f = docsFilterState();
-  var rows = all.filter(function(s) { return docsMatches(s, f); });
-  var filtering = !!(f.q || f.type || f.status || f.review);
 
-  document.getElementById('docs-sub').textContent = filtering
-    ? rows.length + ' of ' + all.length + ' document' + (all.length !== 1 ? 's' : '')
-    : all.length + ' document' + (all.length !== 1 ? 's' : '') + ' total';
+  // Scope is what "N documents" means on screen: inside a type folder, that's
+  // the folder's own count, not the whole company's — a folder holding 3
+  // documents should say "3 documents", not "3 of 40".
+  var scope = (App.docsFolder && App.docsFolder !== 'ALL')
+    ? all.filter(function(s) { return String(s.docType || 'SOP').toUpperCase() === App.docsFolder; })
+    : all;
+  var rows = scope.filter(function(s) { return docsMatches(s, f); });
+  // f.type is implied by the folder itself when one is open, so it shouldn't
+  // count as "extra" filtering on top of just being inside the folder.
+  var extraFiltering = !!(f.q || f.status || f.review || (App.docsFolder === 'ALL' && f.type));
+
+  document.getElementById('docs-sub').textContent = extraFiltering
+    ? rows.length + ' of ' + scope.length + ' document' + (scope.length !== 1 ? 's' : '')
+    : scope.length + ' document' + (scope.length !== 1 ? 's' : '') + ' total';
 
   var body = document.getElementById('docs-table-body');
-  if (!all.length) {
-    body.innerHTML = '<div class="empty">No documents found.</div>';
+  if (!scope.length) {
+    body.innerHTML = '<div class="empty">No documents in this folder yet.</div>';
     return;
   }
   if (!rows.length) {
@@ -1356,11 +1490,15 @@ function applyDocsFilter() {
 }
 
 function clearDocsFilter() {
-  ['docs-search', 'docs-filter-type', 'docs-filter-status', 'docs-filter-review']
-    .forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.value = '';
-    });
+  // Only clear the type dropdown inside the "All documents" folder, where it's
+  // an actual editable filter — inside a specific type folder it's disabled
+  // and set to that folder's type, which IS the point of being in the folder.
+  var ids = ['docs-search', 'docs-filter-status', 'docs-filter-review'];
+  if (App.docsFolder === 'ALL') ids.push('docs-filter-type');
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   applyDocsFilter();
 }
 
