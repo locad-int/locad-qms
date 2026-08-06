@@ -1326,6 +1326,14 @@ function renderDocsFolders() {
   if (App.docsFolder) { el.style.display = 'none'; return; }
   el.style.display = 'grid';
 
+  // The grid is the overview page, so the header above it should always say
+  // so — without this, it kept showing whatever folder name was last opened
+  // (e.g. "Quality Manual") even after navigating back out to the grid.
+  var total = (App.allSops || []).length;
+  document.getElementById('docs-title').textContent = 'All documents';
+  document.getElementById('docs-sub').textContent =
+    total + ' document' + (total !== 1 ? 's' : '') + ' across 4 types';
+
   var stats = docsFolderCounts();
   var order = ['QM', 'SOP', 'WI', 'FM'];
   var html = order.map(function(t) {
