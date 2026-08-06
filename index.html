@@ -402,6 +402,13 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <div class="dash-sub" id="docs-sub">Loading…</div>
         </div>
         <div style="display:flex;gap:10px;align-items:center">
+          <!-- Always visible, not just inside a folder — typing here from the
+               folder grid jumps straight into "All documents" filtered results,
+               so you don't have to open a folder first just to search. -->
+          <input id="docs-search" type="search" placeholder="Search ID, title or person…"
+            oninput="onGlobalSearchInput()"
+            style="width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
+                   border-radius:8px;font:inherit;font-size:13px;outline:none">
           <button onclick="exportRegister()" id="btn-export-register"
             style="padding:9px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
                    font:inherit;font-size:13px;cursor:pointer;white-space:nowrap">
@@ -433,14 +440,10 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           ← All folders
         </button>
 
-        <!-- Search and filters. Filtering happens in the browser against the
-             list already loaded, so typing is instant and costs no server
-             round-trip. -->
+        <!-- Filters (search now lives in the header, beside Export register).
+             Filtering happens in the browser against the list already loaded,
+             so typing is instant and costs no server round-trip. -->
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-          <input id="docs-search" type="search" placeholder="Search ID, title or person…"
-            oninput="applyDocsFilter()"
-            style="flex:1;min-width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
-                   border-radius:8px;font:inherit;font-size:13px;outline:none">
           <select id="docs-filter-type" onchange="applyDocsFilter()" class="docs-filter">
             <option value="">All types</option>
             <option value="QM">Level 1 — QM</option>
@@ -1359,7 +1362,11 @@ function renderDocsFolders() {
   el.innerHTML = html;
 }
 
-function openDocsFolder(type) {
+// keepSearch: true when this call is jumping straight from the folder grid
+// into "All documents" because the person started typing in the search box
+// (onGlobalSearchInput below) — the text they already typed should survive
+// that transition, not get wiped the instant it takes effect.
+function openDocsFolder(type, keepSearch) {
   App.docsFolder = type;
   document.getElementById('docs-folders').style.display    = 'none';
   document.getElementById('docs-drilldown').style.display   = 'block';
@@ -1379,7 +1386,7 @@ function openDocsFolder(type) {
     typeSelect.disabled = true;
     typeSelect.style.display = 'none';
   }
-  document.getElementById('docs-search').value = '';
+  if (!keepSearch) document.getElementById('docs-search').value = '';
   document.getElementById('docs-filter-status').value = '';
   document.getElementById('docs-filter-review').value = '';
   applyDocsFilter();
@@ -1387,8 +1394,22 @@ function openDocsFolder(type) {
 
 function closeDocsFolder() {
   App.docsFolder = null;
+  document.getElementById('docs-search').value = '';
   document.getElementById('docs-drilldown').style.display = 'none';
   renderDocsFolders();
+}
+
+// The search box lives in the header, so it's visible whether you're browsing
+// the folder grid or already drilled into one. Typing while still on the
+// folder grid (nothing opened yet) jumps straight into "All documents" with
+// the same text still in the box, rather than requiring a folder click first.
+function onGlobalSearchInput() {
+  var q = document.getElementById('docs-search').value;
+  if (!App.docsFolder && q.trim()) {
+    openDocsFolder('ALL', /* keepSearch */ true);
+  } else {
+    applyDocsFilter();
+  }
 }
 
 // ── Search and filter ─────────────────────────────────────────────────────────
