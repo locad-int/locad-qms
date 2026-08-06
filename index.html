@@ -880,15 +880,30 @@ function handleLogin(e) {
   // non-JSON HTML *or* the doGet "invalid_request" JSON — both mean the POST
   // body never arrived, so retry rather than surfacing it as a login failure.
   //
-  // Confirmed directly from this deployment's console: a plain GET resolves
-  // cleanly, but sending the login POST via fetch() reliably hit repeated 404s
-  // from script.googleusercontent.com's internal echo/redirect relay — both
-  // "Execute the app as" and "Who has access" were already correctly
-  // configured, so this isn't a deployment-settings issue. It's fetch()'s
-  // redirect handling specifically; _xhrPostText uses XMLHttpRequest instead,
-  // which is the commonly-reported workaround for this Apps Script quirk.
+  // Update (2026-08-06): we switched this call from fetch() to XMLHttpRequest
+  // on the theory that fetch()'s redirect handling was the specific cause —
+  // but the same lost-POST pattern still showed up over XHR after that change
+  // shipped. Both fetch() and XMLHttpRequest are documented to convert a POST
+  // to a GET when following a 301/302/303 (it's standard browser behavior,
+  // not something either API lets you opt out of), so the transport was never
+  // going to be the fix. The redirect itself is coming from Google's frontend
+  // in front of the Apps Script deployment, outside our control from the
+  // client; retrying past it is the actual mitigation, which is why it's kept
+  // regardless of transport. "Execute the app as" and "Who has access" were
+  // already confirmed correctly configured, so this isn't a deployment-
+  // settings issue either.
   function doLoginFetch(attempt) {
     var attemptStart = Date.now();
+
+    function retryOrGiveUp() {
+      if (attempt < 4) {
+        return new Promise(function(res) {
+          setTimeout(function() { res(doLoginFetch(attempt + 1)); }, 350);
+        });
+      }
+      throw new Error('lost_post');
+    }
+
     return _xhrPostText(GAS_URL, payload).then(function(text) {
       var parsed = null;
       try { parsed = JSON.parse(text); } catch(e) {}
@@ -899,12 +914,17 @@ function handleLogin(e) {
       }
       console.log('[QMS login] attempt ' + attempt + ' lost the POST (' + ms + 'ms) — ' +
         (parsed ? 'got doGet’s invalid_request response' : 'response was not JSON'));
-      if (attempt < 4) {
-        return new Promise(function(res) {
-          setTimeout(function() { res(doLoginFetch(attempt + 1)); }, 350);
-        });
-      }
-      throw new Error('lost_post');
+      return retryOrGiveUp();
+    }).catch(function(err) {
+      // Same gap as apiPost: a real XHR error/timeout used to skip this retry
+      // loop and fail sign-in outright on the first hiccup, instead of being
+      // retried like a "lost POST" bad-JSON response. Confirmed (2026-08-06)
+      // that the POST->GET redirect still happens even over XHR, so a hard
+      // XHR failure deserves the same retry treatment.
+      if (err && err.message === 'lost_post') throw err;
+      var ms = Date.now() - attemptStart;
+      console.log('[QMS login] attempt ' + attempt + ' errored after ' + ms + 'ms (' + (err && err.message) + ')');
+      return retryOrGiveUp();
     });
   }
 
@@ -1147,15 +1167,14 @@ function isPostLost(parsed) {
 // non-2xx status, since the caller's own JSON.parse + isPostLost check is what
 // decides whether a response counts as "lost" and should be retried.
 //
-// Uses XMLHttpRequest rather than fetch(). Diagnosed directly from this
-// deployment's own console output: a plain GET to the exec URL resolves
-// cleanly, but a POST sent via fetch() reliably surfaced repeated
-// "Failed to load resource: 404" errors from script.googleusercontent.com's
-// internal echo/redirect relay — Apps Script's well-documented "a 302 redirect
-// converts a POST to a GET and drops the body" behavior, landing somewhere
-// that 404s instead of reaching our doPost. XMLHttpRequest's redirect handling
-// is a separate code path in the browser from fetch()'s, and is the workaround
-// most commonly reported to avoid this specific Apps Script failure mode.
+// Uses XMLHttpRequest rather than fetch(). Originally switched from fetch() on
+// the theory that its redirect handling specifically caused login POSTs to
+// arrive at doGet instead of doPost (a 302 redirect converting POST to GET).
+// That turned out to be incomplete: the same lost-POST pattern still occurs
+// over XHR, because converting POST to GET on a redirect is standard browser
+// behavior for both APIs, not a fetch()-only quirk. Left on XMLHttpRequest
+// since there's no evidence it's worse than fetch() here, but the real
+// mitigation is the retry loop in apiPost/handleLogin, not the transport.
 function _xhrPostText(url, payload) {
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
@@ -1175,17 +1194,33 @@ function apiPost(body) {
   body.email = App.user.email;
   body.token = App.user.token;
   var payload = JSON.stringify(body);
+  var GIVE_UP_MSG = 'Server returned an unexpected response. Please try again.';
+
+  function retryOrGiveUp(attempt) {
+    if (attempt < 4) {
+      return new Promise(function(res) {
+        setTimeout(function() { res(doFetch(attempt + 1)); }, 350);
+      });
+    }
+    throw new Error(GIVE_UP_MSG);
+  }
+
   function doFetch(attempt) {
     return _xhrPostText(GAS_URL, payload).then(function(text) {
       var parsed = null;
       try { parsed = JSON.parse(text); } catch(e) {}
       if (parsed && !isPostLost(parsed)) return parsed;
-      if (attempt < 4) {
-        return new Promise(function(res) {
-          setTimeout(function() { res(doFetch(attempt + 1)); }, 350);
-        });
-      }
-      throw new Error('Server returned an unexpected response. Please try again.');
+      return retryOrGiveUp(attempt);
+    }).catch(function(err) {
+      // Previously, a genuine XHR error/timeout (as opposed to a "lost POST"
+      // bad-JSON response) skipped this retry loop entirely and failed the
+      // whole call on the first hiccup. We've now seen the POST->GET redirect
+      // happen even over XHR, so treat a hard XHR failure the same as a lost
+      // POST: retry rather than surfacing it immediately. The message check
+      // avoids re-retrying a rejection that already exhausted its attempts
+      // further down the recursion.
+      if (err && err.message === GIVE_UP_MSG) throw err;
+      return retryOrGiveUp(attempt);
     });
   }
   return doFetch(1);
