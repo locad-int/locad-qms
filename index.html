@@ -807,8 +807,23 @@ window.addEventListener('DOMContentLoaded', function() {
   }, 240000);
 });
 
+// True while a login request is in flight. Checked before anything else in
+// handleLogin — disabling the button alone isn't enough, because pressing
+// Enter in the email/password field re-submits the form regardless of the
+// submit button's disabled state. Two overlapping login calls for the same
+// account each generate a fresh session token and overwrite the one stored
+// server-side; if the browser ends up holding a different token than the one
+// that "won" server-side, the very next authenticated request comes back
+// unauthorized right after sign-in appeared to succeed — surfacing as "session
+// expired" moments after logging in. Given sign-in was already slow (10-30s in
+// the affected deployment), a frustrated double-Enter or Enter-then-click was
+// an easy way to trigger this.
+var _loginInFlight = false;
+
 function handleLogin(e) {
   e.preventDefault();
+  if (_loginInFlight) return;
+
   var email    = document.getElementById('login-email').value.trim().toLowerCase();
   var password = document.getElementById('login-password').value;
   var errEl    = document.getElementById('login-err');
@@ -820,37 +835,49 @@ function handleLogin(e) {
     return;
   }
 
+  _loginInFlight = true;
   var btn = document.getElementById('btn-login');
   btn.disabled    = true;
   btn.textContent = 'Signing in…';
 
   var payload = JSON.stringify({ action: 'login', email: email, password: password });
+  var loginStart = Date.now();
 
   // GAS sometimes internally redirects a POST to doGet. That yields either
   // non-JSON HTML *or* the doGet "invalid_request" JSON — both mean the POST
   // body never arrived, so retry rather than surfacing it as a login failure.
+  //
+  // Confirmed directly from this deployment's console: a plain GET resolves
+  // cleanly, but sending the login POST via fetch() reliably hit repeated 404s
+  // from script.googleusercontent.com's internal echo/redirect relay — both
+  // "Execute the app as" and "Who has access" were already correctly
+  // configured, so this isn't a deployment-settings issue. It's fetch()'s
+  // redirect handling specifically; _xhrPostText uses XMLHttpRequest instead,
+  // which is the commonly-reported workaround for this Apps Script quirk.
   function doLoginFetch(attempt) {
-    return fetch(GAS_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    payload
-    }).then(function(resp) {
-      return resp.text().then(function(text) {
-        var parsed = null;
-        try { parsed = JSON.parse(text); } catch(e) {}
-        if (parsed && !isPostLost(parsed)) return parsed;
-        if (attempt < 4) {
-          return new Promise(function(res) {
-            setTimeout(function() { res(doLoginFetch(attempt + 1)); }, 350);
-          });
-        }
-        throw new Error('Unexpected server response');
-      });
+    var attemptStart = Date.now();
+    return _xhrPostText(GAS_URL, payload).then(function(text) {
+      var parsed = null;
+      try { parsed = JSON.parse(text); } catch(e) {}
+      var ms = Date.now() - attemptStart;
+      if (parsed && !isPostLost(parsed)) {
+        if (attempt > 1) console.log('[QMS login] succeeded on attempt ' + attempt + ' (' + ms + 'ms), total ' + (Date.now() - loginStart) + 'ms');
+        return parsed;
+      }
+      console.log('[QMS login] attempt ' + attempt + ' lost the POST (' + ms + 'ms) — ' +
+        (parsed ? 'got doGet’s invalid_request response' : 'response was not JSON'));
+      if (attempt < 4) {
+        return new Promise(function(res) {
+          setTimeout(function() { res(doLoginFetch(attempt + 1)); }, 350);
+        });
+      }
+      throw new Error('lost_post');
     });
   }
 
   doLoginFetch(1)
     .then(function(r) {
+      _loginInFlight  = false;
       btn.disabled    = false;
       btn.textContent = 'Sign in';
       if (r.ok) {
@@ -868,10 +895,15 @@ function handleLogin(e) {
         errEl.style.display = 'block';
       }
     })
-    .catch(function() {
+    .catch(function(err) {
+      _loginInFlight  = false;
       btn.disabled    = false;
       btn.textContent = 'Sign in';
-      errEl.textContent   = 'Network error. Check your connection.';
+      var totalMs = Date.now() - loginStart;
+      errEl.textContent = err && err.message === 'lost_post'
+        ? 'Sign-in took too long (' + Math.round(totalMs / 1000) + 's) because the request kept ' +
+          'getting redirected. Please try again — if this keeps happening, tell your admin.'
+        : 'Network error. Check your connection.';
       errEl.style.display = 'block';
     });
 }
@@ -975,6 +1007,9 @@ function initials(name) {
 }
 
 var SUPERUSER_EMAIL = 'larry.capacete@golocad.com'; // must match SUPERUSER_EMAIL in Script Properties
+// Must match DOCUMENT_CONTROLLER_EMAIL in Code.gs. Used only to show/hide the
+// Export register button — the backend enforces the real check independently.
+var DOCUMENT_CONTROLLER_EMAIL = 'larry.capacete@golocad.com';
 // Cosmetic only — used in placeholder text. The backend enforces the real check.
 var ALLOWED_DOMAIN = 'golocad.com';
 
@@ -986,6 +1021,12 @@ function showApp() {
   // Show Admin tab only for superuser
   var isSu = App.user.email.toLowerCase() === SUPERUSER_EMAIL.toLowerCase();
   document.getElementById('nav-admin').style.display = isSu ? 'inline-flex' : 'none';
+  // Export register: superuser or document controller only. This is a UI
+  // convenience, not the real boundary — the backend rejects the export
+  // action for anyone else regardless of whether this button is visible.
+  var canExport = isSu || App.user.email.toLowerCase() === DOCUMENT_CONTROLLER_EMAIL.toLowerCase();
+  var exportBtn = document.getElementById('btn-export-register');
+  if (exportBtn) exportBtn.style.display = canExport ? '' : 'none';
   loadApprovals();
 }
 
@@ -1064,27 +1105,49 @@ function isPostLost(parsed) {
   return !parsed || parsed.error === 'invalid_request';
 }
 
+// Sends a POST and resolves with the raw response text — never rejects on a
+// non-2xx status, since the caller's own JSON.parse + isPostLost check is what
+// decides whether a response counts as "lost" and should be retried.
+//
+// Uses XMLHttpRequest rather than fetch(). Diagnosed directly from this
+// deployment's own console output: a plain GET to the exec URL resolves
+// cleanly, but a POST sent via fetch() reliably surfaced repeated
+// "Failed to load resource: 404" errors from script.googleusercontent.com's
+// internal echo/redirect relay — Apps Script's well-documented "a 302 redirect
+// converts a POST to a GET and drops the body" behavior, landing somewhere
+// that 404s instead of reaching our doPost. XMLHttpRequest's redirect handling
+// is a separate code path in the browser from fetch()'s, and is the workaround
+// most commonly reported to avoid this specific Apps Script failure mode.
+function _xhrPostText(url, payload) {
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    try {
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+    } catch(e) { reject(e); return; }
+    xhr.onload = function() { resolve(xhr.responseText || ''); };
+    xhr.onerror = function() { reject(new Error('Network error')); };
+    xhr.ontimeout = function() { reject(new Error('Request timed out')); };
+    xhr.timeout = 25000;
+    xhr.send(payload);
+  });
+}
+
 function apiPost(body) {
   body.email = App.user.email;
   body.token = App.user.token;
   var payload = JSON.stringify(body);
   function doFetch(attempt) {
-    return fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: payload
-    }).then(function(r) {
-      return r.text().then(function(text) {
-        var parsed = null;
-        try { parsed = JSON.parse(text); } catch(e) {}
-        if (parsed && !isPostLost(parsed)) return parsed;
-        if (attempt < 4) {
-          return new Promise(function(res) {
-            setTimeout(function() { res(doFetch(attempt + 1)); }, 350);
-          });
-        }
-        throw new Error('Server returned an unexpected response. Please try again.');
-      });
+    return _xhrPostText(GAS_URL, payload).then(function(text) {
+      var parsed = null;
+      try { parsed = JSON.parse(text); } catch(e) {}
+      if (parsed && !isPostLost(parsed)) return parsed;
+      if (attempt < 4) {
+        return new Promise(function(res) {
+          setTimeout(function() { res(doFetch(attempt + 1)); }, 350);
+        });
+      }
+      throw new Error('Server returned an unexpected response. Please try again.');
     });
   }
   return doFetch(1);
@@ -2524,16 +2587,33 @@ function submitDecision(decision) {
 // Poll the detail endpoint until masterFileId appears (max ~5 min — the drainer
 // trigger runs every 5 min, then the job itself takes ~30-60s), then re-render
 // so the signed copy shows up without a manual reload.
+//
+// Both submitDecision (immediately, if r.finalizing) and openSop (on reopening
+// an approved-but-not-yet-signed document) call this, so two overlapping polls
+// for the same approval are normal, not a bug. _pollToken is what prevents the
+// double "ready" toast that caused: without it, a slow /detail response from an
+// older poll (or from a tick whose previous request hadn't returned yet) could
+// resolve with masterFileId already set AFTER a newer poll — or that same poll's
+// own next tick — had already shown the toast and moved on, showing it a second
+// time for the same event.
 var _pollTimer = null;
+var _pollToken = 0;
 function pollForSignedCopies(code) {
   if (_pollTimer) clearInterval(_pollTimer);
+  var myToken = ++_pollToken;
   var tries = 0;
+  var done  = false;   // guards overlapping in-flight requests within this poll
   _pollTimer = setInterval(function() {
     tries++;
     if (tries > 40 || !App.user) { clearInterval(_pollTimer); _pollTimer = null; return; }
     apiGet('detail', { code: code })
       .then(function(r) {
+        // Stale response: either this poll already found its answer, or a newer
+        // poll has since superseded it. Either way, acting on it now would be
+        // reporting the same event a second time.
+        if (done || myToken !== _pollToken) return;
         if (r.ok && r.data && r.data.masterFileId) {
+          done = true;
           clearInterval(_pollTimer); _pollTimer = null;
           showToast('Signed copies are ready.');
           if (App.currentSop && App.currentSop.id === code) openSop(code);
