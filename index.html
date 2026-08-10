@@ -1211,6 +1211,10 @@ var App = {
   allSops:     [],
   currentSop:  null,
   currentIrDraft: null,   // the incident report draft currently open on the decide screen
+  // Approved incident report count, shown as a card on the Documents folder
+  // grid. Lives separately from allSops (a different list entirely) — null
+  // means "not fetched yet", fetched lazily the first time the grid renders.
+  irApprovedCount: null,
   // Which "folder" is open in the Documents tab: null means showing the
   // folder grid, 'ALL' means the unfiltered drilldown, or a type code
   // ('QM'/'SOP'/'WI'/'FM') means that type's filtered drilldown.
@@ -1454,6 +1458,7 @@ function signOut() {
   App.allSops        = [];
   App.currentSop     = null;
   App.currentIrDraft = null;
+  App.irApprovedCount = null;
   App.currentTab     = 'approvals';
   App.docsFolder     = null;
   _prepSigDataUrl     = null;
@@ -1895,7 +1900,44 @@ function renderDocsFolders() {
   // there and it jumps straight to "All documents" via onGlobalSearchInput) —
   // redundant now that the search box is always visible, so it's been removed.
 
+  // Incident Report tile: a different kind of record (not part of the
+  // Prepared/Reviewed/Approved register, so it isn't in App.allSops or
+  // docsFolderCounts), shown here too since people look for it in the same
+  // place as everything else. Clicking it reuses the Incident Reports tab's
+  // own view rather than the QM/SOP/WI/FM table drilldown, which doesn't fit
+  // an incident report's shape. The standalone "Incident Reports" nav tab
+  // stays as a second way in — this is additive, not a replacement.
+  if (App.irApprovedCount === null) ensureIrApprovedCount();
+  var irCount = App.irApprovedCount || 0;
+  html += '<div onclick="switchTab(\'incidents\')" tabindex="0" ' +
+    'onkeydown="if(event.key===\'Enter\')switchTab(\'incidents\')" ' +
+    'style="background:#fff;border:1.5px solid #ececec;border-radius:12px;padding:20px;' +
+    'cursor:pointer;transition:border-color .15s" ' +
+    'onmouseover="this.style.borderColor=\'#dc2626\'" ' +
+    'onmouseout="this.style.borderColor=\'#ececec\'">' +
+    '<div style="width:40px;height:40px;border-radius:9px;background:#fee2e2;color:#dc2626;' +
+      'display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;margin-bottom:14px">🚨</div>' +
+    '<div style="font-weight:600;font-size:14px;color:#111;margin-bottom:3px">Incident Report</div>' +
+    '<div style="font-size:12px;color:#999">Generated records</div>' +
+    '<div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">' +
+      '<span style="font-size:22px;font-weight:700;color:#111">' + irCount + '</span>' +
+    '</div></div>';
+
   el.innerHTML = html;
+}
+
+// Lazily fetches (and caches on App) the approved incident report count for
+// the Documents folder grid's Incident Report tile. Re-renders the grid once
+// it resolves so the number appears without the person needing to do
+// anything — the tile shows 0 in the meantime rather than a spinner, since
+// this is a small supplementary count, not the page's main content.
+function ensureIrApprovedCount() {
+  apiPost({ action: 'getIncidentReports' }).then(function(r) {
+    App.irApprovedCount = r.ok ? (r.data || []).length : 0;
+    if (!App.docsFolder) renderDocsFolders();
+  }).catch(function() {
+    App.irApprovedCount = 0;
+  });
 }
 
 // keepSearch: true when this call is jumping straight from the folder grid
@@ -3821,6 +3863,7 @@ function decideIrReport(decision) {
     }
     if (decision === 'approve') {
       showToast('Approved — report ' + r.record.irNumber + ' generated.');
+      App.irApprovedCount = null;   // stale now — Documents grid re-fetches next render
       backFromIrDecide();
       loadIncidentReports();
       window.open(r.record.pdfUrl, '_blank');
