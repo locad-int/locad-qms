@@ -893,6 +893,20 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <label>Include the full details of the affected item *</label>
         <textarea id="ir-description" rows="5"></textarea>
       </div>
+      <div class="field" style="margin-top:12px">
+        <label>Photos (optional — up to 6, as evidence)</label>
+        <div class="file-drop" id="ir-photos-drop" onclick="document.getElementById('ir-photos-input').click()"
+             ondragover="event.preventDefault();this.style.borderColor='#16a34a'"
+             ondragleave="this.style.borderColor='#e0e0e0'"
+             ondrop="handleIrPhotosDrop(event)">
+          <div class="file-drop-icon">📷</div>
+          <div class="file-drop-text" id="ir-photos-drop-text">Click to upload or drag and drop photos</div>
+          <div class="file-drop-sub">JPG or PNG, up to 6 photos</div>
+        </div>
+        <input id="ir-photos-input" type="file" accept="image/png,image/jpeg" multiple
+          style="display:none" onchange="handleIrPhotosSelect(this)">
+        <div id="ir-photos-preview" style="display:none;margin-top:10px;gap:8px;flex-wrap:wrap"></div>
+      </div>
     </div>
 
     <div class="form-section">
@@ -952,12 +966,39 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div class="form-section">
       <div class="form-section-title">6. Other Details</div>
       <div class="field-row">
-        <div class="field"><label>Checked By *</label><input id="ir-checked-by" type="text"></div>
+        <div class="field"><label>Checked By — full name *</label><input id="ir-checked-by" type="text"></div>
         <div class="field"><label>Business Impact</label><input id="ir-business-impact" type="text"></div>
       </div>
-      <div class="field-row" style="margin-top:12px">
-        <div class="field"><label>Approved By *</label><input id="ir-approved-by" type="text"></div>
+      <div class="field" style="margin-top:12px">
+        <label>Checked By — signature *</label>
+        <div id="ir-checked-sig-box" onclick="openSigModal('ir-checked')"
+          style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">
+          <div id="ir-checked-sig-preview-wrap" style="display:none;margin-bottom:6px">
+            <img id="ir-checked-sig-preview" style="max-height:60px;max-width:240px;border:1px solid #eee;border-radius:4px;padding:4px;background:#fff">
+          </div>
+          <div id="ir-checked-sig-text" style="font-size:13px;color:#888">✍ Click to draw, type, or upload signature</div>
+        </div>
+        <div id="ir-checked-sig-clear" style="display:none;margin-top:6px">
+          <button type="button" onclick="event.stopPropagation();clearIrCheckedSig()" class="btn-ghost btn-ghost-danger">✕ Remove</button>
+        </div>
+      </div>
+
+      <div class="field-row" style="margin-top:20px">
+        <div class="field"><label>Approved By — full name *</label><input id="ir-approved-by" type="text"></div>
         <div class="field"><label>Received by Customer</label><input id="ir-received-by-customer" type="text"></div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Approved By — signature *</label>
+        <div id="ir-approved-sig-box" onclick="openSigModal('ir-approved')"
+          style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">
+          <div id="ir-approved-sig-preview-wrap" style="display:none;margin-bottom:6px">
+            <img id="ir-approved-sig-preview" style="max-height:60px;max-width:240px;border:1px solid #eee;border-radius:4px;padding:4px;background:#fff">
+          </div>
+          <div id="ir-approved-sig-text" style="font-size:13px;color:#888">✍ Click to draw, type, or upload signature</div>
+        </div>
+        <div id="ir-approved-sig-clear" style="display:none;margin-top:6px">
+          <button type="button" onclick="event.stopPropagation();clearIrApprovedSig()" class="btn-ghost btn-ghost-danger">✕ Remove</button>
+        </div>
       </div>
     </div>
 
@@ -3150,6 +3191,76 @@ function renderIrChecklist() {
   el.innerHTML = html;
 }
 
+// ── Evidence photos (Description of Events) ──────────────────────────────────
+var _irPhotos = [];   // [{ name, dataUrl }] — dataUrl already compressed
+var IR_MAX_PHOTOS = 6;
+
+function handleIrPhotosSelect(input) {
+  if (!input.files || !input.files.length) return;
+  addIrPhotoFiles(input.files);
+  input.value = ''; // allow re-selecting the same file later
+}
+
+function handleIrPhotosDrop(e) {
+  e.preventDefault();
+  document.getElementById('ir-photos-drop').style.borderColor = '#e0e0e0';
+  if (e.dataTransfer.files && e.dataTransfer.files.length) addIrPhotoFiles(e.dataTransfer.files);
+}
+
+function addIrPhotoFiles(fileList) {
+  var files = Array.prototype.slice.call(fileList).filter(function(f) {
+    return f.type === 'image/jpeg' || f.type === 'image/png';
+  });
+  if (!files.length) return;
+  var room = IR_MAX_PHOTOS - _irPhotos.length;
+  if (room <= 0) { showToast('Up to ' + IR_MAX_PHOTOS + ' photos — remove one first.'); return; }
+  if (files.length > room) showToast('Only added ' + room + ' — up to ' + IR_MAX_PHOTOS + ' photos total.');
+  files.slice(0, room).forEach(compressIrPhoto);
+}
+
+function compressIrPhoto(file) {
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var img = new Image();
+    img.onload = function() {
+      // Resize to a reasonable max dimension so a full-resolution phone photo
+      // (several MB) doesn't bloat the submission payload or the generated PDF.
+      var MAX_DIM = 1400;
+      var ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+      var c = document.createElement('canvas');
+      c.width  = Math.max(1, Math.round(img.width  * ratio));
+      c.height = Math.max(1, Math.round(img.height * ratio));
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      _irPhotos.push({ name: file.name, dataUrl: c.toDataURL('image/jpeg', 0.72) });
+      renderIrPhotosPreview();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeIrPhoto(i) {
+  _irPhotos.splice(i, 1);
+  renderIrPhotosPreview();
+}
+
+function renderIrPhotosPreview() {
+  var el = document.getElementById('ir-photos-preview');
+  if (!el) return;
+  if (!_irPhotos.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = _irPhotos.map(function(p, i) {
+    return '<div style="position:relative;width:72px;height:72px">' +
+      '<img src="' + p.dataUrl + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #eee">' +
+      '<button type="button" onclick="removeIrPhoto(' + i + ')" ' +
+        'style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;' +
+        'background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:12px;line-height:1">✕</button>' +
+      '</div>';
+  }).join('');
+}
+
 function showNewIrForm() {
   // Reachable both from the Incident Reports tab's own button and from the
   // "+ New Document" launch pad on Approvals/Documents — hide whichever of
@@ -3167,6 +3278,22 @@ function showNewIrForm() {
     var el = document.getElementById(id); if (el) el.value = '';
   });
   var oc = document.getElementById('ir-others-check'); if (oc) oc.checked = false;
+
+  // Reset sign-off signatures — a previous report's signature must never
+  // carry over into a new one.
+  _irCheckedSigDataUrl  = null;
+  _irApprovedSigDataUrl = null;
+  ['ir-checked', 'ir-approved'].forEach(function(prefix) {
+    var wrap = document.getElementById(prefix + '-sig-preview-wrap'); if (wrap) wrap.style.display = 'none';
+    var clr  = document.getElementById(prefix + '-sig-clear');        if (clr)  clr.style.display  = 'none';
+    var txt  = document.getElementById(prefix + '-sig-text');         if (txt)  txt.style.display  = 'block';
+    var box  = document.getElementById(prefix + '-sig-box');          if (box)  box.style.borderColor = '#e0e0e0';
+  });
+
+  // Reset evidence photos
+  _irPhotos = [];
+  renderIrPhotosPreview();
+
   document.getElementById('ir-form-error').style.display = 'none';
   document.getElementById('ir-new-view').classList.add('active');
   document.getElementById('ir-new-view').style.display = 'block';
@@ -3215,9 +3342,12 @@ function collectIrFields() {
     immediateActions: v('ir-immediate-actions'),
     preventiveActions: v('ir-preventive-actions'),
     checkedBy: v('ir-checked-by'),
+    checkedBySig: _irCheckedSigDataUrl,
     businessImpact: v('ir-business-impact'),
     approvedBy: v('ir-approved-by'),
-    receivedByCustomer: v('ir-received-by-customer')
+    approvedBySig: _irApprovedSigDataUrl,
+    receivedByCustomer: v('ir-received-by-customer'),
+    photos: _irPhotos
   };
 }
 
@@ -3233,6 +3363,11 @@ function submitIncidentReport() {
   }
   if (!fields.checkedBy || !fields.approvedBy) {
     errEl.textContent = 'Checked By and Approved By are required — these are the sign-off for this report.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!fields.checkedBySig || !fields.approvedBySig) {
+    errEl.textContent = 'A signature is required for both Checked By and Approved By.';
     errEl.style.display = 'block';
     return;
   }
@@ -3334,7 +3469,9 @@ function showNewSopForm() {
 }
 
 // ── Unified signature modal ───────────────────────────────────────────────────
-var _sigTarget       = null;   // 'prep' | 'decision'
+var _sigTarget       = null;   // 'prep' | 'decision' | 'ir-checked' | 'ir-approved'
+var _irCheckedSigDataUrl  = null;
+var _irApprovedSigDataUrl = null;
 var _sigUploadUrl    = null;   // data URL from upload tab
 var _sigDrawing      = false;
 var _sigCanvas, _sigCtx;
@@ -3457,20 +3594,24 @@ function applySig() {
 
   if (!dataUrl) return;
 
-  if (_sigTarget === 'prep') {
-    _prepSigDataUrl = dataUrl;
-    document.getElementById('prep-sig-preview').src              = dataUrl;
-    document.getElementById('prep-sig-preview-wrap').style.display = 'block';
-    document.getElementById('prep-sig-clear').style.display        = 'block';
-    document.getElementById('prep-sig-text').style.display         = 'none';
-    document.getElementById('prep-sig-box').style.borderColor      = '#16a34a';
-  } else {
-    _decisionSigDataUrl = dataUrl;
-    document.getElementById('dec-sig-preview').src              = dataUrl;
-    document.getElementById('dec-sig-preview-wrap').style.display = 'block';
-    document.getElementById('dec-sig-clear').style.display        = 'block';
-    document.getElementById('dec-sig-text').style.display         = 'none';
-    document.getElementById('dec-sig-box').style.borderColor      = '#16a34a';
+  // Each target maps to its own set of box/preview/clear/text DOM ids and its
+  // own backing global — kept as a small lookup rather than another branch
+  // per target so adding future sign-off fields doesn't mean copy-pasting
+  // another if/else block.
+  var sigTargets = {
+    'prep':        { set: function(v) { _prepSigDataUrl = v; },        prefix: 'prep' },
+    'decision':    { set: function(v) { _decisionSigDataUrl = v; },    prefix: 'dec' },
+    'ir-checked':  { set: function(v) { _irCheckedSigDataUrl = v; },   prefix: 'ir-checked' },
+    'ir-approved': { set: function(v) { _irApprovedSigDataUrl = v; },  prefix: 'ir-approved' }
+  };
+  var t = sigTargets[_sigTarget];
+  if (t) {
+    t.set(dataUrl);
+    document.getElementById(t.prefix + '-sig-preview').src                = dataUrl;
+    document.getElementById(t.prefix + '-sig-preview-wrap').style.display = 'block';
+    document.getElementById(t.prefix + '-sig-clear').style.display        = 'block';
+    document.getElementById(t.prefix + '-sig-text').style.display         = 'none';
+    document.getElementById(t.prefix + '-sig-box').style.borderColor      = '#16a34a';
   }
   closeSigModal();
 }
@@ -3481,6 +3622,22 @@ function clearPrepSig() {
   document.getElementById('prep-sig-clear').style.display        = 'none';
   document.getElementById('prep-sig-text').style.display         = 'block';
   document.getElementById('prep-sig-box').style.borderColor      = '#e0e0e0';
+}
+
+function clearIrCheckedSig() {
+  _irCheckedSigDataUrl = null;
+  document.getElementById('ir-checked-sig-preview-wrap').style.display = 'none';
+  document.getElementById('ir-checked-sig-clear').style.display        = 'none';
+  document.getElementById('ir-checked-sig-text').style.display         = 'block';
+  document.getElementById('ir-checked-sig-box').style.borderColor      = '#e0e0e0';
+}
+
+function clearIrApprovedSig() {
+  _irApprovedSigDataUrl = null;
+  document.getElementById('ir-approved-sig-preview-wrap').style.display = 'none';
+  document.getElementById('ir-approved-sig-clear').style.display        = 'none';
+  document.getElementById('ir-approved-sig-text').style.display         = 'block';
+  document.getElementById('ir-approved-sig-box').style.borderColor      = '#e0e0e0';
 }
 
 function backFromNewSop() {
