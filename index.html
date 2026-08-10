@@ -308,7 +308,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div class="login-brand-tag">Quality Management System</div>
     <div class="login-brand-pill">Document approvals &amp; control</div>
     <div class="login-brand-pill-muted">Document versioning</div>
-    <div class="login-brand-pill-muted">Audit trail</div>
+    <div class="login-brand-pill-muted">Audit Trail</div>
   </div>
   <!-- Right form panel -->
   <div class="login-form-panel">
@@ -350,7 +350,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <nav>
       <button class="active" onclick="switchTab('approvals')">Approvals</button>
       <button onclick="switchTab('documents')">Documents</button>
-      <button onclick="switchTab('audit')">Audit trail</button>
+      <button onclick="switchTab('audit')">Audit Trail</button>
       <button id="nav-admin" style="display:none" onclick="switchTab('admin')">Admin</button>
     </nav>
     <div class="tb-right">
@@ -398,7 +398,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
       <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
         <div>
-          <div class="dash-title" id="docs-title">All documents</div>
+          <div class="dash-title" id="docs-title">All Documents</div>
           <div class="dash-sub" id="docs-sub">Loading…</div>
         </div>
         <div style="display:flex;gap:10px;align-items:center">
@@ -674,7 +674,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
   <div id="audit-content" class="view">
     <div id="audit-view">
       <div class="dash-header">
-        <div class="dash-title">Audit trail</div>
+        <div class="dash-title">Audit Trail</div>
         <div class="dash-sub">All actions across all controlled documents</div>
       </div>
       <div class="audit-table-wrap">
@@ -1382,7 +1382,7 @@ function renderDocsFolders() {
   // so — without this, it kept showing whatever folder name was last opened
   // (e.g. "Quality Manual") even after navigating back out to the grid.
   var total = (App.allSops || []).length;
-  document.getElementById('docs-title').textContent = 'All documents';
+  document.getElementById('docs-title').textContent = 'All Documents';
   document.getElementById('docs-sub').textContent =
     total + ' document' + (total !== 1 ? 's' : '') + ' across 4 types';
 
@@ -1428,7 +1428,7 @@ function openDocsFolder(type, keepSearch) {
   if (browseAll) browseAll.style.display = 'none';
   document.getElementById('docs-drilldown').style.display   = 'block';
   document.getElementById('docs-title').textContent =
-    type === 'ALL' ? 'All documents' : (DOC_TYPES[type] ? DOC_TYPES[type].name : 'Documents');
+    type === 'ALL' ? 'All Documents' : (DOC_TYPES[type] ? DOC_TYPES[type].name : 'Documents');
 
   // Inside a specific type folder, the folder itself IS the type filter — hide
   // that dropdown rather than leaving a redundant, editable control that could
