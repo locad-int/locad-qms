@@ -734,7 +734,15 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <div class="field-hint">When this document must next be reviewed.
             Leave blank for 12 months from today.</div>
         </div>
-        <div class="field"></div>
+        <div class="field">
+          <label>Team *</label>
+          <select id="f-team"
+            style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;background:#fff;outline:none">
+            <option value="">Select a team...</option>
+          </select>
+          <div class="field-hint">Files into that team's subfolder in Master Copy / Controlled
+            Copy, if one exists yet for this document type. Managed in Admin.</div>
+        </div>
       </div>
     </div>
 
@@ -764,7 +772,14 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
     <div class="form-section">
       <div class="form-section-title">Upload document</div>
-      <div class="field">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" id="src-tab-file" onclick="setSopSource('file')"
+          class="sig-tab sig-tab-active">📄 Upload a file</button>
+        <button type="button" id="src-tab-link" onclick="setSopSource('link')"
+          class="sig-tab">🔗 Paste a Google Doc link</button>
+      </div>
+
+      <div class="field" id="src-file-block">
         <div class="file-drop" id="file-drop" onclick="document.getElementById('f-file').click()"
              ondragover="event.preventDefault();this.style.borderColor='#16a34a'"
              ondragleave="this.style.borderColor='#e0e0e0'"
@@ -776,6 +791,13 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <input id="f-file" type="file" accept=".docx,.doc,.pdf" style="display:none"
                onchange="handleFileSelect(this)">
         <div class="progress-bar" id="upload-progress"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+
+      <div class="field" id="src-link-block" style="display:none">
+        <label>Google Doc link</label>
+        <input id="f-gdoc-link" type="text" placeholder="https://docs.google.com/document/d/...">
+        <div class="field-hint">The document must be one this app's account can already open. It's
+          exported to a fresh copy on submit — the live Doc you link isn't edited or moved.</div>
       </div>
     </div>
 
@@ -1089,12 +1111,54 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
 
       <!-- User list -->
-      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;overflow:hidden">
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;overflow:hidden;margin-bottom:36px">
         <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between">
           <div style="font-size:15px;font-weight:600;color:#111">Current users</div>
           <button onclick="loadUsers()" class="btn-ghost btn-ghost-accent" style="font-size:13px">↻ Refresh</button>
         </div>
         <div id="admin-user-list" style="padding:8px 0">
+          <div class="spinner-wrap"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="dash-header" style="margin-bottom:32px">
+        <div class="dash-title">Team Management</div>
+        <div class="dash-sub">Teams offered on the New Document form, for filing into per-team subfolders</div>
+      </div>
+
+      <!-- Add team form -->
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:28px;margin-bottom:28px">
+        <div style="font-size:15px;font-weight:600;color:#111;margin-bottom:8px">Add new team</div>
+        <div style="font-size:12px;color:#999;margin-bottom:18px">
+          Adding a team here only adds it as an option on the form — it does not create anything in
+          Drive. For it to actually route documents, a subfolder with this exact name must already
+          exist inside that document type's Master Copy and Controlled Copy folders.
+        </div>
+        <form onsubmit="adminAddTeam(event)">
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="flex:2;min-width:200px">
+              <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Team name</label>
+              <input id="at-name" type="text" placeholder="e.g. Inbound" required
+                style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
+                onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button type="submit" id="btn-at-add" class="btn btn-primary" style="font-size:14px">
+                Add team
+              </button>
+            </div>
+          </div>
+          <div id="at-err" style="font-size:12px;color:#dc2626;margin-top:8px;display:none"></div>
+        </form>
+      </div>
+
+      <!-- Team list -->
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;overflow:hidden">
+        <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:15px;font-weight:600;color:#111">Current teams</div>
+          <button onclick="loadTeamsAdmin()" class="btn-ghost btn-ghost-accent" style="font-size:13px">↻ Refresh</button>
+        </div>
+        <div id="admin-team-list" style="padding:8px 0">
           <div class="spinner-wrap"><div class="spinner"></div></div>
         </div>
       </div>
@@ -1514,7 +1578,7 @@ function switchTab(tab) {
   if (tab === 'documents' && App.allSops.length === 0)     loadAllSops();
   if (tab === 'incidents')                                  loadIncidentReports();
   if (tab === 'audit')                                      loadAudit();
-  if (tab === 'admin')                                      loadUsers();
+  if (tab === 'admin')                                      { loadUsers(); loadTeamsAdmin(); }
 }
 
 function showView(id) {
@@ -2113,6 +2177,63 @@ function adminResetPwd(email) {
     .then(function(r) {
       if (r.ok) showToast('Password reset for ' + email + '.');
       else showToast(r.message || 'Failed to reset password.');
+    }).catch(function() { showToast('Network error.'); });
+}
+
+// ── Team management (Admin) ───────────────────────────────────────────────────
+function loadTeamsAdmin() {
+  document.getElementById('admin-team-list').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  apiGet('listTeams').then(function(r) {
+    var teams = r.data || [];
+    if (teams.length === 0) {
+      document.getElementById('admin-team-list').innerHTML =
+        '<div class="empty">No teams yet — add one below.</div>';
+      return;
+    }
+    var html = '<table><thead><tr><th>Team</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+    teams.forEach(function(t) {
+      html += '<tr>' +
+        '<td>' + esc(t) + '</td>' +
+        '<td style="text-align:right">' +
+          '<button onclick="adminRemoveTeam(\'' + esc(t) + '\')" ' +
+          'class="btn-ghost btn-ghost-danger">Remove</button>' +
+        '</td></tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('admin-team-list').innerHTML = html;
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function adminAddTeam(e) {
+  e.preventDefault();
+  var name  = document.getElementById('at-name').value.trim();
+  var errEl = document.getElementById('at-err');
+  errEl.style.display = 'none';
+  var btn = document.getElementById('btn-at-add');
+  btn.disabled = true; btn.textContent = 'Adding…';
+
+  apiPost({ action: 'addTeam', team: name })
+    .then(function(r) {
+      btn.disabled = false; btn.textContent = 'Add team';
+      if (r.ok) {
+        document.getElementById('at-name').value = '';
+        showToast('Team "' + name + '" added.');
+        loadTeamsAdmin();
+      } else {
+        errEl.textContent = r.message || 'Failed to add team.';
+        errEl.style.display = 'block';
+      }
+    }).catch(function() { btn.disabled = false; btn.textContent = 'Add team'; showToast('Network error.'); });
+}
+
+function adminRemoveTeam(name) {
+  if (!confirm('Remove "' + name + '" from the team list? It stays selectable on already-submitted ' +
+    'documents but will no longer appear as an option for new ones.')) return;
+  apiPost({ action: 'removeTeam', team: name })
+    .then(function(r) {
+      if (r.ok) { showToast('Team "' + name + '" removed.'); loadTeamsAdmin(); }
+      else showToast(r.message || 'Failed to remove team.');
     }).catch(function() { showToast('Network error.'); });
 }
 
@@ -3466,6 +3587,37 @@ function showNewSopForm() {
   document.getElementById('prep-sig-box').style.borderColor      = '#e0e0e0';
   document.getElementById('form-error').style.display = 'none';
   document.getElementById('btn-submit-sop').disabled = false;
+
+  var gLink = document.getElementById('f-gdoc-link'); if (gLink) gLink.value = '';
+  setSopSource('file');
+  loadTeamsIntoDropdown();
+}
+
+// ── Team dropdown (New Document form) ─────────────────────────────────────────
+// Loaded fresh each time the form opens rather than cached on App, since an
+// admin adding a team should be reflected the very next time someone opens
+// this form — no page reload should be required.
+function loadTeamsIntoDropdown() {
+  var sel = document.getElementById('f-team');
+  if (!sel) return;
+  var keep = sel.value;
+  apiGet('listTeams').then(function(r) {
+    var teams = r.data || [];
+    sel.innerHTML = '<option value="">Select a team...</option>' +
+      teams.map(function(t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
+    sel.value = teams.indexOf(keep) !== -1 ? keep : '';
+  }).catch(function() { /* dropdown just stays empty — submit validation will catch it */ });
+}
+
+// ── Document source: uploaded file, or a Google Doc link ─────────────────────
+var _sopSourceMode = 'file';   // 'file' | 'link'
+
+function setSopSource(mode) {
+  _sopSourceMode = mode;
+  document.getElementById('src-tab-file').classList.toggle('sig-tab-active', mode === 'file');
+  document.getElementById('src-tab-link').classList.toggle('sig-tab-active', mode === 'link');
+  document.getElementById('src-file-block').style.display = mode === 'file' ? 'block' : 'none';
+  document.getElementById('src-link-block').style.display = mode === 'link' ? 'block' : 'none';
 }
 
 // ── Unified signature modal ───────────────────────────────────────────────────
@@ -3724,6 +3876,7 @@ function submitNewSop() {
   var ap2shown = document.getElementById('ap2-fields').style.display !== 'none';
   var revShown = document.getElementById('rev-fields').style.display !== 'none';
   var docType  = (document.getElementById('f-doctype').value || '').trim();
+  var team     = (document.getElementById('f-team') || {}).value || '';
   var errEl    = document.getElementById('form-error');
 
   // Validate
@@ -3733,9 +3886,16 @@ function submitNewSop() {
   if (!code)     errors.push('Document ID is required.');
   if (!title)    errors.push('Title is required.');
   if (!version)  errors.push('Version is required.');
+  if (!team)     errors.push('Please select a team.');
   if (!prepName)       errors.push('Preparer name is required.');
   if (!_prepSigDataUrl) errors.push('Preparer signature is required.');
-  if (!_selectedFile) errors.push('Please upload a document.');
+  var gdocLink = (document.getElementById('f-gdoc-link') || {}).value || '';
+  gdocLink = gdocLink.trim();
+  if (_sopSourceMode === 'link') {
+    if (!gdocLink) errors.push('Paste a Google Doc link.');
+  } else if (!_selectedFile) {
+    errors.push('Please upload a document.');
+  }
   // Reviewer is optional, but if the section is open it must be filled in fully
   if (revShown && (revName || revEmail) && (!revName || !revEmail))
     errors.push('Enter both the reviewer name and email, or remove the reviewer.');
@@ -3751,45 +3911,37 @@ function submitNewSop() {
 
   var btn = document.getElementById('btn-submit-sop');
   btn.disabled     = true;
-  btn.textContent  = 'Uploading document…';
+  btn.textContent  = _sopSourceMode === 'link' ? 'Fetching document…' : 'Uploading document…';
 
   var progressBar  = document.getElementById('upload-progress');
   var progressFill = document.getElementById('progress-fill');
   progressBar.style.display = 'block';
   progressFill.style.width  = '30%';
 
-  // Read file as base64
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    progressFill.style.width = '60%';
-    var dataUrl  = ev.target.result;
-    var b64      = dataUrl.split(',')[1];
-    var mimeType = _selectedFile.type || 'application/octet-stream';
+  var baseFields = {
+    action:   'submitSop',
+    id:       code,
+    docType:  docType,
+    title:    title,
+    version:  version,
+    prepName: prepName,
+    prepSig:  _prepSigDataUrl || '',
+    revName:  revShown ? revName  : '',
+    revEmail: revShown ? revEmail : '',
+    ap1Name:  ap1Name,
+    ap1Email: ap1Email,
+    ap2Name:  ap2shown ? ap2Name : '',
+    ap2Email: ap2shown ? ap2Email : '',
+    // Blank is fine — the backend defaults to 12 months out, so no document
+    // enters the register without a review date.
+    reviewDate: (document.getElementById('f-review-date') || {}).value || '',
+    // Required (validated above) — files into that team's subfolder, falling
+    // back to the folder root if no matching subfolder exists yet.
+    team: team
+  };
 
-    btn.textContent = 'Saving to Drive…';
-    progressFill.style.width = '80%';
-
-    apiPost({
-      action:   'submitSop',
-      id:       code,
-      docType:  docType,
-      title:    title,
-      version:  version,
-      prepName: prepName,
-      prepSig:  _prepSigDataUrl || '',
-      mimeType: mimeType,
-      fileName: _selectedFile.name,
-      fileB64:  b64,
-      revName:  revShown ? revName  : '',
-      revEmail: revShown ? revEmail : '',
-      ap1Name:  ap1Name,
-      ap1Email: ap1Email,
-      ap2Name:  ap2shown ? ap2Name : '',
-      ap2Email: ap2shown ? ap2Email : '',
-      // Blank is fine — the backend defaults to 12 months out, so no document
-      // enters the register without a review date.
-      reviewDate: (document.getElementById('f-review-date') || {}).value || ''
-    }).then(function(r) {
+  function finishSubmit(fields) {
+    apiPost(fields).then(function(r) {
       progressFill.style.width = '100%';
       if (r.ok) {
         showToast((revShown && revEmail)
@@ -3817,6 +3969,33 @@ function submitNewSop() {
       btn.textContent = 'Submit for review';
       progressBar.style.display = 'none';
     });
+  }
+
+  if (_sopSourceMode === 'link') {
+    // No file to read — the backend fetches and exports the Google Doc itself.
+    progressFill.style.width = '70%';
+    var fields = Object.assign({}, baseFields, { googleDocUrl: gdocLink });
+    finishSubmit(fields);
+    return;
+  }
+
+  // Read file as base64
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    progressFill.style.width = '60%';
+    var dataUrl  = ev.target.result;
+    var b64      = dataUrl.split(',')[1];
+    var mimeType = _selectedFile.type || 'application/octet-stream';
+
+    btn.textContent = 'Saving to Drive…';
+    progressFill.style.width = '80%';
+
+    var fields = Object.assign({}, baseFields, {
+      mimeType: mimeType,
+      fileName: _selectedFile.name,
+      fileB64:  b64
+    });
+    finishSubmit(fields);
   };
   reader.readAsDataURL(_selectedFile);
 }
