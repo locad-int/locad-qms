@@ -393,6 +393,10 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 #ir-new-view { display:none; max-width:820px; margin:0 auto; padding:36px 24px; }
 #ir-new-view.active { display:block; }
 
+/* ── Incident report review/decide screen (the routed Approved By step) ───────── */
+#ir-decide-view { display:none; max-width:820px; margin:0 auto; padding:36px 24px; }
+#ir-decide-view.active { display:block; }
+
 /* ── "+ New Document" launch pad ───────────────────────────────────────────────── */
 #create-choice-view { display:none; max-width:680px; margin:0 auto; padding:36px 24px; }
 #create-choice-view.active { display:block; }
@@ -658,6 +662,22 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           + New Incident Report
         </button>
       </div>
+
+      <!-- Reports routed to the signed-in user for Approved By sign-off.
+           Hidden entirely when empty. -->
+      <div id="ir-my-approvals-wrap" style="display:none;margin-bottom:28px">
+        <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Awaiting your approval</div>
+        <div class="table-wrap"><div id="ir-my-approvals-body"></div></div>
+      </div>
+
+      <!-- The signed-in user's own reports that haven't been approved yet —
+           either still waiting on the approver, or sent back for revision. -->
+      <div id="ir-my-drafts-wrap" style="display:none;margin-bottom:28px">
+        <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Your pending reports</div>
+        <div class="table-wrap"><div id="ir-my-drafts-body"></div></div>
+      </div>
+
+      <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Approved reports</div>
       <div class="table-wrap">
         <div id="ir-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
       </div>
@@ -871,8 +891,10 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
   <div id="ir-new-view">
     <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
       <button onclick="backFromNewIr()" class="btn btn-secondary">← Back</button>
-      <div style="font-size:22px;font-weight:700;color:#111">New Incident Report</div>
+      <div id="ir-form-title" style="font-size:22px;font-weight:700;color:#111">New Incident Report</div>
     </div>
+    <div id="ir-revise-note" style="display:none;font-size:13px;color:#92400e;background:#fef3c7;
+      border-radius:6px;padding:10px 12px;margin-bottom:16px"></div>
 
     <div class="form-section">
       <div class="form-section-title">Event details</div>
@@ -1006,30 +1028,35 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
 
       <div class="field-row" style="margin-top:20px">
-        <div class="field"><label>Approved By — full name *</label><input id="ir-approved-by" type="text"></div>
         <div class="field"><label>Received by Customer</label><input id="ir-received-by-customer" type="text"></div>
       </div>
-      <div class="field" style="margin-top:12px">
-        <label>Approved By — signature *</label>
-        <div id="ir-approved-sig-box" onclick="openSigModal('ir-approved')"
-          style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">
-          <div id="ir-approved-sig-preview-wrap" style="display:none;margin-bottom:6px">
-            <img id="ir-approved-sig-preview" style="max-height:60px;max-width:240px;border:1px solid #eee;border-radius:4px;padding:4px;background:#fff">
-          </div>
-          <div id="ir-approved-sig-text" style="font-size:13px;color:#888">✍ Click to draw, type, or upload signature</div>
-        </div>
-        <div id="ir-approved-sig-clear" style="display:none;margin-top:6px">
-          <button type="button" onclick="event.stopPropagation();clearIrApprovedSig()" class="btn-ghost btn-ghost-danger">✕ Remove</button>
-        </div>
+
+      <div class="field-row" style="margin-top:20px;padding-top:16px;border-top:1px solid #f0f0f0">
+        <div class="field"><label>Approved By — full name</label><input id="ir-approved-by" type="text" placeholder="Optional — display name"></div>
+        <div class="field"><label>Approved By — email *</label><input id="ir-approved-email" type="email" placeholder="name@golocad.com"></div>
       </div>
+      <div class="field-hint" style="margin-top:6px">This report isn't finished yet — it's sent to this person to
+        review and sign off themselves. You don't sign on their behalf.</div>
     </div>
 
     <div id="ir-form-error" style="color:#dc2626;font-size:13px;margin-bottom:10px;display:none"></div>
 
     <div class="form-actions">
       <button class="btn-cancel-form" onclick="backFromNewIr()">Cancel</button>
-      <button class="btn-submit" id="btn-submit-ir" onclick="submitIncidentReport()">Generate report</button>
+      <button class="btn-submit" id="btn-submit-ir" onclick="submitIncidentReport()">Submit for approval</button>
     </div>
+  </div>
+
+  <!-- Incident report review/decide screen: what the routed Approved By
+       person sees when they open a report waiting on them. Read-only summary
+       of everything the preparer submitted, plus their own signature and an
+       Approve / Return-with-comments decision. -->
+  <div id="ir-decide-view">
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <button onclick="backFromIrDecide()" class="btn btn-secondary">← Back</button>
+      <div style="font-size:22px;font-weight:700;color:#111">Review Incident Report</div>
+    </div>
+    <div id="ir-decide-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
   </div>
 
   <!-- Detail view -->
@@ -1183,6 +1210,7 @@ var App = {
   myApprovals: [],
   allSops:     [],
   currentSop:  null,
+  currentIrDraft: null,   // the incident report draft currently open on the decide screen
   // Which "folder" is open in the Documents tab: null means showing the
   // folder grid, 'ALL' means the unfiltered drilldown, or a type code
   // ('QM'/'SOP'/'WI'/'FM') means that type's filtered drilldown.
@@ -1422,11 +1450,12 @@ function signOut() {
   clearSession();
   // Clear all cached data — otherwise the next user to sign in on this browser
   // sees the previous user's approvals and documents.
-  App.myApprovals = [];
-  App.allSops     = [];
-  App.currentSop  = null;
-  App.currentTab  = 'approvals';
-  App.docsFolder  = null;
+  App.myApprovals    = [];
+  App.allSops        = [];
+  App.currentSop     = null;
+  App.currentIrDraft = null;
+  App.currentTab     = 'approvals';
+  App.docsFolder     = null;
   _prepSigDataUrl     = null;
   _decisionSigDataUrl = null;
   _selectedFile       = null;
@@ -1436,7 +1465,7 @@ function signOut() {
   var dp = document.getElementById('doc-panel');
   if (dp) dp.innerHTML = '';
 
-  ['detail-view', 'new-sop-view', 'ir-new-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
+  ['detail-view', 'new-sop-view', 'ir-new-view', 'ir-decide-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.classList.remove('active'); }
   });
@@ -1555,6 +1584,8 @@ function switchTab(tab) {
   document.getElementById('new-sop-view').classList.remove('active');
   document.getElementById('ir-new-view').style.display = 'none';
   document.getElementById('ir-new-view').classList.remove('active');
+  document.getElementById('ir-decide-view').style.display = 'none';
+  document.getElementById('ir-decide-view').classList.remove('active');
   document.getElementById('create-choice-view').classList.remove('active');
   // Drop any document PDF still held as a blob URL
   revokeDocPreview();
@@ -3268,6 +3299,14 @@ function loadIncidentReports() {
     if (!r.ok) { showToast(r.message || 'Could not load incident reports.'); return; }
     renderIrTable(r.data || []);
   }).catch(function(err) { showToast(err.message); });
+
+  apiPost({ action: 'myIncidentApprovals' }).then(function(r) {
+    renderIrApprovalsTable(r.ok ? (r.data || []) : []);
+  }).catch(function() { renderIrApprovalsTable([]); });
+
+  apiPost({ action: 'myIncidentDrafts' }).then(function(r) {
+    renderIrDraftsTable(r.ok ? (r.data || []) : []);
+  }).catch(function() { renderIrDraftsTable([]); });
 }
 
 function renderIrTable(list) {
@@ -3281,7 +3320,7 @@ function renderIrTable(list) {
   }
   var html = '<table><thead><tr>' +
     '<th>IR #</th><th>Date of Event</th><th>Location</th><th>Problem</th>' +
-    '<th>Submitted by</th><th>Submitted</th><th></th>' +
+    '<th>Submitted by</th><th>Approved by</th><th>Submitted</th><th></th>' +
     '</tr></thead><tbody>';
   list.forEach(function(r) {
     html += '<tr onclick="window.open(\'' + esc(r.pdfUrl) + '\', \'_blank\')">' +
@@ -3290,10 +3329,64 @@ function renderIrTable(list) {
       '<td class="sop-meta">' + esc(r.locationOfEvent) + '</td>' +
       '<td class="sop-meta">' + esc(r.problemSummary) + '</td>' +
       '<td class="sop-meta">' + esc(r.submittedBy) + '</td>' +
+      '<td class="sop-meta">' + esc(r.approvedBy || '—') + '</td>' +
       '<td class="sop-meta">' + fmtDate(r.submittedAt) + '</td>' +
       '<td><a href="' + esc(r.pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
       'onclick="event.stopPropagation()" style="font-size:12px;color:#16a34a;text-decoration:underline">' +
       'View PDF →</a></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// Reports routed to the signed-in user for Approved By sign-off.
+function renderIrApprovalsTable(list) {
+  var wrap = document.getElementById('ir-my-approvals-wrap');
+  var body = document.getElementById('ir-my-approvals-body');
+  if (!list.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  var html = '<table><thead><tr>' +
+    '<th>Date of Event</th><th>Location</th><th>Problem</th><th>Submitted by</th><th></th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(d) {
+    html += '<tr onclick="openIrDecide(\'' + esc(d.draftId) + '\')">' +
+      '<td class="sop-meta">' + esc(d.dateOfEvent) + '</td>' +
+      '<td class="sop-meta">' + esc(d.locationOfEvent) + '</td>' +
+      '<td class="sop-meta">' + esc(d.problemSummary) + '</td>' +
+      '<td class="sop-meta">' + esc(d.prepEmail) + '</td>' +
+      '<td><button class="btn btn-primary" style="padding:6px 12px;font-size:12px" ' +
+      'onclick="event.stopPropagation();openIrDecide(\'' + esc(d.draftId) + '\')">Review & Decide</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// The signed-in user's own reports still mid-flight — either waiting on the
+// approver, or sent back for revision (with a Revise & Resubmit button).
+function renderIrDraftsTable(list) {
+  var wrap = document.getElementById('ir-my-drafts-wrap');
+  var body = document.getElementById('ir-my-drafts-body');
+  if (!list.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  var html = '<table><thead><tr>' +
+    '<th>Date of Event</th><th>Location</th><th>Status</th><th>Approver</th><th></th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(d) {
+    var statusBadge = d.status === 'returned'
+      ? '<span style="color:#92400e;background:#fef3c7;padding:2px 8px;border-radius:10px;font-size:12px">Returned for changes</span>'
+      : '<span style="color:#1d4ed8;background:#dbeafe;padding:2px 8px;border-radius:10px;font-size:12px">Awaiting approval</span>';
+    html += '<tr>' +
+      '<td class="sop-meta">' + esc(d.dateOfEvent) + '</td>' +
+      '<td class="sop-meta">' + esc(d.locationOfEvent) + '</td>' +
+      '<td>' + statusBadge + (d.status === 'returned' && d.returnComments ?
+        '<div style="font-size:12px;color:#92400e;margin-top:4px">' + esc(d.returnComments) + '</div>' : '') + '</td>' +
+      '<td class="sop-meta">' + esc(d.approverName || d.approverEmail) + '</td>' +
+      '<td>' + (d.status === 'returned'
+        ? '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
+          'onclick="openIrRevise(\'' + esc(d.draftId) + '\')">Revise & Resubmit</button>'
+        : '') + '</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -3382,6 +3475,11 @@ function renderIrPhotosPreview() {
   }).join('');
 }
 
+// Set while revising a returned draft (openIrRevise) so submitIncidentReport()
+// resubmits that same draft instead of creating a new one. Null for a
+// genuinely new report.
+var _irEditingDraftId = null;
+
 function showNewIrForm() {
   // Reachable both from the Incident Reports tab's own button and from the
   // "+ New Document" launch pad on Approvals/Documents — hide whichever of
@@ -3389,22 +3487,27 @@ function showNewIrForm() {
   ['dash-view','docs-view','audit-content','ir-view','create-choice-view'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.classList.remove('active');
   });
+  _irEditingDraftId = null;
+  document.getElementById('ir-form-title').textContent = 'New Incident Report';
+  document.getElementById('ir-revise-note').style.display = 'none';
+  document.getElementById('btn-submit-ir').textContent = 'Submit for approval';
   renderIrChecklist();
   // Clear every field so a previous draft can't bleed into a new report.
   ['ir-date-of-event','ir-location','ir-time-of-event','ir-witnessed-by','ir-ticket-number',
    'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-tracking-number',
    'ir-department','ir-client-name','ir-customer-address','ir-customer-name','ir-other-info',
    'ir-basic-cause','ir-immediate-actions','ir-preventive-actions','ir-checked-by',
-   'ir-business-impact','ir-approved-by','ir-received-by-customer'].forEach(function(id) {
+   'ir-business-impact','ir-approved-by','ir-approved-email','ir-received-by-customer'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.value = '';
   });
   var oc = document.getElementById('ir-others-check'); if (oc) oc.checked = false;
 
-  // Reset sign-off signatures — a previous report's signature must never
-  // carry over into a new one.
-  _irCheckedSigDataUrl  = null;
-  _irApprovedSigDataUrl = null;
-  ['ir-checked', 'ir-approved'].forEach(function(prefix) {
+  // Reset sign-off signature — a previous report's signature must never carry
+  // over into a new one. Only Checked By is self-signed on this form; Approved
+  // By is routed to someone else and signed by them later, on their own
+  // decision screen.
+  _irCheckedSigDataUrl = null;
+  ['ir-checked'].forEach(function(prefix) {
     var wrap = document.getElementById(prefix + '-sig-preview-wrap'); if (wrap) wrap.style.display = 'none';
     var clr  = document.getElementById(prefix + '-sig-clear');        if (clr)  clr.style.display  = 'none';
     var txt  = document.getElementById(prefix + '-sig-text');         if (txt)  txt.style.display  = 'block';
@@ -3465,8 +3568,8 @@ function collectIrFields() {
     checkedBy: v('ir-checked-by'),
     checkedBySig: _irCheckedSigDataUrl,
     businessImpact: v('ir-business-impact'),
-    approvedBy: v('ir-approved-by'),
-    approvedBySig: _irApprovedSigDataUrl,
+    approverName: v('ir-approved-by'),
+    approverEmail: v('ir-approved-email'),
     receivedByCustomer: v('ir-received-by-customer'),
     photos: _irPhotos
   };
@@ -3482,38 +3585,253 @@ function submitIncidentReport() {
     errEl.style.display = 'block';
     return;
   }
-  if (!fields.checkedBy || !fields.approvedBy) {
-    errEl.textContent = 'Checked By and Approved By are required — these are the sign-off for this report.';
+  if (!fields.checkedBy || !fields.checkedBySig) {
+    errEl.textContent = 'Checked By requires both a name and a signature.';
     errEl.style.display = 'block';
     return;
   }
-  if (!fields.checkedBySig || !fields.approvedBySig) {
-    errEl.textContent = 'A signature is required for both Checked By and Approved By.';
+  if (!fields.approverEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.approverEmail)) {
+    errEl.textContent = 'A valid Approved By email is required — this report is sent to them for sign-off.';
     errEl.style.display = 'block';
     return;
   }
 
+  var isRevise = !!_irEditingDraftId;
   var btn = document.getElementById('btn-submit-ir');
   btn.disabled = true;
-  btn.textContent = 'Generating…';
+  btn.textContent = isRevise ? 'Resubmitting…' : 'Submitting…';
 
-  apiPost({ action: 'submitIncidentReport', fields: fields }).then(function(r) {
+  var payload = isRevise
+    ? { action: 'resubmitIncidentReport', draftId: _irEditingDraftId, fields: fields }
+    : { action: 'submitIncidentReportForApproval', fields: fields };
+
+  apiPost(payload).then(function(r) {
     btn.disabled = false;
-    btn.textContent = 'Generate report';
+    btn.textContent = 'Submit for approval';
     if (!r.ok) {
-      errEl.textContent = r.message || 'Could not generate the report.';
+      errEl.textContent = r.message || 'Could not submit the report.';
       errEl.style.display = 'block';
       return;
     }
-    showToast('Incident report ' + r.record.irNumber + ' generated.');
+    showToast(isRevise ? 'Resubmitted for approval.' : 'Report submitted — sent to ' + fields.approverEmail + ' for approval.');
+    _irEditingDraftId = null;
     backFromNewIr();
     loadIncidentReports();
-    window.open(r.record.pdfUrl, '_blank');
   }).catch(function(err) {
     btn.disabled = false;
-    btn.textContent = 'Generate report';
+    btn.textContent = 'Submit for approval';
     errEl.textContent = err.message || 'Network error — please try again.';
     errEl.style.display = 'block';
+  });
+}
+
+// Loads a returned draft's fields back into the New Incident Report form so
+// the preparer can fix what the approver flagged, then resubmits it to the
+// same approver rather than creating a brand new report.
+function openIrRevise(draftId) {
+  showNewIrForm();
+  document.getElementById('ir-form-title').textContent = 'Revise Incident Report';
+  document.getElementById('btn-submit-ir').textContent = 'Resubmit for approval';
+
+  apiPost({ action: 'getIrDraft', draftId: draftId }).then(function(r) {
+    if (!r.ok) { showToast(r.message || 'Could not load this report.'); backFromNewIr(); return; }
+    var d = r.data, f = d.fields || {};
+    _irEditingDraftId = draftId;
+
+    if (d.returnComments) {
+      var note = document.getElementById('ir-revise-note');
+      note.textContent = 'Returned for changes: ' + d.returnComments;
+      note.style.display = 'block';
+    }
+
+    var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+    set('ir-date-of-event', f.dateOfEvent);
+    set('ir-location', f.locationOfEvent);
+    set('ir-time-of-event', f.timeOfEvent);
+    set('ir-witnessed-by', f.witnessedBy);
+    set('ir-ticket-number', f.ticketNumber);
+    set('ir-description', f.descriptionOfEvents);
+    set('ir-others-text', f.othersText);
+    set('ir-order-number', f.orderNumber);
+    set('ir-total-tn-on', f.totalTnOn);
+    set('ir-tracking-number', f.trackingNumber);
+    set('ir-department', f.departmentInvolved);
+    set('ir-client-name', f.clientName);
+    set('ir-customer-address', f.customerAddress);
+    set('ir-customer-name', f.customerName);
+    set('ir-other-info', f.otherRelevantInfo);
+    set('ir-basic-cause', f.basicCause);
+    set('ir-immediate-actions', f.immediateActions);
+    set('ir-preventive-actions', f.preventiveActions);
+    set('ir-checked-by', f.checkedBy);
+    set('ir-business-impact', f.businessImpact);
+    set('ir-approved-by', f.approverName);
+    set('ir-approved-email', f.approverEmail);
+    set('ir-received-by-customer', f.receivedByCustomer);
+
+    (f.problems || []).forEach(function(i) {
+      if (i === 17) { document.getElementById('ir-others-check').checked = true; return; }
+      var cb = document.getElementById('ir-problem-' + i); if (cb) cb.checked = true;
+    });
+
+    if (f.checkedBySig) {
+      _irCheckedSigDataUrl = f.checkedBySig;
+      document.getElementById('ir-checked-sig-preview').src = f.checkedBySig;
+      document.getElementById('ir-checked-sig-preview-wrap').style.display = 'block';
+      document.getElementById('ir-checked-sig-clear').style.display = 'block';
+      document.getElementById('ir-checked-sig-text').style.display = 'none';
+      document.getElementById('ir-checked-sig-box').style.borderColor = '#16a34a';
+    }
+
+    _irPhotos = (f.photos || []).slice();
+    renderIrPhotosPreview();
+  }).catch(function(err) { showToast(err.message); backFromNewIr(); });
+}
+
+// ── Approver's review/decide screen ───────────────────────────────────────────
+function openIrDecide(draftId) {
+  ['dash-view','docs-view','audit-content','ir-view','create-choice-view','ir-new-view'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.classList.remove('active'); el.style.display = 'none'; }
+  });
+  document.getElementById('ir-decide-view').classList.add('active');
+  document.getElementById('ir-decide-view').style.display = 'block';
+  document.getElementById('ir-decide-body').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+
+  apiPost({ action: 'getIrDraft', draftId: draftId }).then(function(r) {
+    if (!r.ok) {
+      document.getElementById('ir-decide-body').innerHTML =
+        '<div class="empty">' + esc(r.message || 'Could not load this report.') + '</div>';
+      return;
+    }
+    App.currentIrDraft = r.data;
+    renderIrDecide(r.data);
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function backFromIrDecide() {
+  document.getElementById('ir-decide-view').classList.remove('active');
+  document.getElementById('ir-decide-view').style.display = 'none';
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' :
+           App.currentTab === 'incidents' ? 'ir-view'   : 'audit-content');
+}
+
+function renderIrDecide(d) {
+  var f = d.fields || {};
+  var problemLabels = (f.problems || []).map(function(i) {
+    return IR_PROBLEM_LABELS[i] ? IR_PROBLEM_LABELS[i].split('/')[0] : null;
+  }).filter(Boolean);
+  if (f.othersText) problemLabels.push(f.othersText);
+
+  var rows = [
+    ['Date of Event', f.dateOfEvent], ['Location of Event', f.locationOfEvent],
+    ['Time of Event', f.timeOfEvent], ['Witnessed By', f.witnessedBy],
+    ['Ticket Number', f.ticketNumber], ['Description of Events', f.descriptionOfEvents],
+    ['Problem(s)', problemLabels.join(', ')], ['Order Number', f.orderNumber],
+    ['Total TN on Order', f.totalTnOn], ['Tracking Number', f.trackingNumber],
+    ['Department Involved', f.departmentInvolved], ['Client Name', f.clientName],
+    ['Customer Address', f.customerAddress], ['Customer Name', f.customerName],
+    ['Other Relevant Info', f.otherRelevantInfo], ['Basic Cause', f.basicCause],
+    ['Immediate Actions', f.immediateActions], ['Preventive Actions', f.preventiveActions],
+    ['Business Impact', f.businessImpact], ['Received by Customer', f.receivedByCustomer],
+    ['Checked By', f.checkedBy]
+  ];
+
+  var html = '<div class="sb-section">';
+  if (d.status === 'returned') {
+    html += '<div style="font-size:13px;color:#92400e;background:#fef3c7;border-radius:6px;' +
+      'padding:10px 12px;margin-bottom:14px">Returned ' + fmtDate(d.returnedAt) +
+      ' — waiting on the preparer to revise and resubmit.' +
+      (d.returnComments ? '<br><strong>Your comments:</strong> ' + esc(d.returnComments) : '') + '</div>';
+  }
+  rows.forEach(function(r) {
+    if (!r[1]) return;
+    html += '<div style="margin-bottom:12px">' +
+      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">' +
+      esc(r[0]) + '</div>' +
+      '<div style="font-size:14px;color:#222;white-space:pre-wrap">' + esc(r[1]) + '</div></div>';
+  });
+  if (f.checkedBySig) {
+    html += '<div style="margin-bottom:12px">' +
+      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">Checked By — signature</div>' +
+      '<img src="' + f.checkedBySig + '" style="max-height:60px;max-width:240px;border:1px solid #eee;' +
+      'border-radius:4px;padding:4px;background:#fff;margin-top:4px"></div>';
+  }
+  if (f.photos && f.photos.length) {
+    html += '<div style="margin-bottom:12px">' +
+      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">Evidence Photos</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
+      f.photos.map(function(p) {
+        return '<img src="' + p.dataUrl + '" style="width:90px;height:90px;object-fit:cover;' +
+          'border-radius:6px;border:1px solid #eee">';
+      }).join('') + '</div></div>';
+  }
+  html += '</div>';
+
+  if (d.status === 'pending_approval') {
+    html += '<div class="sb-section"><div class="sb-label">Your decision · Approver</div>' +
+      '<div class="decision-area">' +
+      '<div style="margin-bottom:10px">' +
+        '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
+        '<div id="ir-decide-sig-box" onclick="openSigModal(\'ir-decide\')" ' +
+          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">' +
+          '<div id="ir-decide-sig-preview-wrap" style="display:none;margin-bottom:6px">' +
+            '<img id="ir-decide-sig-preview" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff">' +
+          '</div>' +
+          '<div id="ir-decide-sig-text" style="font-size:12px;color:#aaa">✍ Click to draw, type, or upload</div>' +
+        '</div>' +
+        '<div id="ir-decide-sig-clear" style="display:none;margin-top:4px">' +
+          '<button type="button" onclick="event.stopPropagation();clearIrDecideSig()" class="btn-ghost btn-ghost-danger" style="font-size:11px">✕ Remove</button>' +
+        '</div>' +
+      '</div>' +
+      '<textarea id="ir-decide-comments" placeholder="Add comments (required if returning)…"></textarea>' +
+      '<button class="decision-btn db-approve" onclick="decideIrReport(\'approve\')">Approve</button>' +
+      '<button class="decision-btn db-reject" onclick="decideIrReport(\'return\')">Return with comments</button>' +
+      '</div></div>';
+  }
+
+  document.getElementById('ir-decide-body').innerHTML = html;
+  _irDecideSigDataUrl = null;
+}
+
+function decideIrReport(decision) {
+  var d = App.currentIrDraft;
+  if (!d) return;
+  var comments = (document.getElementById('ir-decide-comments') || {}).value || '';
+
+  if (decision === 'approve' && !_irDecideSigDataUrl) {
+    showToast('Please add your signature before approving.');
+    return;
+  }
+  if (decision === 'return' && !comments.trim()) {
+    showToast('Please add comments explaining what needs to change.');
+    return;
+  }
+
+  var decBtns = document.querySelectorAll('#ir-decide-body .decision-btn');
+  decBtns.forEach(function(b) { b.disabled = true; b.style.opacity = '0.55'; });
+
+  apiPost({ action: 'decideIncidentReport', draftId: d.draftId, decision: decision,
+            comments: comments, sig: _irDecideSigDataUrl }).then(function(r) {
+    if (!r.ok) {
+      showToast(r.message || 'Could not submit your decision.');
+      decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
+      return;
+    }
+    if (decision === 'approve') {
+      showToast('Approved — report ' + r.record.irNumber + ' generated.');
+      backFromIrDecide();
+      loadIncidentReports();
+      window.open(r.record.pdfUrl, '_blank');
+    } else {
+      showToast('Returned to the preparer for revision.');
+      backFromIrDecide();
+      loadIncidentReports();
+    }
+  }).catch(function(err) {
+    showToast(err.message);
+    decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
   });
 }
 
@@ -3621,9 +3939,13 @@ function setSopSource(mode) {
 }
 
 // ── Unified signature modal ───────────────────────────────────────────────────
-var _sigTarget       = null;   // 'prep' | 'decision' | 'ir-checked' | 'ir-approved'
-var _irCheckedSigDataUrl  = null;
-var _irApprovedSigDataUrl = null;
+var _sigTarget       = null;   // 'prep' | 'decision' | 'ir-checked' | 'ir-decide'
+var _irCheckedSigDataUrl = null;
+// The Approved By signature for an incident report is no longer captured on
+// the New Incident Report form — it's captured on the approver's own decision
+// screen (decideIncidentReport()) when they actually sign off. See
+// _irDecideSigDataUrl below, set via the 'ir-decide' sig target.
+var _irDecideSigDataUrl  = null;
 var _sigUploadUrl    = null;   // data URL from upload tab
 var _sigDrawing      = false;
 var _sigCanvas, _sigCtx;
@@ -3751,10 +4073,10 @@ function applySig() {
   // per target so adding future sign-off fields doesn't mean copy-pasting
   // another if/else block.
   var sigTargets = {
-    'prep':        { set: function(v) { _prepSigDataUrl = v; },        prefix: 'prep' },
-    'decision':    { set: function(v) { _decisionSigDataUrl = v; },    prefix: 'dec' },
-    'ir-checked':  { set: function(v) { _irCheckedSigDataUrl = v; },   prefix: 'ir-checked' },
-    'ir-approved': { set: function(v) { _irApprovedSigDataUrl = v; },  prefix: 'ir-approved' }
+    'prep':       { set: function(v) { _prepSigDataUrl = v; },      prefix: 'prep' },
+    'decision':   { set: function(v) { _decisionSigDataUrl = v; },  prefix: 'dec' },
+    'ir-checked': { set: function(v) { _irCheckedSigDataUrl = v; }, prefix: 'ir-checked' },
+    'ir-decide':  { set: function(v) { _irDecideSigDataUrl = v; },  prefix: 'ir-decide' }
   };
   var t = sigTargets[_sigTarget];
   if (t) {
@@ -3784,12 +4106,12 @@ function clearIrCheckedSig() {
   document.getElementById('ir-checked-sig-box').style.borderColor      = '#e0e0e0';
 }
 
-function clearIrApprovedSig() {
-  _irApprovedSigDataUrl = null;
-  document.getElementById('ir-approved-sig-preview-wrap').style.display = 'none';
-  document.getElementById('ir-approved-sig-clear').style.display        = 'none';
-  document.getElementById('ir-approved-sig-text').style.display         = 'block';
-  document.getElementById('ir-approved-sig-box').style.borderColor      = '#e0e0e0';
+function clearIrDecideSig() {
+  _irDecideSigDataUrl = null;
+  document.getElementById('ir-decide-sig-preview-wrap').style.display = 'none';
+  document.getElementById('ir-decide-sig-clear').style.display        = 'none';
+  document.getElementById('ir-decide-sig-text').style.display         = 'block';
+  document.getElementById('ir-decide-sig-box').style.borderColor      = '#e0e0e0';
 }
 
 function backFromNewSop() {
