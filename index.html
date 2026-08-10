@@ -10,6 +10,15 @@
      from the login screen. Inline SVG data URI, so the whole app stays a
      single file with no extra image asset to host. -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111111'/%3E%3Cpath d='M18 10 L36 10 L46 20 L46 54 L18 54 Z' fill='%23ffffff'/%3E%3Cpath d='M36 10 L46 20 L36 20 Z' fill='%23111111'/%3E%3Cpath d='M24 32 L40 32 M24 40 L40 40 M24 24 L34 24' stroke='%234ADE80' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<!-- PWA: installable app manifest + home-screen icons, so "Add to Home
+     Screen" gets a real name/icon instead of a generic browser bookmark,
+     and the app opens in its own window (no address bar) once installed. -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#060A06">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Locad QMS">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap">
 <style>
 /* ── Reset & base ─────────────────────────────────────────────────────────── */
@@ -163,11 +172,73 @@ nav button.active { color: #fff; background: rgba(255,255,255,.12); }
   .login-form-panel { padding: 32px 24px; }
 }
 
+/* ── Responsive: tablet & phone, signed-in app (≤780px) ──────────────────────
+   Everything below assumes the desktop layout (fixed-width sidebar next to a
+   flexible panel, wide header rows, side-scrolling-averse tables) and just
+   doesn't fit a phone screen. Nothing here changes behavior — same data,
+   same actions — only how it's arranged. */
+@media (max-width: 780px) {
+  /* Topbar: drop secondary labels that have no room, and let the nav row
+     scroll sideways instead of wrapping onto a second line (which would push
+     the sign-out controls off screen) or shrinking to unreadable text. */
+  #topbar { padding: 0 12px; gap: 12px; }
+  .tb-logo-sub, .tb-user { display: none; }
+  nav { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  nav button { white-space: nowrap; padding: 6px 10px; font-size: 12px; }
+  .tb-signout { padding: 4px 6px; font-size: 11px; }
+
+  /* Dashboard / documents header: title and action buttons no longer fit
+     side by side once the search box and two buttons are involved, so stack
+     them and let the search box take the full width instead of a fixed
+     220px that was sized for a wide screen. */
+  .hdr-row { flex-direction: column; align-items: stretch; gap: 14px; }
+  .hdr-actions { flex-wrap: wrap; }
+  .hdr-actions .search-input { width: 100%; }
+  .hdr-actions button { flex: 1; }
+
+  /* Document tables (approvals, register, audit trail): scroll horizontally
+     rather than compressing columns to the point of being unreadable — every
+     column stays legible, you just swipe to see the rest. */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 640px; }
+
+  /* Document detail: the preview and the sidebar (sign-offs, decision
+     actions) were a fixed side-by-side split (320px sidebar + remaining
+     space for the preview) — on a phone that leaves neither one usable
+     width, so stack them into a single scrolling column: a shorter but
+     still readable preview on top, full-width sidebar below. */
+  .detail-bar { flex-wrap: wrap; gap: 10px; }
+  .detail-stage { margin-left: 0; }
+  .detail-body { flex-direction: column; overflow-y: auto; }
+  .doc-panel { flex: none; height: 50vh; }
+  .sidebar { width: 100%; border-left: none; border-top: 1px solid #e5e5e5; }
+
+  #new-sop-view { padding: 24px 16px; }
+}
+
+@media (max-width: 480px) {
+  /* The 4-stage approval tracker (dot–line–dot–line…) is wide enough that on
+     the smallest phones it can exceed the screen width even on its own row;
+     let it scroll rather than clip. */
+  .detail-stage { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .stage-line { width: 24px; }
+  .stage-item { font-size: 11px; }
+}
+
 /* ── Dashboard ────────────────────────────────────────────────────────────── */
 #dash-view { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
 .dash-header { margin-bottom: 28px; }
 .dash-title { font-size: 28px; font-weight: 700; color: #111; margin-bottom: 4px; }
 .dash-sub { font-size: 14px; color: #666; }
+
+/* Title-block + action-cluster header row (dashboard, documents). Was a
+   repeated inline flex style; pulled into a class so the mobile breakpoint
+   below can override it — a media query can't win against an inline style. */
+.hdr-row { display: flex; align-items: flex-start; justify-content: space-between; }
+.hdr-actions { display: flex; gap: 10px; align-items: center; }
+.search-input { width: 220px; padding: 9px 12px; border: 1.5px solid #e0e0e0;
+                border-radius: 8px; font: inherit; font-size: 13px; outline: none; }
 
 /* ── Table ────────────────────────────────────────────────────────────────── */
 .table-wrap { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
@@ -429,7 +500,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
   <!-- Dashboard: My Approvals -->
   <div id="dash-view" class="view active">
-    <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div class="dash-header hdr-row">
       <div>
         <div class="dash-title" id="dash-title">My Approvals</div>
         <div class="dash-sub" id="dash-sub">Loading…</div>
@@ -458,19 +529,17 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
   <!-- Documents: All SOPs -->
   <div id="docs-view" class="view">
     <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
-      <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div class="dash-header hdr-row">
         <div>
           <div class="dash-title" id="docs-title">All Documents</div>
           <div class="dash-sub" id="docs-sub">Loading…</div>
         </div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div class="hdr-actions">
           <!-- Always visible, not just inside a folder — typing here from the
                folder grid jumps straight into "All documents" filtered results,
                so you don't have to open a folder first just to search. -->
           <input id="docs-search" type="search" placeholder="Search ID, title or person…"
-            oninput="onGlobalSearchInput()"
-            style="width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
-                   border-radius:8px;font:inherit;font-size:13px;outline:none">
+            oninput="onGlobalSearchInput()" class="search-input">
           <button onclick="exportRegister()" id="btn-export-register" class="btn btn-secondary">
             ⬇ Export register
           </button>
@@ -882,6 +951,21 @@ window.onload = function() {
   };
   showApp();
 };
+
+// ── PWA: register the service worker ────────────────────────────────────────
+// Only caches this app's own static files (index.html, manifest, icons) so it
+// installs and opens fast — every actual document/approval API call still
+// goes straight to the live backend, untouched by the worker. Registration
+// failing (e.g. served over plain http, or an older browser) is not fatal;
+// the app works identically without it, just without the "Add to Home
+// Screen" / offline-shell benefits.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(err) {
+      console.warn('Service worker registration failed:', err.message);
+    });
+  });
+}
 
 // ── Email + password sign-in ──────────────────────────────────────────────────
 // Pre-warm GAS so the cold-start cost is paid while the user is still typing,
@@ -3183,7 +3267,7 @@ function showToast(msg) {
 </script>
 
 <!-- ── Signature Modal ───────────────────────────────────────────────────── -->
-<div id="sig-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;">
+<div id="sig-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden">
     <!-- Header -->
     <div style="padding:18px 24px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
@@ -3235,7 +3319,7 @@ function showToast(msg) {
 </style>
 
 <!-- ── Change Password Modal ─────────────────────────────────────────────── -->
-<div id="change-pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;">
+<div id="change-pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
   <div style="background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div style="font-size:18px;font-weight:600;color:#111">Change password</div>
