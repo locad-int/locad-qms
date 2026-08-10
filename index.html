@@ -14,10 +14,77 @@
 <style>
 /* ── Reset & base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Traded the corner glows for a fine dot grid — a different design language
+   (structured/textured rather than a color wash). Neutral dark-gray dots at
+   low opacity rather than brand green — a full-page grid of colored dots
+   risked reading as a polka-dot pattern rather than texture; gray at this
+   opacity is the same "designer canvas" look Figma/Notion/Miro use for their
+   backgrounds. Wide spacing keeps density low. Fixed to the viewport so it
+   doesn't scroll with the page. Cards, tables and documents are all opaque
+   #fff on top, so nothing here ever sits behind actual text. */
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-       background: #f5f3f0; color: #1a1a1a; min-height: 100vh; }
+       background-color: #f5f3f0;
+       background-image: radial-gradient(rgba(0,0,0,.08) 1px, transparent 1px);
+       background-size: 28px 28px;
+       background-attachment: fixed;
+       color: #1a1a1a; min-height: 100vh; }
 a { text-decoration: none; }
 button { cursor: pointer; border: none; background: none; font: inherit; }
+
+/* ── Buttons (consolidated) ───────────────────────────────────────────────────
+   Every button used to carry its own hand-typed inline style — the same
+   handful of colors and paddings retyped in dozens of places across the file.
+   That meant a cosmetic change (like the topbar/background work) had to be
+   hunted down spot by spot instead of edited once. These classes cover every
+   button in the app. (.decision-btn/.db-*, .btn-submit and .btn-cancel-form
+   were already proper classes before this pass and are unchanged below.)
+   A few buttons that previously used JS onmouseover/onmouseout for their
+   hover color now use the :hover rules here instead — same visual result,
+   one less redundant mechanism. */
+.btn { display: inline-flex; align-items: center; justify-content: center;
+       padding: 9px 16px; border-radius: 8px; font: inherit; font-size: 13px;
+       font-weight: 500; cursor: pointer; border: none; white-space: nowrap;
+       transition: background .15s, border-color .15s, color .15s; }
+.btn-block { display: flex; width: 100%; }
+.btn-sm { padding: 8px 10px; font-size: 12px; }
+.btn-xs { padding: 6px 10px; font-size: 11px; font-weight: 400; }
+.btn-primary { background: #16a34a; color: #fff; }
+.btn-primary:hover { background: #15803d; }
+.btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+/* Near-black variant for a few quieter sidebar "save" actions (save a link,
+   record a review, save the distribution list) — intentionally not the main
+   green CTA color, just consolidated out of inline styles like everything else. */
+.btn-dark { background: #111; color: #fff; }
+.btn-dark:hover { background: #000; }
+.btn-secondary { background: #fff; color: #333; border: 1.5px solid #e0e0e0; }
+.btn-secondary:hover { background: #f5f5f5; }
+.btn-danger-outline { background: #fff; color: #b91c1c; border: 1px solid #fca5a5; }
+.btn-danger-outline:hover { background: #fef2f2; }
+/* Bright, black-text button reserved for the login screen's Sign in CTA — the
+   one deliberately distinct brand treatment, now a class instead of a style
+   attribute plus two onmouseover/onmouseout handlers. */
+.btn-login { width: 100%; padding: 12px; background: #4ADE80; color: #000;
+             border: none; border-radius: 10px; font: inherit; font-size: 14px;
+             font-weight: 600; cursor: pointer; transition: background .15s; }
+.btn-login:hover { background: #22c55e; }
+/* Text-only, no border or fill — small inline actions like "Remove",
+   "Refresh", "Clear" and modal close (×) buttons. */
+.btn-ghost { background: none; border: none; color: #888; padding: 4px 8px;
+             font-size: 12px; font-weight: 400; border-radius: 4px; cursor: pointer; }
+.btn-ghost:hover { color: #555; }
+.btn-ghost-accent { color: #16a34a; }
+.btn-ghost-accent:hover { color: #15803d; }
+.btn-ghost-danger { color: #dc2626; }
+.btn-ghost-danger:hover { color: #b91c1c; }
+.btn-close { background: none; border: none; color: #999; font-size: 20px;
+             padding: 2px 8px; border-radius: 4px; cursor: pointer; }
+.btn-close:hover { background: #f5f5f5; }
+/* The three signature-modal tabs (Draw / Type / Upload) — equal-width, a
+   bottom-border indicator on the active one via .sig-tab-active (unchanged,
+   still defined further down where the modal markup lives). */
+.sig-tab { flex: 1; padding: 10px; font: inherit; font-size: 13px; font-weight: 500;
+           border: none; cursor: pointer; background: none;
+           border-bottom: 2px solid transparent; color: #888; transition: all .15s; }
 
 /* ── Config banner ────────────────────────────────────────────────────────── */
 #cfg-banner { background: #fef3c7; border-bottom: 1px solid #fcd34d;
@@ -27,8 +94,16 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 #cfg-banner.hidden { display: none; }
 
 /* ── Topbar ───────────────────────────────────────────────────────────────── */
-#topbar { background: #060A06; height: 52px; display: flex; align-items: center;
-          padding: 0 24px; gap: 24px; position: sticky; top: 0; z-index: 100; }
+/* A faint green glow behind the logo plus a hairline green underline — same
+   accent color and the same restrained, glow-not-glare treatment as the login
+   screen's circle outlines (.login-brand::before/::after), so the two screens
+   feel like one design rather than a plain bar bolted onto a branded login.
+   Everything below the topbar (tables, documents, forms) stays on the plain
+   neutral background — this is deliberately confined to non-content chrome. */
+#topbar { background: radial-gradient(480px 120px at 4% 50%, rgba(74,222,128,.16), transparent 70%), #060A06;
+          height: 52px; display: flex; align-items: center;
+          padding: 0 24px; gap: 24px; position: sticky; top: 0; z-index: 100;
+          box-shadow: inset 0 -1px 0 rgba(74,222,128,.2); }
 .tb-logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .tb-logo-icon { width: 26px; height: 26px; background: #16a34a; border-radius: 6px;
                 display: flex; align-items: center; justify-content: center;
@@ -329,9 +404,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
             onfocus="this.style.borderColor='#4ADE80'" onblur="this.style.borderColor='#e0e0e0'">
         </div>
         <div id="login-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
-        <button type="submit" id="btn-login"
-          style="width:100%;padding:12px;background:#4ADE80;color:#000;border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s"
-          onmouseover="this.style.background='#22c55e'" onmouseout="this.style.background='#4ADE80'">
+        <button type="submit" id="btn-login" class="btn-login">
           Sign in
         </button>
       </form>
@@ -365,14 +438,10 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
   <div id="dash-view" class="view active">
     <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between">
       <div>
-        <div class="dash-title" id="dash-title">My approvals</div>
+        <div class="dash-title" id="dash-title">My Approvals</div>
         <div class="dash-sub" id="dash-sub">Loading…</div>
       </div>
-      <button onclick="showNewSopForm()"
-        style="padding:9px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;
-               font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
-               margin-top:4px;transition:background .15s"
-        onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+      <button onclick="showNewSopForm()" class="btn btn-primary" style="margin-top:4px">
         + New Document
       </button>
     </div>
@@ -409,16 +478,10 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
             oninput="onGlobalSearchInput()"
             style="width:220px;padding:9px 12px;border:1.5px solid #e0e0e0;
                    border-radius:8px;font:inherit;font-size:13px;outline:none">
-          <button onclick="exportRegister()" id="btn-export-register"
-            style="padding:9px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
-                   font:inherit;font-size:13px;cursor:pointer;white-space:nowrap">
+          <button onclick="exportRegister()" id="btn-export-register" class="btn btn-secondary">
             ⬇ Export register
           </button>
-          <button onclick="showNewSopForm()"
-            style="padding:9px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;
-                   font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;
-                   transition:background .15s"
-            onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+          <button onclick="showNewSopForm()" class="btn btn-primary">
             + New Document
           </button>
         </div>
@@ -445,9 +508,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <!-- Drilled-in view: a specific folder's filtered list, or the
            unfiltered "All documents" view. Hidden until a folder is opened. -->
       <div id="docs-drilldown" style="display:none">
-        <button onclick="closeDocsFolder()"
-          style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
-                 font:inherit;font-size:13px;cursor:pointer;margin-bottom:14px">
+        <button onclick="closeDocsFolder()" class="btn btn-secondary" style="margin-bottom:14px">
           ← All folders
         </button>
 
@@ -489,9 +550,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
   <!-- New Document form -->
   <div id="new-sop-view">
     <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
-      <button onclick="backFromNewSop()"
-        style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;
-               font:inherit;font-size:13px;cursor:pointer">← Back</button>
+      <button onclick="backFromNewSop()" class="btn btn-secondary">← Back</button>
       <div style="font-size:22px;font-weight:700;color:#111">New document</div>
     </div>
 
@@ -556,7 +615,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <div id="prep-sig-text" style="font-size:13px;color:#888">✍ Click to draw, type, or upload signature</div>
         </div>
         <div id="prep-sig-clear" style="display:none;margin-top:6px">
-          <button type="button" onclick="event.stopPropagation();clearPrepSig()" style="font-size:12px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>
+          <button type="button" onclick="event.stopPropagation();clearPrepSig()" class="btn-ghost btn-ghost-danger">✕ Remove</button>
         </div>
       </div>
     </div>
@@ -709,8 +768,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
                 onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
             </div>
             <div style="display:flex;align-items:flex-end">
-              <button type="submit" id="btn-au-add"
-                style="padding:10px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap">
+              <button type="submit" id="btn-au-add" class="btn btn-primary" style="font-size:14px">
                 Add user
               </button>
             </div>
@@ -726,7 +784,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <div style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;overflow:hidden">
         <div style="padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between">
           <div style="font-size:15px;font-weight:600;color:#111">Current users</div>
-          <button onclick="loadUsers()" style="font-size:13px;color:#16a34a;background:none;border:none;cursor:pointer">↻ Refresh</button>
+          <button onclick="loadUsers()" class="btn-ghost btn-ghost-accent" style="font-size:13px">↻ Refresh</button>
         </div>
         <div id="admin-user-list" style="padding:8px 0">
           <div class="spinner-wrap"><div class="spinner"></div></div>
@@ -1264,7 +1322,7 @@ function loadApprovals() {
 function renderApprovalsTable() {
   var list = App.myApprovals;
   var count = list.length;
-  document.getElementById('dash-title').textContent = 'My approvals';
+  document.getElementById('dash-title').textContent = 'My Approvals';
   document.getElementById('dash-sub').textContent =
     count === 0 ? 'Nothing waiting on you right now.' :
     count === 1 ? '1 document is waiting on you' :
@@ -1542,8 +1600,7 @@ function applyDocsFilter() {
     body.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>' +
       'Nothing matches those filters.' +
       '<div style="margin-top:10px"><button onclick="clearDocsFilter()" ' +
-      'style="padding:7px 14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;' +
-      'font:inherit;font-size:13px;cursor:pointer">Clear filters</button></div></div>';
+      'class="btn btn-secondary">Clear filters</button></div></div>';
     return;
   }
 
@@ -1685,9 +1742,9 @@ function loadUsers() {
         '<td style="text-align:right">' +
           (!u.isSuperuser
             ? '<button onclick="adminResetPwd(\'' + esc(u.email) + '\')" ' +
-              'style="font-size:12px;color:#16a34a;background:none;border:none;cursor:pointer;margin-right:8px">Reset password</button>' +
+              'class="btn-ghost btn-ghost-accent" style="margin-right:8px">Reset password</button>' +
               '<button onclick="adminRemove(\'' + esc(u.email) + '\')" ' +
-              'style="font-size:12px;color:#dc2626;background:none;border:none;cursor:pointer">Remove</button>'
+              'class="btn-ghost btn-ghost-danger">Remove</button>'
             : '<span style="font-size:12px;color:#999">—</span>') +
         '</td></tr>';
     });
@@ -1991,7 +2048,7 @@ function renderSidebar(sop) {
         '</div>' +
         '<div id="dec-sig-clear" style="display:none;margin-top:4px">' +
           '<button type="button" onclick="event.stopPropagation();clearDecisionSig()" ' +
-            'style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
+            'class="btn-ghost btn-ghost-danger" style="font-size:11px">✕ Remove</button>' +
         '</div>' +
       '</div>' +
 
@@ -2017,7 +2074,7 @@ function renderSidebar(sop) {
           '<div id="dec-sig-text" style="font-size:12px;color:#aaa">✍ Click to draw, type, or upload</div>' +
         '</div>' +
         '<div id="dec-sig-clear" style="display:none;margin-top:4px">' +
-          '<button type="button" onclick="event.stopPropagation();clearDecisionSig()" style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
+          '<button type="button" onclick="event.stopPropagation();clearDecisionSig()" class="btn-ghost btn-ghost-danger" style="font-size:11px">✕ Remove</button>' +
         '</div>' +
       '</div>' +
 
@@ -2100,7 +2157,7 @@ function renderSidebar(sop) {
       '<input id="ctrl-pdf-url" type="url" placeholder="https://drive.google.com/…" value="' +
         esc(sop.controlledPdfUrl || '') + '" ' +
         'style="width:100%;padding:7px 9px;border:1px solid #e0e0e0;border-radius:6px;font:inherit;font-size:12px;margin-bottom:6px">' +
-      '<button onclick="saveControlledPdf()" style="width:100%;padding:7px;background:#111;color:#fff;border:none;border-radius:6px;font:inherit;font-size:12px;font-weight:500;cursor:pointer">Save link</button>' +
+      '<button onclick="saveControlledPdf()" class="btn btn-dark btn-block btn-sm">Save link</button>' +
       '</div>';
   }
 
@@ -2118,9 +2175,7 @@ function renderSidebar(sop) {
       html += '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:8px">' +
         'You hold a controlled copy of this document. Read v' + esc(sop.ack.version) +
         ', then confirm below. Your name and the time are recorded.</div>' +
-        '<button id="btn-ack" onclick="acknowledgeRead()" ' +
-        'style="width:100%;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:6px;' +
-        'font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+        '<button id="btn-ack" onclick="acknowledgeRead()" class="btn btn-primary btn-block btn-sm">' +
         '✓ I have read v' + esc(sop.ack.version) + '</button>';
     }
     html += '</div>';
@@ -2176,8 +2231,7 @@ function renderSidebar(sop) {
       'version is approved — only then do they move to 99 Obsolete.</div>' +
 
       '<button onclick="downloadSource()" ' +
-      'style="width:100%;padding:8px;background:#fff;border:1px solid #d0d0d0;border-radius:6px;' +
-      'font:inherit;font-size:12px;cursor:pointer;margin-bottom:9px">⬇ Download source to edit</button>' +
+      'class="btn btn-secondary btn-block btn-sm" style="margin-bottom:9px">⬇ Download source to edit</button>' +
 
       '<div class="field" style="margin-bottom:8px">' +
         '<label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;' +
@@ -2212,7 +2266,7 @@ function renderSidebar(sop) {
         '</div>' +
         '<div id="dec-sig-clear" style="display:none;margin-top:4px">' +
           '<button type="button" onclick="event.stopPropagation();clearDecisionSig()" ' +
-            'style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer">✕ Remove</button>' +
+            'class="btn-ghost btn-ghost-danger" style="font-size:11px">✕ Remove</button>' +
         '</div>' +
       '</div>' +
 
@@ -2281,9 +2335,7 @@ function renderSidebar(sop) {
   if (sop.canEditLinks) {
     html += '<div class="sb-section" style="border-top:1px solid #eee;padding-top:12px">' +
       '<div class="sb-label" style="color:#b91c1c">Danger zone</div>' +
-      '<button onclick="deleteDocument()" ' +
-      'style="width:100%;padding:8px;background:#fff;color:#b91c1c;border:1px solid #fca5a5;' +
-      'border-radius:6px;font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+      '<button onclick="deleteDocument()" class="btn btn-danger-outline btn-block btn-sm">' +
       'Delete this document</button>' +
       '<div style="font-size:11px;color:#999;margin-top:6px;line-height:1.5">Removes it from ' +
       'the register and moves its files to Drive bin (recoverable for 30 days).</div>' +
@@ -2354,13 +2406,11 @@ function reviewSection(sop) {
       '</div>' +
 
       '<button id="btn-confirm-review" onclick="confirmReviewed()" ' +
-      'style="width:100%;padding:8px;background:#111;color:#fff;border:none;border-radius:6px;' +
-      'font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+      'class="btn btn-dark btn-block btn-sm">' +
       'Record review — no change needed</button>' +
 
       '<button onclick="justChangeReviewDate()" ' +
-      'style="width:100%;padding:7px;margin-top:6px;background:#fff;color:#555;' +
-      'border:1px solid #d0d0d0;border-radius:6px;font:inherit;font-size:11px;cursor:pointer">' +
+      'class="btn btn-secondary btn-block btn-xs" style="margin-top:6px">' +
       'Only change the date (not a review)</button>' +
       '</div>';
   }
@@ -2457,8 +2507,7 @@ function distributionSection(sop) {
       'font-size:11px" placeholder="Juan dela Cruz, juan@' + esc(ALLOWED_DOMAIN) +
       ', Manila Hub">' + esc(seed) + '</textarea>' +
       '<button id="btn-save-dist" onclick="saveDistribution()" ' +
-      'style="width:100%;padding:8px;margin-top:6px;background:#111;color:#fff;border:none;' +
-      'border-radius:6px;font:inherit;font-size:12px;font-weight:500;cursor:pointer">' +
+      'class="btn btn-dark btn-block btn-sm" style="margin-top:6px">' +
       'Save distribution list</button>' +
       '</div>';
   }
@@ -3302,20 +3351,20 @@ function showToast(msg) {
     <!-- Header -->
     <div style="padding:18px 24px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:16px;font-weight:600;color:#111">Add signature</div>
-      <button onclick="closeSigModal()" style="color:#999;font-size:20px;background:none;border:none;cursor:pointer;padding:2px 8px">×</button>
+      <button onclick="closeSigModal()" class="btn-close">×</button>
     </div>
     <!-- Tab nav -->
     <div style="display:flex;border-bottom:1px solid #eee;background:#fafafa">
-      <button id="sig-tabn-draw"   onclick="sigTab('draw')"   style="flex:1;padding:10px;font:inherit;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;color:#888;transition:all .15s" class="sig-tab-active">✏️ Draw</button>
-      <button id="sig-tabn-type"   onclick="sigTab('type')"   style="flex:1;padding:10px;font:inherit;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;color:#888;transition:all .15s">Aa Type</button>
-      <button id="sig-tabn-upload" onclick="sigTab('upload')" style="flex:1;padding:10px;font:inherit;font-size:13px;font-weight:500;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;color:#888;transition:all .15s">📎 Upload</button>
+      <button id="sig-tabn-draw"   onclick="sigTab('draw')"   class="sig-tab sig-tab-active">✏️ Draw</button>
+      <button id="sig-tabn-type"   onclick="sigTab('type')"   class="sig-tab">Aa Type</button>
+      <button id="sig-tabn-upload" onclick="sigTab('upload')" class="sig-tab">📎 Upload</button>
     </div>
     <!-- Draw tab -->
     <div id="sig-tab-draw" style="padding:16px 24px">
       <div style="font-size:12px;color:#999;margin-bottom:8px">Draw your signature in the box below</div>
       <canvas id="sig-canvas" width="432" height="130"
         style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;cursor:crosshair;touch-action:none;display:block;background:#fff"></canvas>
-      <button onclick="clearSigCanvas()" style="margin-top:8px;font-size:12px;color:#888;background:none;border:none;cursor:pointer">↺ Clear</button>
+      <button onclick="clearSigCanvas()" class="btn-ghost" style="margin-top:8px">↺ Clear</button>
     </div>
     <!-- Type tab -->
     <div id="sig-tab-type" style="display:none;padding:16px 24px">
@@ -3339,8 +3388,8 @@ function showToast(msg) {
     </div>
     <!-- Footer -->
     <div style="padding:16px 24px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px">
-      <button onclick="closeSigModal()" style="padding:10px 18px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#555;background:#fff;cursor:pointer">Cancel</button>
-      <button onclick="applySig()" style="padding:10px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:500;cursor:pointer">Apply signature</button>
+      <button onclick="closeSigModal()" class="btn btn-secondary" style="font-size:14px;padding:10px 18px">Cancel</button>
+      <button onclick="applySig()" class="btn btn-primary" style="font-size:14px;padding:10px 20px">Apply signature</button>
     </div>
   </div>
 </div>
@@ -3353,7 +3402,7 @@ function showToast(msg) {
   <div style="background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div style="font-size:18px;font-weight:600;color:#111">Change password</div>
-      <button onclick="closeChangePwd()" style="color:#999;font-size:20px;padding:4px 8px;border-radius:4px;background:none;border:none;cursor:pointer">×</button>
+      <button onclick="closeChangePwd()" class="btn-close">×</button>
     </div>
     <form onsubmit="submitChangePwd(event)">
       <div style="margin-bottom:12px">
@@ -3377,12 +3426,10 @@ function showToast(msg) {
       <div id="cp-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
       <div id="cp-ok"  style="font-size:12px;color:#16a34a;margin-bottom:10px;display:none"></div>
       <div style="display:flex;gap:10px">
-        <button type="button" onclick="closeChangePwd()"
-          style="flex:1;padding:10px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#555;background:#fff;cursor:pointer">
+        <button type="button" onclick="closeChangePwd()" class="btn btn-secondary" style="flex:1;font-size:14px;padding:10px">
           Cancel
         </button>
-        <button type="submit" id="btn-cp-save"
-          style="flex:1;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font:inherit;font-size:14px;font-weight:500;cursor:pointer">
+        <button type="submit" id="btn-cp-save" class="btn btn-primary" style="flex:1;font-size:14px;padding:10px">
           Save
         </button>
       </div>
