@@ -214,7 +214,15 @@ nav button.active { color: #fff; background: rgba(255,255,255,.12); }
   .doc-panel { flex: none; height: 50vh; }
   .sidebar { width: 100%; border-left: none; border-top: 1px solid #e5e5e5; }
 
-  #new-sop-view { padding: 24px 16px; }
+  #new-sop-view, #ir-new-view, #create-choice-view { padding: 24px 16px; }
+
+  /* Incident report checklist: 3 columns of bilingual labels don't fit a
+     phone width without truncating badly — stack to 1 column. */
+  .ir-checkgrid { grid-template-columns: 1fr; }
+
+  /* "+ New Document" launch pad: two side-by-side cards don't fit a phone
+     width without cramping the description text — stack them. */
+  #create-choice-view > div[style*="grid-template-columns"] { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
@@ -380,6 +388,20 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 /* ── New Document form ─────────────────────────────────────────────────────────── */
 #new-sop-view { display:none; max-width:680px; margin:0 auto; padding:36px 24px; }
 #new-sop-view.active { display:block; }
+
+/* ── New Incident Report form ──────────────────────────────────────────────────── */
+#ir-new-view { display:none; max-width:820px; margin:0 auto; padding:36px 24px; }
+#ir-new-view.active { display:block; }
+
+/* ── "+ New Document" launch pad ───────────────────────────────────────────────── */
+#create-choice-view { display:none; max-width:680px; margin:0 auto; padding:36px 24px; }
+#create-choice-view.active { display:block; }
+.create-choice-card { background:#fff; border:1.5px solid #e5e5e5; border-radius:12px;
+                       padding:24px; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+.create-choice-card:hover { border-color:#16a34a; box-shadow:0 2px 10px rgba(0,0,0,.06); }
+.create-choice-icon { font-size:28px; margin-bottom:10px; }
+.create-choice-title { font-size:15px; font-weight:700; color:#111; margin-bottom:6px; }
+.create-choice-desc { font-size:12.5px; color:#666; line-height:1.5; }
 .form-section { background:#fff; border:1px solid #e5e5e5; border-radius:12px;
                 padding:24px; margin-bottom:16px; }
 .form-section-title { font-size:13px; font-weight:600; color:#111; margin-bottom:16px;
@@ -387,13 +409,25 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .field { margin-bottom:14px; }
 .field:last-child { margin-bottom:0; }
 .field label { display:block; font-size:12px; font-weight:500; color:#555; margin-bottom:5px; }
-.field input, .field select {
+.field input, .field select, .field textarea {
   width:100%; padding:9px 12px; border:1.5px solid #e0e0e0; border-radius:8px;
   font:inherit; font-size:13px; color:#333; outline:none; transition:border .15s;
   background:#fff; }
-.field input:focus, .field select:focus { border-color:#16a34a; }
+.field textarea { resize:vertical; min-height:70px; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color:#16a34a; }
 .field-hint { font-size:11px; color:#888; margin-top:4px; }
 .field-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* ── Incident report checklist grid ──────────────────────────────────────────
+   The 18-item problem checklist from the template, laid out to match — 3
+   columns on a normal screen, stacking to 1 on a phone (see the ≤780px block
+   further down). */
+.ir-checkgrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px 14px; }
+.ir-check { display:flex; align-items:flex-start; gap:7px; font-size:12.5px;
+            color:#333; line-height:1.4; }
+.ir-check input { width:auto; margin-top:2px; flex-shrink:0; }
+.ir-others-row { display:flex; align-items:center; gap:7px; font-size:12.5px; color:#333; }
+.ir-others-row input[type="text"] { flex:1; padding:5px 8px; font-size:12.5px; }
 .file-drop { border:2px dashed #e0e0e0; border-radius:8px; padding:24px;
              text-align:center; cursor:pointer; transition:all .15s; background:#fafafa; }
 .file-drop:hover { border-color:#16a34a; background:#f0fdf4; }
@@ -485,10 +519,11 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <span class="tb-logo-sub">/ Document Approvals</span>
     </div>
     <nav>
-      <button class="active" onclick="switchTab('approvals')">Approvals</button>
-      <button onclick="switchTab('documents')">Documents</button>
-      <button onclick="switchTab('audit')">Audit Trail</button>
-      <button id="nav-admin" style="display:none" onclick="switchTab('admin')">Admin</button>
+      <button class="active" data-tab="approvals" onclick="switchTab('approvals')">Approvals</button>
+      <button data-tab="documents" onclick="switchTab('documents')">Documents</button>
+      <button data-tab="incidents" onclick="switchTab('incidents')">Incident Reports</button>
+      <button data-tab="audit" onclick="switchTab('audit')">Audit Trail</button>
+      <button id="nav-admin" data-tab="admin" style="display:none" onclick="switchTab('admin')">Admin</button>
     </nav>
     <div class="tb-right">
       <span class="tb-user" id="tb-user-name"></span>
@@ -505,7 +540,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="dash-title" id="dash-title">My Approvals</div>
         <div class="dash-sub" id="dash-sub">Loading…</div>
       </div>
-      <button onclick="showNewSopForm()" class="btn btn-primary" style="margin-top:4px">
+      <button onclick="showCreateChoice()" class="btn btn-primary" style="margin-top:4px">
         + New Document
       </button>
     </div>
@@ -543,7 +578,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <button onclick="exportRegister()" id="btn-export-register" class="btn btn-secondary">
             ⬇ Export register
           </button>
-          <button onclick="showNewSopForm()" class="btn btn-primary">
+          <button onclick="showCreateChoice()" class="btn btn-primary">
             + New Document
           </button>
         </div>
@@ -605,6 +640,51 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="table-wrap">
           <div id="docs-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incident Reports: records generated from the approved FM-002 template,
+       not documents going through the Prepared/Reviewed/Approved workflow —
+       this is a log of filled-in reports plus a way to file a new one. -->
+  <div id="ir-view" class="view">
+    <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
+      <div class="dash-header hdr-row">
+        <div>
+          <div class="dash-title">Incident Reports</div>
+          <div class="dash-sub">Generated from the approved Incident Report Form template</div>
+        </div>
+        <button onclick="showNewIrForm()" class="btn btn-primary">
+          + New Incident Report
+        </button>
+      </div>
+      <div class="table-wrap">
+        <div id="ir-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- "+ New Document" launch pad: a controlled document goes through
+       Prepared/Reviewed/Approved; an incident report doesn't — it merges
+       straight into the approved template and generates a PDF. Same entry
+       point, two different destinations. -->
+  <div id="create-choice-view">
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <button onclick="backFromCreateChoice()" class="btn btn-secondary">← Back</button>
+      <div style="font-size:22px;font-weight:700;color:#111">What would you like to create?</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="create-choice-card" onclick="showNewSopForm()">
+        <div class="create-choice-icon">📄</div>
+        <div class="create-choice-title">New Document</div>
+        <div class="create-choice-desc">A Quality Manual, SOP, Work Instruction, or Form — goes through
+          Prepared → Reviewed → Approved before it's controlled.</div>
+      </div>
+      <div class="create-choice-card" onclick="showNewIrForm()">
+        <div class="create-choice-icon">🚨</div>
+        <div class="create-choice-title">Incident Report</div>
+        <div class="create-choice-desc">Fill in what happened — the app generates a signed-off PDF
+          straight from the approved Incident Report template.</div>
       </div>
     </div>
   </div>
@@ -761,6 +841,131 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div class="form-actions">
       <button class="btn-cancel-form" onclick="backFromNewSop()">Cancel</button>
       <button class="btn-submit" id="btn-submit-sop" onclick="submitNewSop()">Submit for review</button>
+    </div>
+  </div>
+
+  <!-- New Incident Report form: generates a PDF from the approved FM-002
+       template rather than submitting a document for approval. -->
+  <div id="ir-new-view">
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <button onclick="backFromNewIr()" class="btn btn-secondary">← Back</button>
+      <div style="font-size:22px;font-weight:700;color:#111">New Incident Report</div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">Event details</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Date of Event *</label>
+          <input id="ir-date-of-event" type="date">
+        </div>
+        <div class="field">
+          <label>Location of Event *</label>
+          <input id="ir-location" type="text" placeholder="e.g. Locad Cabuyao Warehouse">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field">
+          <label>Time of Event</label>
+          <input id="ir-time-of-event" type="time">
+        </div>
+        <div class="field">
+          <label>Witnessed by</label>
+          <input id="ir-witnessed-by" type="text">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field">
+          <label>Ticket Number</label>
+          <input id="ir-ticket-number" type="text" placeholder="N/A if none">
+        </div>
+        <div class="field">
+          <label>IR #</label>
+          <input type="text" value="Assigned automatically on submit" disabled
+            style="color:#999;background:#f7f7f7">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">1. Description of Events</div>
+      <div class="field">
+        <label>Include the full details of the affected item *</label>
+        <textarea id="ir-description" rows="5"></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">2. Problem Description</div>
+      <div class="ir-checkgrid" id="ir-checkgrid"></div>
+      <div class="ir-others-row" style="margin-top:10px">
+        <input id="ir-others-check" type="checkbox">
+        <label for="ir-others-check" style="margin:0;font-weight:500">Others (please specify):</label>
+        <input id="ir-others-text" type="text" placeholder="Specify">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">3. Detailed Investigation</div>
+      <div class="field-hint" style="margin-bottom:10px">For incidents involving packages, fill up the basic information below.</div>
+      <div class="field-row">
+        <div class="field"><label>Order number</label><input id="ir-order-number" type="text"></div>
+        <div class="field"><label>Total TN/ ON affected</label><input id="ir-total-tn-on" type="text"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Tracking number</label><input id="ir-tracking-number" type="text"></div>
+        <div class="field"><label>Department involved</label><input id="ir-department" type="text"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Client name</label><input id="ir-client-name" type="text"></div>
+        <div class="field"><label>Customer address</label><input id="ir-customer-address" type="text"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Customer name</label><input id="ir-customer-name" type="text"></div>
+        <div class="field"></div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Other relevant information</label>
+        <textarea id="ir-other-info" rows="3"></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">4. Basic Cause</div>
+      <div class="field">
+        <textarea id="ir-basic-cause" rows="4"></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">5. Actions Taken</div>
+      <div class="field">
+        <label>Immediate Actions Taken</label>
+        <textarea id="ir-immediate-actions" rows="4"></textarea>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Preventive Actions</label>
+        <textarea id="ir-preventive-actions" rows="4"></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">6. Other Details</div>
+      <div class="field-row">
+        <div class="field"><label>Checked By *</label><input id="ir-checked-by" type="text"></div>
+        <div class="field"><label>Business Impact</label><input id="ir-business-impact" type="text"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Approved By *</label><input id="ir-approved-by" type="text"></div>
+        <div class="field"><label>Received by Customer</label><input id="ir-received-by-customer" type="text"></div>
+      </div>
+    </div>
+
+    <div id="ir-form-error" style="color:#dc2626;font-size:13px;margin-bottom:10px;display:none"></div>
+
+    <div class="form-actions">
+      <button class="btn-cancel-form" onclick="backFromNewIr()">Cancel</button>
+      <button class="btn-submit" id="btn-submit-ir" onclick="submitIncidentReport()">Generate report</button>
     </div>
   </div>
 
@@ -1126,7 +1331,7 @@ function signOut() {
   var dp = document.getElementById('doc-panel');
   if (dp) dp.innerHTML = '';
 
-  ['detail-view', 'new-sop-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
+  ['detail-view', 'new-sop-view', 'ir-new-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.classList.remove('active'); }
   });
@@ -1239,35 +1444,40 @@ function switchTab(tab) {
   App.currentTab = tab;
   document.getElementById('detail-view').style.display = 'none';
   document.getElementById('detail-view').classList.remove('active');
-  // Always hide the New Document form when switching tabs
+  // Always hide the New Document / New Incident Report forms and the create
+  // launch pad when switching tabs
   document.getElementById('new-sop-view').style.display = 'none';
   document.getElementById('new-sop-view').classList.remove('active');
+  document.getElementById('ir-new-view').style.display = 'none';
+  document.getElementById('ir-new-view').classList.remove('active');
+  document.getElementById('create-choice-view').classList.remove('active');
   // Drop any document PDF still held as a blob URL
   revokeDocPreview();
   var _dp = document.getElementById('doc-panel');
   if (_dp) _dp.innerHTML = '';
 
-  // Update nav highlights
+  // Update nav highlights — looked up by data-tab rather than position, so
+  // inserting/reordering nav buttons (like Incident Reports below) can't
+  // silently highlight the wrong one.
   document.querySelectorAll('nav button').forEach(function(btn) { btn.classList.remove('active'); });
-  var navBtns = document.querySelectorAll('nav button');
-  if (tab === 'approvals') navBtns[0].classList.add('active');
-  if (tab === 'documents') navBtns[1].classList.add('active');
-  if (tab === 'audit')     navBtns[2].classList.add('active');
-  if (tab === 'admin')     document.getElementById('nav-admin').classList.add('active');
+  var activeBtn = document.querySelector('nav button[data-tab="' + tab + '"]');
+  if (activeBtn) activeBtn.classList.add('active');
 
   showView(tab === 'approvals' ? 'dash-view'      :
            tab === 'documents' ? 'docs-view'       :
+           tab === 'incidents' ? 'ir-view'         :
            tab === 'admin'     ? 'admin-view'      :
                                  'audit-content');
 
   if (tab === 'approvals' && App.myApprovals.length === 0) loadApprovals();
   if (tab === 'documents' && App.allSops.length === 0)     loadAllSops();
+  if (tab === 'incidents')                                  loadIncidentReports();
   if (tab === 'audit')                                      loadAudit();
   if (tab === 'admin')                                      loadUsers();
 }
 
 function showView(id) {
-  ['dash-view', 'docs-view', 'audit-content', 'admin-view'].forEach(function(v) {
+  ['dash-view', 'docs-view', 'ir-view', 'audit-content', 'admin-view'].forEach(function(v) {
     var el = document.getElementById(v);
     if (el) { el.classList.toggle('active', v === id); }
   });
@@ -2871,6 +3081,203 @@ function esc(s) {
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
 }
 
+// ── Incident Reports ─────────────────────────────────────────────────────────────
+// Records generated from the approved Incident Report Form template
+// (LPH-OPS-WH-FM-002) — filling this form doesn't create a document that goes
+// through Prepared/Reviewed/Approved; it merges the values into the current
+// approved master and produces a PDF, logged below for later reference.
+//
+// Order and count here must match IR_PROBLEM_LABELS in Code_FINAL.gs exactly
+// — the selected checkbox's array index is what the backend uses to find the
+// matching cell in the template's 6x3 checklist grid.
+var IR_PROBLEM_LABELS = [
+  'Damaged package/Nasirang package', 'Short remittance/Kulang ang remittance', 'Misrouted package/Mali ang ruta ng package',
+  'Lacking item/Pagkakulang ng item', 'Theft/Pagnanakaw', 'Lost item or docs/Nawalang item or docs',
+  'Wrong item received/Maling natanggap na item', 'Property damage/Pinsala sa pasilidad', 'Unidentified package/di makilalang package',
+  'Empty package/Walang Laman ang package', 'Wrong tagging/Maling tagging sa FE', 'Incomplete docs/Kulang ang dokumento',
+  'Robbery/Nilooban', 'Double served/Double Order', 'Non compliance to House rules/Di pagsunod sa House rules',
+  'Agency SLA Breach', 'SOP non-compliance/Di pagsunod sa SOP'
+];
+
+function loadIncidentReports() {
+  document.getElementById('ir-table-body').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  apiPost({ action: 'getIncidentReports' }).then(function(r) {
+    if (!r.ok) { showToast(r.message || 'Could not load incident reports.'); return; }
+    renderIrTable(r.data || []);
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function renderIrTable(list) {
+  var body = document.getElementById('ir-table-body');
+  if (!list.length) {
+    body.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>' +
+      'No incident reports filed yet.' +
+      '<div style="margin-top:10px"><button onclick="showNewIrForm()" ' +
+      'class="btn btn-primary">+ New Incident Report</button></div></div>';
+    return;
+  }
+  var html = '<table><thead><tr>' +
+    '<th>IR #</th><th>Date of Event</th><th>Location</th><th>Problem</th>' +
+    '<th>Submitted by</th><th>Submitted</th><th></th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(r) {
+    html += '<tr onclick="window.open(\'' + esc(r.pdfUrl) + '\', \'_blank\')">' +
+      '<td><span class="sop-code">' + esc(r.irNumber) + '</span></td>' +
+      '<td class="sop-meta">' + esc(r.dateOfEvent) + '</td>' +
+      '<td class="sop-meta">' + esc(r.locationOfEvent) + '</td>' +
+      '<td class="sop-meta">' + esc(r.problemSummary) + '</td>' +
+      '<td class="sop-meta">' + esc(r.submittedBy) + '</td>' +
+      '<td class="sop-meta">' + fmtDate(r.submittedAt) + '</td>' +
+      '<td><a href="' + esc(r.pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
+      'onclick="event.stopPropagation()" style="font-size:12px;color:#16a34a;text-decoration:underline">' +
+      'View PDF →</a></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+function renderIrChecklist() {
+  var el = document.getElementById('ir-checkgrid');
+  if (!el) return;
+  var html = '';
+  IR_PROBLEM_LABELS.forEach(function(label, i) {
+    html += '<label class="ir-check">' +
+      '<input type="checkbox" id="ir-problem-' + i + '">' +
+      '<span>' + esc(label) + '</span></label>';
+  });
+  el.innerHTML = html;
+}
+
+function showNewIrForm() {
+  // Reachable both from the Incident Reports tab's own button and from the
+  // "+ New Document" launch pad on Approvals/Documents — hide whichever of
+  // those is currently showing.
+  ['dash-view','docs-view','audit-content','ir-view','create-choice-view'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.classList.remove('active');
+  });
+  renderIrChecklist();
+  // Clear every field so a previous draft can't bleed into a new report.
+  ['ir-date-of-event','ir-location','ir-time-of-event','ir-witnessed-by','ir-ticket-number',
+   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-tracking-number',
+   'ir-department','ir-client-name','ir-customer-address','ir-customer-name','ir-other-info',
+   'ir-basic-cause','ir-immediate-actions','ir-preventive-actions','ir-checked-by',
+   'ir-business-impact','ir-approved-by','ir-received-by-customer'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  var oc = document.getElementById('ir-others-check'); if (oc) oc.checked = false;
+  document.getElementById('ir-form-error').style.display = 'none';
+  document.getElementById('ir-new-view').classList.add('active');
+  document.getElementById('ir-new-view').style.display = 'block';
+}
+
+function backFromNewIr() {
+  document.getElementById('ir-new-view').classList.remove('active');
+  document.getElementById('ir-new-view').style.display = 'none';
+  // Return to whichever tab was active when the form was opened — it may
+  // have been Incident Reports directly, or Approvals/Documents via the
+  // "+ New Document" launch pad.
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' :
+           App.currentTab === 'incidents' ? 'ir-view'   : 'audit-content');
+}
+
+function collectIrFields() {
+  var v = function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  var problems = [];
+  IR_PROBLEM_LABELS.forEach(function(_, i) {
+    var cb = document.getElementById('ir-problem-' + i);
+    if (cb && cb.checked) problems.push(i);
+  });
+  var othersChecked = document.getElementById('ir-others-check').checked;
+  var othersText = v('ir-others-text');
+  if (othersChecked || othersText) problems.push(17);
+
+  return {
+    dateOfEvent: v('ir-date-of-event'),
+    locationOfEvent: v('ir-location'),
+    timeOfEvent: v('ir-time-of-event'),
+    witnessedBy: v('ir-witnessed-by'),
+    ticketNumber: v('ir-ticket-number'),
+    descriptionOfEvents: v('ir-description'),
+    problems: problems,
+    othersText: othersText,
+    orderNumber: v('ir-order-number'),
+    totalTnOn: v('ir-total-tn-on'),
+    trackingNumber: v('ir-tracking-number'),
+    departmentInvolved: v('ir-department'),
+    clientName: v('ir-client-name'),
+    customerAddress: v('ir-customer-address'),
+    customerName: v('ir-customer-name'),
+    otherRelevantInfo: v('ir-other-info'),
+    basicCause: v('ir-basic-cause'),
+    immediateActions: v('ir-immediate-actions'),
+    preventiveActions: v('ir-preventive-actions'),
+    checkedBy: v('ir-checked-by'),
+    businessImpact: v('ir-business-impact'),
+    approvedBy: v('ir-approved-by'),
+    receivedByCustomer: v('ir-received-by-customer')
+  };
+}
+
+function submitIncidentReport() {
+  var errEl = document.getElementById('ir-form-error');
+  errEl.style.display = 'none';
+  var fields = collectIrFields();
+
+  if (!fields.dateOfEvent || !fields.locationOfEvent || !fields.descriptionOfEvents) {
+    errEl.textContent = 'Date of Event, Location of Event, and Description of Events are required.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!fields.checkedBy || !fields.approvedBy) {
+    errEl.textContent = 'Checked By and Approved By are required — these are the sign-off for this report.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  var btn = document.getElementById('btn-submit-ir');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  apiPost({ action: 'submitIncidentReport', fields: fields }).then(function(r) {
+    btn.disabled = false;
+    btn.textContent = 'Generate report';
+    if (!r.ok) {
+      errEl.textContent = r.message || 'Could not generate the report.';
+      errEl.style.display = 'block';
+      return;
+    }
+    showToast('Incident report ' + r.record.irNumber + ' generated.');
+    backFromNewIr();
+    loadIncidentReports();
+    window.open(r.record.pdfUrl, '_blank');
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = 'Generate report';
+    errEl.textContent = err.message || 'Network error — please try again.';
+    errEl.style.display = 'block';
+  });
+}
+
+// ── "+ New Document" launch pad ────────────────────────────────────────────────────
+function showCreateChoice() {
+  ['dash-view','docs-view','audit-content'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.classList.remove('active');
+  });
+  document.getElementById('detail-view').style.display = 'none';
+  revokeDocPreview();
+  document.getElementById('create-choice-view').classList.add('active');
+}
+
+function backFromCreateChoice() {
+  document.getElementById('create-choice-view').classList.remove('active');
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' :
+           App.currentTab === 'incidents' ? 'ir-view'   : 'audit-content');
+}
+
 // ── New Document form ──────────────────────────────────────────────────────────────
 var _selectedFile = null;
 var _prepSigDataUrl = null;
@@ -2879,6 +3286,7 @@ function showNewSopForm() {
   ['dash-view','docs-view','audit-content'].forEach(function(id){
     var el = document.getElementById(id); if(el) el.classList.remove('active');
   });
+  document.getElementById('create-choice-view').classList.remove('active');
   document.getElementById('detail-view').style.display = 'none';
   revokeDocPreview();
   document.getElementById('new-sop-view').classList.add('active');
