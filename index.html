@@ -52,8 +52,8 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 .btn-primary:hover { background: #15803d; }
 .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
 /* Near-black variant for a few quieter sidebar "save" actions (save a link,
-   record a review, save the distribution list) — intentionally not the main
-   green CTA color, just consolidated out of inline styles like everything else. */
+   record a review) — intentionally not the main green CTA color, just
+   consolidated out of inline styles like everything else. */
 .btn-dark { background: #111; color: #fff; }
 .btn-dark:hover { background: #000; }
 .btn-secondary { background: #fff; color: #333; border: 1.5px solid #e0e0e0; }
@@ -215,13 +215,6 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .docs-filter { padding: 9px 10px; border: 1.5px solid #e0e0e0; border-radius: 8px;
                font: inherit; font-size: 13px; background: #fff; color: #333;
                outline: none; cursor: pointer; }
-
-/* ── Distribution / acknowledgement list ──────────────────────────────────── */
-.dist-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-.dist-row:last-child { border-bottom: none; }
-.dist-ack   { color: #166534; font-size: 12px; white-space: nowrap; }
-.dist-wait  { color: #b45309; font-size: 12px; white-space: nowrap; }
 
 /* ── Empty / loading ──────────────────────────────────────────────────────── */
 .empty { padding: 48px 24px; text-align: center; color: #888; }
@@ -1606,7 +1599,7 @@ function applyDocsFilter() {
 
   var html = '<table><thead><tr>' +
     '<th>Type</th><th>Document ID</th><th>Title</th><th>Version</th>' +
-    '<th>Prepared by</th><th>Next review</th><th>Read</th><th>Status</th>' +
+    '<th>Prepared by</th><th>Next review</th><th>Status</th>' +
     '</tr></thead><tbody>';
   rows.forEach(function(sop) {
     html += '<tr onclick="openSop(\'' + esc(sop.id) + '\')">' +
@@ -1616,7 +1609,6 @@ function applyDocsFilter() {
       '<td class="sop-meta">' + esc(sop.version) + '</td>' +
       '<td class="sop-meta">' + esc(sop.prepName) + '</td>' +
       '<td>' + reviewPill(sop) + '</td>' +
-      '<td class="sop-meta">' + ackCell(sop) + '</td>' +
       '<td>' + statusBadge(sop.status) + '</td>' +
       '</tr>';
   });
@@ -1651,14 +1643,6 @@ function reviewPill(sop) {
   else                       label = sop.reviewDate || '';
   var title = sop.reviewDate ? 'Next review: ' + sop.reviewDate : 'No review date set';
   return '<span class="rv rv-' + rs + '" title="' + esc(title) + '">' + esc(label) + '</span>';
-}
-
-function ackCell(sop) {
-  var total = sop.distCount || 0;
-  if (!total) return '<span style="color:#ccc">—</span>';
-  var done = sop.ackCount || 0;
-  var colour = done >= total ? '#166534' : '#b45309';
-  return '<span style="color:' + colour + '">' + done + '/' + total + '</span>';
 }
 
 // ── Register export ───────────────────────────────────────────────────────────
@@ -1885,14 +1869,7 @@ function renderDetail(sop) {
   // Document preview. Files are private in Drive, so we fetch the bytes through
   // the authenticated proxy and render from a blob URL rather than pointing an
   // iframe at a public Google link.
-  var isRecipient = sop.ack && sop.ack.youAreOnList;
-  if (sop.isParty === false && isRecipient && sop.status === 'approved') {
-    // A controlled copy holder who isn't party to the approval. They can read the
-    // issued copy — being asked to acknowledge a document you can't open is not a
-    // workable ask — but not the master or the working source.
-    loadDocPreview(sop.id, 'issued',
-      'This is the issued controlled copy. Read it, then confirm in the sidebar.');
-  } else if (sop.isParty === false) {
+  if (sop.isParty === false) {
     // Visible in the register, but this person isn't party to the SOP
     document.getElementById('doc-panel').innerHTML =
       '<div class="doc-placeholder"><div class="doc-placeholder-icon">🔒</div>' +
@@ -2163,28 +2140,6 @@ function renderSidebar(sop) {
 
   // ── Periodic review ─────────────────────────────────────────────────────────
   if (sop.status === 'approved') html += reviewSection(sop);
-
-  // ── Read and acknowledge (the recipient's own action) ───────────────────────
-  if (sop.status === 'approved' && sop.ack && sop.ack.youAreOnList) {
-    html += '<div class="sb-section"><div class="sb-label">Your acknowledgement</div>';
-    if (sop.ack.youHave) {
-      html += '<div style="background:#f0fdf4;border-radius:6px;padding:9px 11px;font-size:12px;' +
-        'color:#166534;line-height:1.5">✓ You acknowledged reading v' + esc(sop.ack.version) +
-        '.</div>';
-    } else {
-      html += '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:8px">' +
-        'You hold a controlled copy of this document. Read v' + esc(sop.ack.version) +
-        ', then confirm below. Your name and the time are recorded.</div>' +
-        '<button id="btn-ack" onclick="acknowledgeRead()" class="btn btn-primary btn-block btn-sm">' +
-        '✓ I have read v' + esc(sop.ack.version) + '</button>';
-    }
-    html += '</div>';
-  }
-
-  // ── Controlled copy distribution ────────────────────────────────────────────
-  if (sop.isParty && (sop.distribution.length || sop.canManageDistribution)) {
-    html += distributionSection(sop);
-  }
 
   // Version history — superseded versions with who signed and what changed
   if (sop.versions && sop.versions.length) {
@@ -2458,124 +2413,6 @@ function justChangeReviewDate() {
       openSop(sop.id);
     })
     .catch(function(err) { showToast(err.message); });
-}
-
-// ── Controlled copy distribution section ──────────────────────────────────────
-// The list of who holds a controlled copy. It drives who is expected to
-// acknowledge each new version, and it is what makes recall of superseded copies
-// demonstrable rather than assumed.
-function distributionSection(sop) {
-  var ack = sop.ack || { recipients: [], total: 0, done: 0, version: sop.version };
-  var html = '<div class="sb-section"><div class="sb-label">Controlled copy holders</div>';
-
-  if (!ack.total) {
-    html += '<div style="font-size:11px;color:#888;line-height:1.5">' +
-      'Nobody is recorded as holding a controlled copy yet.</div>';
-  } else {
-    var pct = ack.total ? Math.round((ack.done / ack.total) * 100) : 0;
-    html += '<div style="font-size:12px;color:#444;margin-bottom:7px">' +
-      ack.done + ' of ' + ack.total + ' acknowledged v' + esc(ack.version) +
-      '<div style="height:5px;background:#eee;border-radius:3px;margin-top:5px;overflow:hidden">' +
-      '<div style="height:100%;width:' + pct + '%;background:' +
-      (pct === 100 ? '#16a34a' : '#f59e0b') + '"></div></div></div>';
-
-    ack.recipients.forEach(function(r) {
-      html += '<div class="dist-row">' +
-        '<div><div style="color:#333">' + esc(r.name || r.email) + '</div>' +
-        '<div style="color:#aaa;font-size:11px">' + esc(r.location || r.email) + '</div></div>' +
-        (r.acknowledgedAt
-          ? '<div class="dist-ack">✓ ' + fmtDate(r.acknowledgedAt) + '</div>'
-          : '<div class="dist-wait">awaiting</div>') +
-        '</div>';
-    });
-  }
-
-  if (sop.canManageDistribution) {
-    // One address per line, "name, email, location". A textarea rather than a
-    // row builder: editing a list of a dozen people is faster as text, and it
-    // pastes straight out of a spreadsheet.
-    var seed = (sop.distribution || []).map(function(r) {
-      return [r.name || '', r.email || '', r.location || '']
-        .join(', ').replace(/(,\s*)+$/, '');
-    }).join('\n');
-
-    html += '<div style="margin-top:10px;border-top:1px solid #eee;padding-top:9px">' +
-      '<div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:6px">' +
-      'One person per line as <strong>Name, email, location</strong>. ' +
-      'Email is the only required part. Saving replaces the whole list.</div>' +
-      '<textarea id="dist-text" style="min-height:80px;font-family:ui-monospace,Menlo,monospace;' +
-      'font-size:11px" placeholder="Juan dela Cruz, juan@' + esc(ALLOWED_DOMAIN) +
-      ', Manila Hub">' + esc(seed) + '</textarea>' +
-      '<button id="btn-save-dist" onclick="saveDistribution()" ' +
-      'class="btn btn-dark btn-block btn-sm" style="margin-top:6px">' +
-      'Save distribution list</button>' +
-      '</div>';
-  }
-
-  return html + '</div>';
-}
-
-function saveDistribution() {
-  var sop = App.currentSop;
-  if (!sop) return;
-  var raw = document.getElementById('dist-text').value || '';
-
-  var recipients = raw.split('\n').map(function(line) {
-    var parts = line.split(',').map(function(p) { return p.trim(); }).filter(function(p) { return p; });
-    if (!parts.length) return null;
-    // The email is whichever field has an @ — so "juan@x.com" alone works, and
-    // so does "Juan dela Cruz, juan@x.com, Manila".
-    var emailIdx = -1;
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].indexOf('@') !== -1) { emailIdx = i; break; }
-    }
-    if (emailIdx === -1) return null;
-    var rest = parts.filter(function(_, i) { return i !== emailIdx; });
-    return { email: parts[emailIdx], name: rest[0] || '', location: rest[1] || '' };
-  }).filter(function(r) { return r; });
-
-  var skipped = raw.split('\n').filter(function(l) { return l.trim(); }).length - recipients.length;
-
-  var btn = document.getElementById('btn-save-dist');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-
-  apiPost({ action: 'setDistribution', code: sop.id, recipients: recipients })
-    .then(function(r) {
-      if (!r.ok) throw new Error(r.message || 'Could not save the list.');
-      var msg = r.count + ' recipient' + (r.count !== 1 ? 's' : '') + ' saved.';
-      if (skipped > 0) msg += ' ' + skipped + ' line(s) had no email address and were skipped.';
-      if (r.message) msg += ' ' + r.message;
-      showToast(msg);
-      openSop(sop.id);
-    })
-    .catch(function(err) {
-      showToast(err.message);
-      btn.disabled = false;
-      btn.textContent = 'Save distribution list';
-    });
-}
-
-function acknowledgeRead() {
-  var sop = App.currentSop;
-  if (!sop) return;
-  var btn = document.getElementById('btn-ack');
-  btn.disabled = true;
-  btn.textContent = 'Recording…';
-
-  apiPost({ action: 'acknowledgeRead', code: sop.id })
-    .then(function(r) {
-      if (!r.ok) throw new Error(r.message || 'Could not record your acknowledgement.');
-      showToast(r.alreadyAcknowledged
-        ? 'Already recorded for v' + r.version + '.'
-        : 'Recorded — thank you.');
-      openSop(sop.id);
-    })
-    .catch(function(err) {
-      showToast(err.message);
-      btn.disabled = false;
-      btn.textContent = '✓ I have read v' + (sop.ack ? sop.ack.version : sop.version);
-    });
 }
 
 // ── Revise a returned document ────────────────────────────────────────────────
