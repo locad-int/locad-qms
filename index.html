@@ -431,6 +431,17 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
            entirely for anyone who wants to search across every type at once. -->
       <div id="docs-folders" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:8px"></div>
 
+      <!-- No-typing way into the unfiltered view — the search box covers this
+           too (type anything and it jumps to "All documents"), but this is for
+           anyone who wants to just browse without typing a query first. Shown
+           only alongside the folder grid; hidden the moment a folder is open. -->
+      <div id="docs-browse-all" style="margin:2px 0 20px;text-align:center">
+        <a href="javascript:void(0)" onclick="openDocsFolder('ALL')"
+          style="font-size:13px;color:#666;text-decoration:underline;cursor:pointer">
+          Browse all documents without searching →
+        </a>
+      </div>
+
       <!-- Drilled-in view: a specific folder's filtered list, or the
            unfiltered "All documents" view. Hidden until a folder is opened. -->
       <div id="docs-drilldown" style="display:none">
@@ -1358,8 +1369,14 @@ function docsFolderCounts() {
 function renderDocsFolders() {
   var el = document.getElementById('docs-folders');
   if (!el) return;
-  if (App.docsFolder) { el.style.display = 'none'; return; }
+  var browseAll = document.getElementById('docs-browse-all');
+  if (App.docsFolder) {
+    el.style.display = 'none';
+    if (browseAll) browseAll.style.display = 'none';
+    return;
+  }
   el.style.display = 'grid';
+  if (browseAll) browseAll.style.display = 'block';
 
   // The grid is the overview page, so the header above it should always say
   // so — without this, it kept showing whatever folder name was last opened
@@ -1392,15 +1409,10 @@ function renderDocsFolders() {
       '</div></div>';
   }).join('');
 
-  html += '<div onclick="openDocsFolder(\'ALL\')" tabindex="0" ' +
-    'onkeydown="if(event.key===\'Enter\')openDocsFolder(\'ALL\')" ' +
-    'style="background:#fafafa;border:1.5px dashed #d5d5d5;border-radius:12px;padding:20px;' +
-    'cursor:pointer;display:flex;flex-direction:column;justify-content:center;' +
-    'transition:border-color .15s" ' +
-    'onmouseover="this.style.borderColor=\'#999\'" onmouseout="this.style.borderColor=\'#d5d5d5\'">' +
-    '<div style="font-size:20px;margin-bottom:10px">🔍</div>' +
-    '<div style="font-weight:600;font-size:14px;color:#111;margin-bottom:3px">All documents</div>' +
-    '<div style="font-size:12px;color:#999">Search across every type</div></div>';
+  // The "All documents" tile that lived here was a second way to reach the
+  // same unfiltered view the header search box already opens (type anything
+  // there and it jumps straight to "All documents" via onGlobalSearchInput) —
+  // redundant now that the search box is always visible, so it's been removed.
 
   el.innerHTML = html;
 }
@@ -1412,6 +1424,8 @@ function renderDocsFolders() {
 function openDocsFolder(type, keepSearch) {
   App.docsFolder = type;
   document.getElementById('docs-folders').style.display    = 'none';
+  var browseAll = document.getElementById('docs-browse-all');
+  if (browseAll) browseAll.style.display = 'none';
   document.getElementById('docs-drilldown').style.display   = 'block';
   document.getElementById('docs-title').textContent =
     type === 'ALL' ? 'All documents' : (DOC_TYPES[type] ? DOC_TYPES[type].name : 'Documents');
