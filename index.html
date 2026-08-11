@@ -658,7 +658,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <div class="dash-title">Incident Reports</div>
           <div class="dash-sub">Generated from the approved Incident Report Form template</div>
         </div>
-        <button onclick="showNewIrForm()" class="btn btn-primary">
+        <button id="ir-header-new-btn" onclick="showNewIrForm()" class="btn btn-primary" style="display:none">
           + New Incident Report
         </button>
       </div>
@@ -3353,13 +3353,19 @@ function loadIncidentReports() {
 
 function renderIrTable(list) {
   var body = document.getElementById('ir-table-body');
+  // The "+ New Incident Report" button lives in only one place at a time:
+  // centered in the empty state when there's nothing to show yet, or up in
+  // the header once there's a table to act as the anchor for it instead.
+  var headerBtn = document.getElementById('ir-header-new-btn');
   if (!list.length) {
+    if (headerBtn) headerBtn.style.display = 'none';
     body.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>' +
       'No incident reports filed yet.' +
       '<div style="margin-top:10px"><button onclick="showNewIrForm()" ' +
       'class="btn btn-primary">+ New Incident Report</button></div></div>';
     return;
   }
+  if (headerBtn) headerBtn.style.display = '';
   var html = '<table><thead><tr>' +
     '<th>IR #</th><th>Date of Event</th><th>Location</th><th>Problem</th>' +
     '<th>Submitted by</th><th>Approved by</th><th>Submitted</th><th></th>' +
