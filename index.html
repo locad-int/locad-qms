@@ -526,6 +526,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <button class="active" data-tab="approvals" onclick="switchTab('approvals')">Approvals</button>
       <button data-tab="documents" onclick="switchTab('documents')">Documents</button>
       <button data-tab="incidents" onclick="switchTab('incidents')">Incident Reports</button>
+      <button data-tab="ncar" onclick="switchTab('ncar')">NCAR</button>
       <button data-tab="audit" onclick="switchTab('audit')">Audit Trail</button>
       <button id="nav-admin" data-tab="admin" style="display:none" onclick="switchTab('admin')">Admin</button>
     </nav>
@@ -680,6 +681,44 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Approved reports</div>
       <div class="table-wrap">
         <div id="ir-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NCAR (Nonconforming and Corrective Action Report) — a separate tab,
+       mirroring the Incident Reports tab's structure exactly. Unlike an
+       incident report, an NCAR isn't finalized on submit: it routes through
+       a 4-stage sequential approval chain (9.1 Service Provider, 9.2 LOCAD)
+       before it's considered approved. -->
+  <div id="ncar-view" class="view">
+    <div style="max-width:1100px;margin:0 auto;padding:36px 24px">
+      <div class="dash-header hdr-row">
+        <div>
+          <div class="dash-title">NCAR</div>
+          <div class="dash-sub">Nonconforming and Corrective Action Reports</div>
+        </div>
+        <button id="ncar-header-new-btn" onclick="showNewNcarForm()" class="btn btn-primary" style="display:none">
+          + New NCAR
+        </button>
+      </div>
+
+      <!-- NCARs currently waiting on the signed-in user at whichever of the
+           4 approval stages they're up next for. Hidden entirely when empty. -->
+      <div id="ncar-my-approvals-wrap" style="display:none;margin-bottom:28px">
+        <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Awaiting your approval</div>
+        <div class="table-wrap"><div id="ncar-my-approvals-body"></div></div>
+      </div>
+
+      <!-- The signed-in user's own NCARs that haven't fully cleared all 4
+           stages yet — either still mid-chain, or sent back for revision. -->
+      <div id="ncar-my-drafts-wrap" style="display:none;margin-bottom:28px">
+        <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Your pending NCARs</div>
+        <div class="table-wrap"><div id="ncar-my-drafts-body"></div></div>
+      </div>
+
+      <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Approved NCARs</div>
+      <div class="table-wrap">
+        <div id="ncar-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
       </div>
     </div>
   </div>
@@ -1059,6 +1098,170 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     <div id="ir-decide-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
   </div>
 
+  <!-- New NCAR form — mirrors the "NCAR v1" paper form's 9 numbered
+       sections. Unlike the New Incident Report form, the initiator doesn't
+       self-sign here: all 4 signatures happen later, on the approvers' own
+       decision screens (openNcarDecide). -->
+  <div id="ncar-new-view">
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <button onclick="backFromNewNcar()" class="btn btn-secondary">← Back</button>
+      <div id="ncar-form-title" style="font-size:22px;font-weight:700;color:#111">New NCAR</div>
+    </div>
+    <div id="ncar-revise-note" style="display:none;font-size:13px;color:#92400e;background:#fef3c7;
+      border-radius:6px;padding:10px 12px;margin-bottom:16px"></div>
+
+    <div class="form-section">
+      <div class="form-section-title">NCAR details</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Department *</label>
+          <select id="ncar-department"
+            style="width:100%;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;background:#fff;outline:none">
+            <option value="">Select a team...</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Target Completion *</label>
+          <input id="ncar-target-completion" type="date">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field">
+          <label>Initiator</label>
+          <input id="ncar-initiator-name" type="text" placeholder="Display name — defaults to your account">
+        </div>
+        <div class="field">
+          <label>NCAR No.</label>
+          <input type="text" value="Assigned automatically on submit" disabled
+            style="color:#999;background:#f7f7f7">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field">
+          <label>Recipient — name <span style="font-weight:400;color:#888">(optional, FYI only)</span></label>
+          <input id="ncar-recipient-name" type="text">
+        </div>
+        <div class="field">
+          <label>Recipient — email</label>
+          <input id="ncar-recipient-email" type="email" placeholder="name@golocad.com">
+        </div>
+      </div>
+      <div class="field-hint" style="margin-top:6px">The recipient is notified for information only — they are not
+        one of the 4 approvers below and their sign-off isn't required.</div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">1.0 Type of Non-Conformance <span style="font-weight:400;color:#888">(select all that apply)</span></div>
+      <div class="ir-checkgrid" id="ncar-type-grid"></div>
+      <div id="ncar-type-others-wrap" style="display:none;margin-top:10px">
+        <div class="field"><label>Please specify "Others"</label><input id="ncar-type-others-text" type="text"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">2.0 Degree of Non-Conformance <span style="font-weight:400;color:#888">(select one)</span></div>
+      <label class="ir-check" style="margin-bottom:8px"><input type="radio" name="ncar-degree" value="major"><span>Major</span></label><br>
+      <label class="ir-check"><input type="radio" name="ncar-degree" value="minor"><span>Minor</span></label>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">3.0 Describe the Problem</div>
+      <div class="field"><label>What? *</label><input id="ncar-problem-what" type="text"></div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>When? *</label><input id="ncar-problem-when" type="text" placeholder="e.g. 9/7/2026 to 9/13/2026"></div>
+        <div class="field"><label>Who? *</label><input id="ncar-problem-who" type="text"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Where? *</label><input id="ncar-problem-where" type="text"></div>
+        <div class="field"><label>How Many?</label><input id="ncar-problem-howmany" type="text"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">4.0 Immediate Action to the Problem <span style="font-weight:400;color:#888">(select all that apply)</span></div>
+      <div class="ir-checkgrid" id="ncar-action-grid"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">5.0 Details of Immediate Action</div>
+      <div id="ncar-ia-rows"></div>
+      <button type="button" class="optional-toggle" onclick="addNcarImmediateAction()">+ Add another immediate action</button>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">6.0 Root Cause Analysis</div>
+      <div id="ncar-whys-list"></div>
+      <button type="button" class="optional-toggle" onclick="addNcarWhy()">+ Add another Why</button>
+      <div class="field" style="margin-top:16px;padding-top:14px;border-top:1px solid #f0f0f0">
+        <label>Root Cause *</label>
+        <textarea id="ncar-root-cause" rows="3"></textarea>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">7.0 Corrective Action</div>
+      <div id="ncar-ca-rows"></div>
+      <button type="button" class="optional-toggle" onclick="addNcarCorrectiveAction()">+ Add another corrective action</button>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">8.0 Document Update</div>
+      <div class="field-hint" style="margin-bottom:10px">Requires Document Change? *</div>
+      <label class="ir-check" style="margin-bottom:8px">
+        <input type="radio" name="ncar-docchange" value="yes" onchange="toggleNcarDocChange(true)"><span>YES</span></label><br>
+      <label class="ir-check"><input type="radio" name="ncar-docchange" value="no" onchange="toggleNcarDocChange(false)"><span>NO</span></label>
+      <div id="ncar-docchange-yes-wrap" style="display:none;margin-top:10px">
+        <div class="field"><label>Change Form Number</label><input id="ncar-change-form-number" type="text"></div>
+      </div>
+      <div id="ncar-docchange-no-wrap" style="display:none;margin-top:10px">
+        <div class="field"><label>Reason no document change is required</label><textarea id="ncar-no-change-reason" rows="2"></textarea></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">9.1 Approval (Service Provider)</div>
+      <div class="field-row">
+        <div class="field"><label>Immediate Supervisor/Manager — full name</label><input id="ncar-ap-sp1-name" type="text"></div>
+        <div class="field"><label>Immediate Supervisor/Manager — email *</label><input id="ncar-ap-sp1-email" type="email"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Management Representative — full name</label><input id="ncar-ap-sp2-name" type="text"></div>
+        <div class="field"><label>Management Representative — email *</label><input id="ncar-ap-sp2-email" type="email"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">9.2 Approval (LOCAD)</div>
+      <div class="field-row">
+        <div class="field"><label>Operations Executive — full name</label><input id="ncar-ap-locad1-name" type="text"></div>
+        <div class="field"><label>Operations Executive — email *</label><input id="ncar-ap-locad1-email" type="email"></div>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field"><label>Immediate Supervisor/Manager — full name</label><input id="ncar-ap-locad2-name" type="text"></div>
+        <div class="field"><label>Immediate Supervisor/Manager — email *</label><input id="ncar-ap-locad2-email" type="email"></div>
+      </div>
+      <div class="field-hint" style="margin-top:6px">These 4 people sign off in order — each is notified only once
+        the one before them has approved.</div>
+    </div>
+
+    <div id="ncar-form-error" style="color:#dc2626;font-size:13px;margin-bottom:10px;display:none"></div>
+
+    <div class="form-actions">
+      <button class="btn-cancel-form" onclick="backFromNewNcar()">Cancel</button>
+      <button class="btn-submit" id="btn-submit-ncar" onclick="submitNcar()">Submit for approval</button>
+    </div>
+  </div>
+
+  <!-- NCAR review/decide screen: whichever of the 4 stage approvers is
+       currently up sees this when they open an NCAR routed to them. -->
+  <div id="ncar-decide-view">
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px">
+      <button onclick="backFromNcarDecide()" class="btn btn-secondary">← Back</button>
+      <div style="font-size:22px;font-weight:700;color:#111">Review NCAR</div>
+    </div>
+    <div id="ncar-decide-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+  </div>
+
   <!-- Detail view -->
   <div id="detail-view">
     <div class="detail-bar">
@@ -1211,6 +1414,7 @@ var App = {
   allSops:     [],
   currentSop:  null,
   currentIrDraft: null,   // the incident report draft currently open on the decide screen
+  currentNcarDraft: null, // the NCAR draft currently open on the decide screen
   // Approved incident report count, shown as a card on the Documents folder
   // grid. Lives separately from allSops (a different list entirely) — null
   // means "not fetched yet", fetched lazily the first time the grid renders.
@@ -1458,6 +1662,7 @@ function signOut() {
   App.allSops        = [];
   App.currentSop     = null;
   App.currentIrDraft = null;
+  App.currentNcarDraft = null;
   App.irApprovedCount = null;
   App.currentTab     = 'approvals';
   App.docsFolder     = null;
@@ -1593,6 +1798,10 @@ function switchTab(tab) {
   document.getElementById('ir-new-view').classList.remove('active');
   document.getElementById('ir-decide-view').style.display = 'none';
   document.getElementById('ir-decide-view').classList.remove('active');
+  document.getElementById('ncar-new-view').style.display = 'none';
+  document.getElementById('ncar-new-view').classList.remove('active');
+  document.getElementById('ncar-decide-view').style.display = 'none';
+  document.getElementById('ncar-decide-view').classList.remove('active');
   document.getElementById('create-choice-view').classList.remove('active');
   // Drop any document PDF still held as a blob URL
   revokeDocPreview();
@@ -1609,18 +1818,20 @@ function switchTab(tab) {
   showView(tab === 'approvals' ? 'dash-view'      :
            tab === 'documents' ? 'docs-view'       :
            tab === 'incidents' ? 'ir-view'         :
+           tab === 'ncar'      ? 'ncar-view'       :
            tab === 'admin'     ? 'admin-view'      :
                                  'audit-content');
 
   if (tab === 'approvals' && App.myApprovals.length === 0) loadApprovals();
   if (tab === 'documents' && App.allSops.length === 0)     loadAllSops();
   if (tab === 'incidents')                                  loadIncidentReports();
+  if (tab === 'ncar')                                       loadNcarList();
   if (tab === 'audit')                                      loadAudit();
   if (tab === 'admin')                                      { loadUsers(); loadTeamsAdmin(); }
 }
 
 function showView(id) {
-  ['dash-view', 'docs-view', 'ir-view', 'audit-content', 'admin-view'].forEach(function(v) {
+  ['dash-view', 'docs-view', 'ir-view', 'ncar-view', 'audit-content', 'admin-view'].forEach(function(v) {
     var el = document.getElementById(v);
     if (el) { el.classList.toggle('active', v === id); }
   });
@@ -3886,6 +4097,676 @@ function decideIrReport(decision) {
   });
 }
 
+// ── NCAR (Nonconforming and Corrective Action Report) ──────────────────────────────
+// A separate tab, mirroring the Incident Reports tab's structure exactly (per
+// request: "lets do it as a separate tab like the incident report"). Unlike
+// an incident report, an NCAR isn't finalized on submit — it routes through
+// a 4-stage sequential approval chain (9.1 Service Provider, 9.2 LOCAD)
+// before it's considered approved. Order and keys here must match
+// NCAR_APPROVAL_STAGES / the typeOfNC & immediateActionType keys the backend
+// (Code_FINAL.gs) expects exactly.
+var NCAR_TYPE_LABELS = [
+  { key: 'internalAudit',          label: 'Internal Audit Findings' },
+  { key: 'externalAudit',          label: 'External Audit Findings' },
+  { key: 'customerComplaint',      label: 'Customer Complaint' },
+  { key: 'legalNonconformance',    label: 'Legal Nonconformance' },
+  { key: 'stakeholderComments',    label: 'Comments from Stakeholders' },
+  { key: 'nonConformingOutput',    label: 'Non-Conforming Output' },
+  { key: 'supplierNonconformance', label: 'Supplier Nonconformance' },
+  { key: 'environmentalIssues',    label: 'Environmental Issues' },
+  { key: 'accidentEmergencies',    label: 'Accident / Emergencies' },
+  { key: 'others',                 label: 'Others' }
+];
+var NCAR_ACTION_LABELS = [
+  { key: 'correction',             label: 'Correction' },
+  { key: 'segregation',            label: 'Segregation' },
+  { key: 'dealWithConsequence',    label: 'Deal with Consequence' },
+  { key: 'containmentControl',     label: 'Containment/Control' },
+  { key: 'customerConsideration',  label: 'Customer/Client Consideration' },
+  { key: 'customerInformation',    label: 'Customer/Client Information' }
+];
+// Mirrors NCAR_APPROVAL_STAGES in Code_FINAL.gs — order matters (approvers[i]
+// on submit lines up with stage i on decide).
+var NCAR_APPROVAL_STAGE_LABELS = [
+  'Immediate Supervisor/Manager (Service Provider)',
+  'Management Representative (Service Provider)',
+  'Operations Executive (LOCAD)',
+  'Immediate Supervisor/Manager (LOCAD)'
+];
+var NCAR_STAGE_KEYS = ['sp1', 'sp2', 'locad1', 'locad2'];
+
+function _ncarStageIndexForStatus(status) {
+  if (!status || status.indexOf('pending_') !== 0) return -1;
+  return NCAR_STAGE_KEYS.indexOf(status.slice(8));
+}
+
+function loadNcarList() {
+  document.getElementById('ncar-table-body').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  apiPost({ action: 'getNcarLog' }).then(function(r) {
+    if (!r.ok) { showToast(r.message || 'Could not load NCARs.'); return; }
+    renderNcarTable(r.data || []);
+  }).catch(function(err) { showToast(err.message); });
+
+  apiPost({ action: 'myNcarApprovals' }).then(function(r) {
+    renderNcarApprovalsTable(r.ok ? (r.data || []) : []);
+  }).catch(function() { renderNcarApprovalsTable([]); });
+
+  apiPost({ action: 'myNcarDrafts' }).then(function(r) {
+    renderNcarDraftsTable(r.ok ? (r.data || []) : []);
+  }).catch(function() { renderNcarDraftsTable([]); });
+}
+
+function renderNcarTable(list) {
+  var body = document.getElementById('ncar-table-body');
+  var headerBtn = document.getElementById('ncar-header-new-btn');
+  if (!list.length) {
+    if (headerBtn) headerBtn.style.display = 'none';
+    body.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>' +
+      'No NCARs filed yet.' +
+      '<div style="margin-top:10px"><button onclick="showNewNcarForm()" ' +
+      'class="btn btn-primary">+ New NCAR</button></div></div>';
+    return;
+  }
+  if (headerBtn) headerBtn.style.display = '';
+  var html = '<table><thead><tr>' +
+    '<th>NCAR #</th><th>Department</th><th>Problem</th><th>Degree</th>' +
+    '<th>Initiated by</th><th>Approved</th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(r) {
+    html += '<tr>' +
+      '<td><span class="sop-code">' + esc(r.ncarId) + '</span></td>' +
+      '<td class="sop-meta">' + esc(r.department) + '</td>' +
+      '<td class="sop-meta">' + esc(r.problemWhat) + '</td>' +
+      '<td class="sop-meta">' + esc(r.degree ? (r.degree.charAt(0).toUpperCase() + r.degree.slice(1)) : '') + '</td>' +
+      '<td class="sop-meta">' + esc(r.initiatorEmail) + '</td>' +
+      '<td class="sop-meta">' + fmtDate(r.approvedAt) + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// NCARs currently routed to the signed-in user at whichever stage they're up.
+function renderNcarApprovalsTable(list) {
+  var wrap = document.getElementById('ncar-my-approvals-wrap');
+  var body = document.getElementById('ncar-my-approvals-body');
+  if (!list.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  var html = '<table><thead><tr>' +
+    '<th>NCAR #</th><th>Department</th><th>Problem</th><th>Stage</th><th>Initiated by</th><th></th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(d) {
+    html += '<tr onclick="openNcarDecide(\'' + esc(d.draftId) + '\')">' +
+      '<td class="sop-meta">' + esc(d.ncarId) + '</td>' +
+      '<td class="sop-meta">' + esc(d.department) + '</td>' +
+      '<td class="sop-meta">' + esc(d.problemWhat) + '</td>' +
+      '<td class="sop-meta">' + esc(d.currentStageLabel) + '</td>' +
+      '<td class="sop-meta">' + esc(d.initiatorEmail) + '</td>' +
+      '<td><button class="btn btn-primary" style="padding:6px 12px;font-size:12px" ' +
+      'onclick="event.stopPropagation();openNcarDecide(\'' + esc(d.draftId) + '\')">Review & Decide</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// The signed-in user's own NCARs still mid-flight — either waiting on the
+// current stage's approver, or sent back for revision.
+function renderNcarDraftsTable(list) {
+  var wrap = document.getElementById('ncar-my-drafts-wrap');
+  var body = document.getElementById('ncar-my-drafts-body');
+  if (!list.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  var html = '<table><thead><tr>' +
+    '<th>NCAR #</th><th>Department</th><th>Status</th><th>Current stage</th><th></th>' +
+    '</tr></thead><tbody>';
+  list.forEach(function(d) {
+    var statusBadge = d.status === 'returned'
+      ? '<span style="color:#92400e;background:#fef3c7;padding:2px 8px;border-radius:10px;font-size:12px">Returned for changes</span>'
+      : '<span style="color:#1d4ed8;background:#dbeafe;padding:2px 8px;border-radius:10px;font-size:12px">Awaiting approval</span>';
+    html += '<tr>' +
+      '<td class="sop-meta">' + esc(d.ncarId) + '</td>' +
+      '<td class="sop-meta">' + esc(d.department) + '</td>' +
+      '<td>' + statusBadge + (d.status === 'returned' && d.returnComments ?
+        '<div style="font-size:12px;color:#92400e;margin-top:4px">' + esc(d.returnComments) + '</div>' : '') + '</td>' +
+      '<td class="sop-meta">' + esc(d.currentStageLabel || '—') + '</td>' +
+      '<td>' + (d.status === 'returned'
+        ? '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
+          'onclick="openNcarRevise(\'' + esc(d.draftId) + '\')">Revise & Resubmit</button>'
+        : '') + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+function renderNcarTypeGrid() {
+  var el = document.getElementById('ncar-type-grid');
+  if (!el) return;
+  var html = '';
+  NCAR_TYPE_LABELS.forEach(function(t, i) {
+    var extra = t.key === 'others' ? ' onchange="toggleNcarTypeOthers()"' : '';
+    html += '<label class="ir-check">' +
+      '<input type="checkbox" id="ncar-type-' + i + '"' + extra + '>' +
+      '<span>' + esc(t.label) + '</span></label>';
+  });
+  el.innerHTML = html;
+}
+
+function toggleNcarTypeOthers() {
+  var idx = NCAR_TYPE_LABELS.map(function(t) { return t.key; }).indexOf('others');
+  var cb = document.getElementById('ncar-type-' + idx);
+  var wrap = document.getElementById('ncar-type-others-wrap');
+  if (wrap) wrap.style.display = (cb && cb.checked) ? 'block' : 'none';
+}
+
+function renderNcarActionGrid() {
+  var el = document.getElementById('ncar-action-grid');
+  if (!el) return;
+  var html = '';
+  NCAR_ACTION_LABELS.forEach(function(a, i) {
+    html += '<label class="ir-check">' +
+      '<input type="checkbox" id="ncar-action-' + i + '">' +
+      '<span>' + esc(a.label) + '</span></label>';
+  });
+  el.innerHTML = html;
+}
+
+function toggleNcarDocChange(isYes) {
+  document.getElementById('ncar-docchange-yes-wrap').style.display = isYes ? 'block' : 'none';
+  document.getElementById('ncar-docchange-no-wrap').style.display  = isYes ? 'none' : 'block';
+}
+
+// ── Dynamic rows: Root Cause "Why" chain, Details of Immediate Action,
+// Corrective Action. Each keeps its own array as the source of truth —
+// inputs write back into the array on input/change, add/remove just mutate
+// the array and re-render the whole block. Simpler than keeping DOM indices
+// and array indices in sync by hand across inserts/removes.
+var _ncarWhys = [''];
+var _ncarImmediateActionRows = [{ action: '', dateInitiated: '', pic: '', dateImplemented: '', verifiedBy: '' }];
+var _ncarCorrectiveActionRows = [{ action: '', dateInitiated: '', pic: '', targetImplementation: '', verifiedBy: '', dateEffectivenessChecked: '' }];
+
+function renderNcarWhys() {
+  var el = document.getElementById('ncar-whys-list');
+  if (!el) return;
+  var html = '';
+  _ncarWhys.forEach(function(w, i) {
+    html += '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">' +
+      '<div style="font-size:12px;font-weight:600;color:#888;padding-top:9px;width:56px;flex-shrink:0">WHY ' +
+        ('0' + (i + 1)).slice(-2) + '</div>' +
+      '<textarea rows="2" style="flex:1" oninput="_ncarWhys[' + i + ']=this.value" placeholder="Why did this happen?">' +
+        esc(w) + '</textarea>' +
+      (_ncarWhys.length > 1
+        ? '<button type="button" class="btn-ghost btn-ghost-danger" style="margin-top:6px" onclick="removeNcarWhy(' + i + ')">✕</button>'
+        : '') +
+      '</div>';
+  });
+  el.innerHTML = html;
+}
+function addNcarWhy() { _ncarWhys.push(''); renderNcarWhys(); }
+function removeNcarWhy(i) { _ncarWhys.splice(i, 1); renderNcarWhys(); }
+
+function renderNcarImmediateActionRows() {
+  var el = document.getElementById('ncar-ia-rows');
+  if (!el) return;
+  var html = '';
+  _ncarImmediateActionRows.forEach(function(r, i) {
+    html += '<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;position:relative">' +
+      (_ncarImmediateActionRows.length > 1
+        ? '<button type="button" class="btn-ghost btn-ghost-danger" style="position:absolute;top:8px;right:8px;font-size:11px" onclick="removeNcarImmediateAction(' + i + ')">✕ Remove</button>'
+        : '') +
+      '<div class="field"><label>Immediate Action</label>' +
+        '<textarea rows="2" oninput="_ncarImmediateActionRows[' + i + '].action=this.value">' + esc(r.action) + '</textarea></div>' +
+      '<div class="field-row" style="margin-top:10px">' +
+        '<div class="field"><label>Date Initiated</label><input type="date" value="' + esc(r.dateInitiated) + '" onchange="_ncarImmediateActionRows[' + i + '].dateInitiated=this.value"></div>' +
+        '<div class="field"><label>PIC</label><input type="text" value="' + esc(r.pic) + '" oninput="_ncarImmediateActionRows[' + i + '].pic=this.value"></div>' +
+      '</div>' +
+      '<div class="field-row" style="margin-top:10px">' +
+        '<div class="field"><label>Date Implemented</label><input type="date" value="' + esc(r.dateImplemented) + '" onchange="_ncarImmediateActionRows[' + i + '].dateImplemented=this.value"></div>' +
+        '<div class="field"><label>Verified By</label><input type="text" value="' + esc(r.verifiedBy) + '" oninput="_ncarImmediateActionRows[' + i + '].verifiedBy=this.value"></div>' +
+      '</div>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+function addNcarImmediateAction() {
+  _ncarImmediateActionRows.push({ action: '', dateInitiated: '', pic: '', dateImplemented: '', verifiedBy: '' });
+  renderNcarImmediateActionRows();
+}
+function removeNcarImmediateAction(i) { _ncarImmediateActionRows.splice(i, 1); renderNcarImmediateActionRows(); }
+
+function renderNcarCorrectiveActionRows() {
+  var el = document.getElementById('ncar-ca-rows');
+  if (!el) return;
+  var html = '';
+  _ncarCorrectiveActionRows.forEach(function(r, i) {
+    html += '<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:10px;position:relative">' +
+      (_ncarCorrectiveActionRows.length > 1
+        ? '<button type="button" class="btn-ghost btn-ghost-danger" style="position:absolute;top:8px;right:8px;font-size:11px" onclick="removeNcarCorrectiveAction(' + i + ')">✕ Remove</button>'
+        : '') +
+      '<div class="field"><label>Action</label>' +
+        '<textarea rows="2" oninput="_ncarCorrectiveActionRows[' + i + '].action=this.value">' + esc(r.action) + '</textarea></div>' +
+      '<div class="field-row" style="margin-top:10px">' +
+        '<div class="field"><label>Date Initiated</label><input type="date" value="' + esc(r.dateInitiated) + '" onchange="_ncarCorrectiveActionRows[' + i + '].dateInitiated=this.value"></div>' +
+        '<div class="field"><label>PIC</label><input type="text" value="' + esc(r.pic) + '" oninput="_ncarCorrectiveActionRows[' + i + '].pic=this.value"></div>' +
+      '</div>' +
+      '<div class="field-row" style="margin-top:10px">' +
+        '<div class="field"><label>Target Implementation</label><input type="date" value="' + esc(r.targetImplementation) + '" onchange="_ncarCorrectiveActionRows[' + i + '].targetImplementation=this.value"></div>' +
+        '<div class="field"><label>Verified By</label><input type="text" value="' + esc(r.verifiedBy) + '" oninput="_ncarCorrectiveActionRows[' + i + '].verifiedBy=this.value"></div>' +
+      '</div>' +
+      '<div class="field-row" style="margin-top:10px">' +
+        '<div class="field"><label>Date Effectiveness Checked</label><input type="date" value="' + esc(r.dateEffectivenessChecked) + '" onchange="_ncarCorrectiveActionRows[' + i + '].dateEffectivenessChecked=this.value"></div>' +
+        '<div class="field"></div>' +
+      '</div>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+function addNcarCorrectiveAction() {
+  _ncarCorrectiveActionRows.push({ action: '', dateInitiated: '', pic: '', targetImplementation: '', verifiedBy: '', dateEffectivenessChecked: '' });
+  renderNcarCorrectiveActionRows();
+}
+function removeNcarCorrectiveAction(i) { _ncarCorrectiveActionRows.splice(i, 1); renderNcarCorrectiveActionRows(); }
+
+var _ncarEditingDraftId = null;
+
+function showNewNcarForm() {
+  ['dash-view','docs-view','audit-content','ncar-view','create-choice-view'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.classList.remove('active');
+  });
+  _ncarEditingDraftId = null;
+  document.getElementById('ncar-form-title').textContent = 'New NCAR';
+  document.getElementById('ncar-revise-note').style.display = 'none';
+  document.getElementById('btn-submit-ncar').textContent = 'Submit for approval';
+  renderNcarTypeGrid();
+  renderNcarActionGrid();
+
+  ['ncar-target-completion','ncar-initiator-name','ncar-recipient-name','ncar-recipient-email',
+   'ncar-type-others-text','ncar-problem-what','ncar-problem-when','ncar-problem-who','ncar-problem-where','ncar-problem-howmany',
+   'ncar-root-cause','ncar-change-form-number','ncar-no-change-reason',
+   'ncar-ap-sp1-name','ncar-ap-sp1-email','ncar-ap-sp2-name','ncar-ap-sp2-email',
+   'ncar-ap-locad1-name','ncar-ap-locad1-email','ncar-ap-locad2-name','ncar-ap-locad2-email'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.querySelectorAll('input[name="ncar-degree"]').forEach(function(r) { r.checked = false; });
+  document.querySelectorAll('input[name="ncar-docchange"]').forEach(function(r) { r.checked = false; });
+  document.getElementById('ncar-type-others-wrap').style.display = 'none';
+  document.getElementById('ncar-docchange-yes-wrap').style.display = 'none';
+  document.getElementById('ncar-docchange-no-wrap').style.display = 'none';
+
+  if (App.user && App.user.name) document.getElementById('ncar-initiator-name').value = App.user.name;
+
+  _ncarWhys = [''];
+  _ncarImmediateActionRows = [{ action: '', dateInitiated: '', pic: '', dateImplemented: '', verifiedBy: '' }];
+  _ncarCorrectiveActionRows = [{ action: '', dateInitiated: '', pic: '', targetImplementation: '', verifiedBy: '', dateEffectivenessChecked: '' }];
+  renderNcarWhys();
+  renderNcarImmediateActionRows();
+  renderNcarCorrectiveActionRows();
+
+  loadTeamsIntoDropdown('ncar-department');
+
+  document.getElementById('ncar-form-error').style.display = 'none';
+  document.getElementById('ncar-new-view').classList.add('active');
+  document.getElementById('ncar-new-view').style.display = 'block';
+}
+
+function backFromNewNcar() {
+  document.getElementById('ncar-new-view').classList.remove('active');
+  document.getElementById('ncar-new-view').style.display = 'none';
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' :
+           App.currentTab === 'ncar'      ? 'ncar-view' : 'audit-content');
+}
+
+function collectNcarFields() {
+  var v = function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  var typeOfNC = {};
+  NCAR_TYPE_LABELS.forEach(function(t, i) {
+    var cb = document.getElementById('ncar-type-' + i);
+    if (cb && cb.checked) typeOfNC[t.key] = true;
+  });
+  var immediateActionType = {};
+  NCAR_ACTION_LABELS.forEach(function(a, i) {
+    var cb = document.getElementById('ncar-action-' + i);
+    if (cb && cb.checked) immediateActionType[a.key] = true;
+  });
+  var degreeEl = document.querySelector('input[name="ncar-degree"]:checked');
+  var docChangeEl = document.querySelector('input[name="ncar-docchange"]:checked');
+
+  var approvers = NCAR_STAGE_KEYS.map(function(key) {
+    return { name: v('ncar-ap-' + key + '-name'), email: v('ncar-ap-' + key + '-email') };
+  });
+
+  return {
+    department: v('ncar-department'),
+    targetCompletion: v('ncar-target-completion'),
+    initiatorName: v('ncar-initiator-name'),
+    recipientName: v('ncar-recipient-name'),
+    recipientEmail: v('ncar-recipient-email'),
+    typeOfNC: typeOfNC,
+    typeOfNCOthers: v('ncar-type-others-text'),
+    degree: degreeEl ? degreeEl.value : '',
+    problemWhat: v('ncar-problem-what'),
+    problemWhen: v('ncar-problem-when'),
+    problemWho: v('ncar-problem-who'),
+    problemWhere: v('ncar-problem-where'),
+    problemHowMany: v('ncar-problem-howmany'),
+    immediateActionType: immediateActionType,
+    immediateActions: _ncarImmediateActionRows.filter(function(r) { return String(r.action || '').trim(); }),
+    whys: _ncarWhys.filter(function(w) { return String(w || '').trim(); }),
+    rootCause: v('ncar-root-cause'),
+    correctiveActions: _ncarCorrectiveActionRows.filter(function(r) { return String(r.action || '').trim(); }),
+    requiresDocChange: docChangeEl ? (docChangeEl.value === 'yes') : null,
+    changeFormNumber: v('ncar-change-form-number'),
+    noChangeReason: v('ncar-no-change-reason'),
+    approvers: approvers
+  };
+}
+
+function submitNcar() {
+  var errEl = document.getElementById('ncar-form-error');
+  errEl.style.display = 'none';
+  var fields = collectNcarFields();
+
+  var fail = function(msg) { errEl.textContent = msg; errEl.style.display = 'block'; };
+  if (!fields.department) return fail('Department is required.');
+  if (!fields.targetCompletion) return fail('Target Completion date is required.');
+  if (!fields.problemWhat || !fields.problemWhen || !fields.problemWho || !fields.problemWhere) {
+    return fail('What, When, Who, and Where are all required in "Describe the Problem".');
+  }
+  if (!fields.degree) return fail('Select a Degree of Non-Conformance (Major or Minor).');
+  if (!Object.keys(fields.typeOfNC).length) return fail('Select at least one Type of Non-Conformance.');
+  if (fields.typeOfNC.others && !fields.typeOfNCOthers) return fail('Please specify the "Others" type of non-conformance.');
+  if (!fields.whys.length) return fail('Add at least one "Why" in the Root Cause Analysis.');
+  if (!fields.rootCause) return fail('Root Cause is required.');
+  if (!fields.correctiveActions.length) return fail('Add at least one Corrective Action.');
+  if (fields.requiresDocChange === null) return fail('Answer "Requires Document Change?" (Yes or No).');
+  if (fields.requiresDocChange === true && !fields.changeFormNumber) return fail('Provide the Change Form Number.');
+  if (fields.requiresDocChange === false && !fields.noChangeReason) return fail('Explain why no document change is required.');
+  for (var i = 0; i < NCAR_APPROVAL_STAGE_LABELS.length; i++) {
+    if (!fields.approvers[i].email) return fail('An approver email is required for every stage (' + NCAR_APPROVAL_STAGE_LABELS[i] + ').');
+  }
+
+  var isRevise = !!_ncarEditingDraftId;
+  var btn = document.getElementById('btn-submit-ncar');
+  btn.disabled = true;
+  btn.textContent = isRevise ? 'Resubmitting…' : 'Submitting…';
+
+  var payload = isRevise
+    ? { action: 'resubmitNcar', draftId: _ncarEditingDraftId, fields: fields }
+    : { action: 'submitNcar', fields: fields };
+
+  apiPost(payload).then(function(r) {
+    btn.disabled = false;
+    btn.textContent = 'Submit for approval';
+    if (!r.ok) { fail(r.message || 'Could not submit the NCAR.'); return; }
+    showToast(isRevise ? 'Resubmitted for approval.' : 'NCAR ' + r.ncarId + ' submitted for approval.');
+    _ncarEditingDraftId = null;
+    backFromNewNcar();
+    loadNcarList();
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = 'Submit for approval';
+    fail(err.message || 'Network error — please try again.');
+  });
+}
+
+// Loads a returned NCAR's fields back into the New NCAR form so the
+// initiator can revise, then resubmits — restarting the whole 4-stage chain
+// (matches _resubmitNcar in Code_FINAL.gs).
+function openNcarRevise(draftId) {
+  showNewNcarForm();
+  document.getElementById('ncar-form-title').textContent = 'Revise NCAR';
+  document.getElementById('btn-submit-ncar').textContent = 'Resubmit for approval';
+
+  apiPost({ action: 'getNcarDraft', draftId: draftId }).then(function(r) {
+    if (!r.ok) { showToast(r.message || 'Could not load this NCAR.'); backFromNewNcar(); return; }
+    var d = r.data;
+    _ncarEditingDraftId = draftId;
+
+    if (d.returnComments) {
+      var note = document.getElementById('ncar-revise-note');
+      note.textContent = 'Returned for changes: ' + d.returnComments;
+      note.style.display = 'block';
+    }
+
+    var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+    // Re-run with a preset: showNewNcarForm() already kicked off the team
+    // list load with no preset, and that fetch may not have resolved yet —
+    // setting a <select>'s value before its matching <option> exists is a
+    // silent no-op, so the department has to be threaded through the loader.
+    loadTeamsIntoDropdown('ncar-department', d.department);
+    set('ncar-target-completion', d.targetCompletion);
+    set('ncar-initiator-name', d.initiatorName);
+    set('ncar-recipient-name', d.recipientName);
+    set('ncar-recipient-email', d.recipientEmail);
+    set('ncar-type-others-text', d.typeOfNCOthers);
+    set('ncar-problem-what', d.problemWhat);
+    set('ncar-problem-when', d.problemWhen);
+    set('ncar-problem-who', d.problemWho);
+    set('ncar-problem-where', d.problemWhere);
+    set('ncar-problem-howmany', d.problemHowMany);
+    set('ncar-root-cause', d.rootCause);
+    set('ncar-change-form-number', d.changeFormNumber);
+    set('ncar-no-change-reason', d.noChangeReason);
+
+    NCAR_TYPE_LABELS.forEach(function(t, i) {
+      var cb = document.getElementById('ncar-type-' + i);
+      if (cb) cb.checked = !!(d.typeOfNC || {})[t.key];
+    });
+    toggleNcarTypeOthers();
+    NCAR_ACTION_LABELS.forEach(function(a, i) {
+      var cb = document.getElementById('ncar-action-' + i);
+      if (cb) cb.checked = !!(d.immediateActionType || {})[a.key];
+    });
+
+    if (d.degree) {
+      var dr = document.querySelector('input[name="ncar-degree"][value="' + d.degree + '"]');
+      if (dr) dr.checked = true;
+    }
+    if (d.requiresDocChange === true || d.requiresDocChange === false) {
+      var dc = document.querySelector('input[name="ncar-docchange"][value="' + (d.requiresDocChange ? 'yes' : 'no') + '"]');
+      if (dc) dc.checked = true;
+      toggleNcarDocChange(d.requiresDocChange);
+    }
+
+    NCAR_STAGE_KEYS.forEach(function(key, i) {
+      var a = (d.approvers || [])[i] || {};
+      set('ncar-ap-' + key + '-name', a.name);
+      set('ncar-ap-' + key + '-email', a.email);
+    });
+
+    _ncarWhys = (d.whys && d.whys.length) ? d.whys.slice() : [''];
+    _ncarImmediateActionRows = (d.immediateActions && d.immediateActions.length) ? d.immediateActions.map(function(r) {
+      return { action: r.action || '', dateInitiated: r.dateInitiated || '', pic: r.pic || '', dateImplemented: r.dateImplemented || '', verifiedBy: r.verifiedBy || '' };
+    }) : [{ action: '', dateInitiated: '', pic: '', dateImplemented: '', verifiedBy: '' }];
+    _ncarCorrectiveActionRows = (d.correctiveActions && d.correctiveActions.length) ? d.correctiveActions.map(function(r) {
+      return { action: r.action || '', dateInitiated: r.dateInitiated || '', pic: r.pic || '', targetImplementation: r.targetImplementation || '', verifiedBy: r.verifiedBy || '', dateEffectivenessChecked: r.dateEffectivenessChecked || '' };
+    }) : [{ action: '', dateInitiated: '', pic: '', targetImplementation: '', verifiedBy: '', dateEffectivenessChecked: '' }];
+    renderNcarWhys();
+    renderNcarImmediateActionRows();
+    renderNcarCorrectiveActionRows();
+  }).catch(function(err) { showToast(err.message); backFromNewNcar(); });
+}
+
+// ── Approver's review/decide screen (stage-aware) ───────────────────────────────
+function openNcarDecide(draftId) {
+  ['dash-view','docs-view','audit-content','ncar-view','create-choice-view','ncar-new-view'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.classList.remove('active'); el.style.display = 'none'; }
+  });
+  document.getElementById('ncar-decide-view').classList.add('active');
+  document.getElementById('ncar-decide-view').style.display = 'block';
+  document.getElementById('ncar-decide-body').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
+
+  apiPost({ action: 'getNcarDraft', draftId: draftId }).then(function(r) {
+    if (!r.ok) {
+      document.getElementById('ncar-decide-body').innerHTML =
+        '<div class="empty">' + esc(r.message || 'Could not load this NCAR.') + '</div>';
+      return;
+    }
+    App.currentNcarDraft = r.data;
+    renderNcarDecide(r.data);
+  }).catch(function(err) { showToast(err.message); });
+}
+
+function backFromNcarDecide() {
+  document.getElementById('ncar-decide-view').classList.remove('active');
+  document.getElementById('ncar-decide-view').style.display = 'none';
+  showView(App.currentTab === 'approvals' ? 'dash-view' :
+           App.currentTab === 'documents' ? 'docs-view' :
+           App.currentTab === 'ncar'      ? 'ncar-view' : 'audit-content');
+}
+
+function renderNcarDecide(d) {
+  var typeLabels = NCAR_TYPE_LABELS.filter(function(t) { return (d.typeOfNC || {})[t.key]; }).map(function(t) { return t.label; });
+  if (d.typeOfNCOthers) typeLabels.push(d.typeOfNCOthers);
+  var actionLabels = NCAR_ACTION_LABELS.filter(function(a) { return (d.immediateActionType || {})[a.key]; }).map(function(a) { return a.label; });
+
+  var rows = [
+    ['NCAR No.', d.ncarId], ['Department', d.department], ['Target Completion', d.targetCompletion],
+    ['Initiator', d.initiatorName || d.initiatorEmail],
+    ['Recipient (FYI)', d.recipientName ? d.recipientName + (d.recipientEmail ? ' (' + d.recipientEmail + ')' : '') : ''],
+    ['Type of Non-Conformance', typeLabels.join(', ')],
+    ['Degree', d.degree ? (d.degree.charAt(0).toUpperCase() + d.degree.slice(1)) : ''],
+    ['What?', d.problemWhat], ['When?', d.problemWhen], ['Who?', d.problemWho],
+    ['Where?', d.problemWhere], ['How Many?', d.problemHowMany],
+    ['Immediate Action Taken', actionLabels.join(', ')],
+    ['Root Cause', d.rootCause],
+    ['Requires Document Change?', d.requiresDocChange === true ? 'YES — ' + d.changeFormNumber :
+      (d.requiresDocChange === false ? 'NO — ' + d.noChangeReason : '')]
+  ];
+
+  var html = '<div class="sb-section">';
+  if (d.status === 'returned') {
+    html += '<div style="font-size:13px;color:#92400e;background:#fef3c7;border-radius:6px;' +
+      'padding:10px 12px;margin-bottom:14px">Returned ' + fmtDate(d.returnedAt) +
+      ' — waiting on the initiator to revise and resubmit.' +
+      (d.returnComments ? '<br><strong>Comments:</strong> ' + esc(d.returnComments) : '') + '</div>';
+  }
+  rows.forEach(function(r) {
+    if (!r[1]) return;
+    html += '<div style="margin-bottom:12px">' +
+      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">' +
+      esc(r[0]) + '</div>' +
+      '<div style="font-size:14px;color:#222;white-space:pre-wrap">' + esc(r[1]) + '</div></div>';
+  });
+
+  if ((d.immediateActions || []).length) {
+    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Details of Immediate Action</div>';
+    d.immediateActions.forEach(function(r) {
+      html += '<div style="border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#333">' +
+        '<div style="white-space:pre-wrap">' + esc(r.action) + '</div>' +
+        '<div style="font-size:11px;color:#888;margin-top:4px">Initiated ' + esc(r.dateInitiated) + ' · PIC ' + esc(r.pic) +
+        ' · Implemented ' + esc(r.dateImplemented) + ' · Verified by ' + esc(r.verifiedBy) + '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  if ((d.whys || []).length) {
+    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Root Cause Analysis</div>';
+    d.whys.forEach(function(w, i) {
+      html += '<div style="font-size:13px;color:#333;margin-bottom:4px"><strong>WHY ' + ('0' + (i + 1)).slice(-2) + ':</strong> ' + esc(w) + '</div>';
+    });
+    html += '</div>';
+  }
+
+  if ((d.correctiveActions || []).length) {
+    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Corrective Action</div>';
+    d.correctiveActions.forEach(function(r) {
+      html += '<div style="border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#333">' +
+        '<div style="white-space:pre-wrap">' + esc(r.action) + '</div>' +
+        '<div style="font-size:11px;color:#888;margin-top:4px">Initiated ' + esc(r.dateInitiated) + ' · PIC ' + esc(r.pic) +
+        ' · Target ' + esc(r.targetImplementation) + ' · Verified by ' + esc(r.verifiedBy) +
+        ' · Effectiveness checked ' + esc(r.dateEffectivenessChecked) + '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  var signed = (d.approvers || []).filter(function(a) { return a.signedAt; });
+  if (signed.length) {
+    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Prior sign-offs</div>';
+    signed.forEach(function(a) {
+      html += '<div style="margin-bottom:8px">' +
+        '<div style="font-size:12px;color:#333">' + esc(a.label) + ' — ' + esc(a.name) + ' (' + fmtDate(a.signedAt) + ')</div>' +
+        (a.sig ? '<img src="' + a.sig + '" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff;margin-top:4px">' : '') +
+        (a.comments ? '<div style="font-size:12px;color:#666;margin-top:2px">' + esc(a.comments) + '</div>' : '') +
+        '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  var stageIdx = _ncarStageIndexForStatus(d.status);
+  if (stageIdx >= 0) {
+    var stageLabel = NCAR_APPROVAL_STAGE_LABELS[stageIdx];
+    var curName = (d.approvers || [])[stageIdx] ? (d.approvers[stageIdx].name || '') : '';
+    html += '<div class="sb-section"><div class="sb-label">Your decision · ' + esc(stageLabel) + '</div>' +
+      '<div class="decision-area">' +
+      '<div class="field" style="margin-bottom:10px"><label style="font-size:12px">Your name</label>' +
+        '<input id="ncar-decide-approver-name" type="text" placeholder="Full name" value="' + esc(curName) + '"></div>' +
+      '<div style="margin-bottom:10px">' +
+        '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
+        '<div id="ncar-decide-sig-box" onclick="openSigModal(\'ncar-decide\')" ' +
+          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">' +
+          '<div id="ncar-decide-sig-preview-wrap" style="display:none;margin-bottom:6px">' +
+            '<img id="ncar-decide-sig-preview" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff">' +
+          '</div>' +
+          '<div id="ncar-decide-sig-text" style="font-size:12px;color:#aaa">✍ Click to draw, type, or upload</div>' +
+        '</div>' +
+        '<div id="ncar-decide-sig-clear" style="display:none;margin-top:4px">' +
+          '<button type="button" onclick="event.stopPropagation();clearNcarDecideSig()" class="btn-ghost btn-ghost-danger" style="font-size:11px">✕ Remove</button>' +
+        '</div>' +
+      '</div>' +
+      '<textarea id="ncar-decide-comments" placeholder="Add comments (required if returning)…"></textarea>' +
+      '<button class="decision-btn db-approve" onclick="decideNcarReport(\'approve\')">Approve</button>' +
+      '<button class="decision-btn db-reject" onclick="decideNcarReport(\'return\')">Return with comments</button>' +
+      '</div></div>';
+  }
+
+  document.getElementById('ncar-decide-body').innerHTML = html;
+  _ncarDecideSigDataUrl = null;
+}
+
+function decideNcarReport(decision) {
+  var d = App.currentNcarDraft;
+  if (!d) return;
+  var comments = (document.getElementById('ncar-decide-comments') || {}).value || '';
+  var approverName = (document.getElementById('ncar-decide-approver-name') || {}).value || '';
+
+  if (decision === 'approve' && !_ncarDecideSigDataUrl) {
+    showToast('Please add your signature before approving.');
+    return;
+  }
+  if (decision === 'return' && !comments.trim()) {
+    showToast('Please add comments explaining what needs to change.');
+    return;
+  }
+
+  var decBtns = document.querySelectorAll('#ncar-decide-body .decision-btn');
+  decBtns.forEach(function(b) { b.disabled = true; b.style.opacity = '0.55'; });
+
+  apiPost({ action: 'decideNcar', draftId: d.draftId, decision: decision,
+            comments: comments, sig: _ncarDecideSigDataUrl, approverName: approverName }).then(function(r) {
+    if (!r.ok) {
+      showToast(r.message || 'Could not submit your decision.');
+      decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
+      return;
+    }
+    if (decision === 'approve') {
+      showToast(r.status === 'approved' ? 'Approved — NCAR ' + d.ncarId + ' is now fully approved.' : 'Approved — routed to the next approver.');
+    } else {
+      showToast('Returned to the initiator for revision.');
+    }
+    backFromNcarDecide();
+    loadNcarList();
+  }).catch(function(err) {
+    showToast(err.message);
+    decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
+  });
+}
+
 // ── "+ New Document" launch pad ────────────────────────────────────────────────────
 function showCreateChoice() {
   ['dash-view','docs-view','audit-content'].forEach(function(id) {
@@ -3966,11 +4847,17 @@ function showNewSopForm() {
 // Loaded fresh each time the form opens rather than cached on App, since an
 // admin adding a team should be reflected the very next time someone opens
 // this form — no page reload should be required.
-function loadTeamsIntoDropdown() {
-  var sel = document.getElementById('f-team');
-  if (!sel) return;
-  var keep = sel.value;
-  apiGet('listTeams').then(function(r) {
+// presetValue lets a caller select an option that won't exist until the list
+// loads (e.g. pre-filling a returned NCAR's department on revise) — setting
+// sel.value to a not-yet-existing option is a no-op on a <select>, so that
+// has to be threaded through as "the value to select once options exist"
+// rather than written to the DOM directly. Returns the fetch promise so
+// callers that need the select fully populated before doing more can chain.
+function loadTeamsIntoDropdown(selId, presetValue) {
+  var sel = document.getElementById(selId || 'f-team');
+  if (!sel) return Promise.resolve();
+  var keep = presetValue !== undefined ? presetValue : sel.value;
+  return apiGet('listTeams').then(function(r) {
     var teams = r.data || [];
     sel.innerHTML = '<option value="">Select a team...</option>' +
       teams.map(function(t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
@@ -3990,8 +4877,9 @@ function setSopSource(mode) {
 }
 
 // ── Unified signature modal ───────────────────────────────────────────────────
-var _sigTarget       = null;   // 'prep' | 'decision' | 'ir-checked' | 'ir-decide'
+var _sigTarget       = null;   // 'prep' | 'decision' | 'ir-checked' | 'ir-decide' | 'ncar-decide'
 var _irCheckedSigDataUrl = null;
+var _ncarDecideSigDataUrl = null;
 // The Approved By signature for an incident report is no longer captured on
 // the New Incident Report form — it's captured on the approver's own decision
 // screen (decideIncidentReport()) when they actually sign off. See
@@ -4192,7 +5080,8 @@ function _applySigToTarget(dataUrl) {
     'prep':       { set: function(v) { _prepSigDataUrl = v; },      prefix: 'prep' },
     'decision':   { set: function(v) { _decisionSigDataUrl = v; },  prefix: 'dec' },
     'ir-checked': { set: function(v) { _irCheckedSigDataUrl = v; }, prefix: 'ir-checked' },
-    'ir-decide':  { set: function(v) { _irDecideSigDataUrl = v; },  prefix: 'ir-decide' }
+    'ir-decide':  { set: function(v) { _irDecideSigDataUrl = v; },  prefix: 'ir-decide' },
+    'ncar-decide': { set: function(v) { _ncarDecideSigDataUrl = v; }, prefix: 'ncar-decide' }
   };
   var t = sigTargets[_sigTarget];
   if (!t) return;
@@ -4226,6 +5115,14 @@ function clearIrDecideSig() {
   document.getElementById('ir-decide-sig-clear').style.display        = 'none';
   document.getElementById('ir-decide-sig-text').style.display         = 'block';
   document.getElementById('ir-decide-sig-box').style.borderColor      = '#e0e0e0';
+}
+
+function clearNcarDecideSig() {
+  _ncarDecideSigDataUrl = null;
+  document.getElementById('ncar-decide-sig-preview-wrap').style.display = 'none';
+  document.getElementById('ncar-decide-sig-clear').style.display        = 'none';
+  document.getElementById('ncar-decide-sig-text').style.display         = 'block';
+  document.getElementById('ncar-decide-sig-box').style.borderColor      = '#e0e0e0';
 }
 
 function backFromNewSop() {
