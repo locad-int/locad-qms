@@ -214,7 +214,7 @@ nav button.active { color: #fff; background: rgba(255,255,255,.12); }
   .doc-panel { flex: none; height: 50vh; }
   .sidebar { width: 100%; border-left: none; border-top: 1px solid #e5e5e5; }
 
-  #new-sop-view, #ir-new-view, #create-choice-view { padding: 24px 16px; }
+  #new-sop-view, #ir-new-view, #ncar-new-view, #ncar-decide-view, #create-choice-view { padding: 24px 16px; }
 
   /* Incident report checklist: 3 columns of bilingual labels don't fit a
      phone width without truncating badly — stack to 1 column. */
@@ -397,6 +397,13 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 #ir-decide-view { display:none; max-width:820px; margin:0 auto; padding:36px 24px; }
 #ir-decide-view.active { display:block; }
 
+/* ── NCAR new form + review/decide screen ─────────────────────────────────────
+   Same rules as the Incident Report screens above. Without them these two
+   containers are plain visible <div>s, so the empty New NCAR form rendered
+   underneath My Approvals on every sign-in, edge to edge with no padding. */
+#ncar-new-view, #ncar-decide-view { display:none; max-width:820px; margin:0 auto; padding:36px 24px; }
+#ncar-new-view.active, #ncar-decide-view.active { display:block; }
+
 /* ── "+ New Document" launch pad ───────────────────────────────────────────────── */
 #create-choice-view { display:none; max-width:680px; margin:0 auto; padding:36px 24px; }
 #create-choice-view.active { display:block; }
@@ -430,6 +437,14 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 .ir-check { display:flex; align-items:flex-start; gap:7px; font-size:12.5px;
             color:#333; line-height:1.4; }
 .ir-check input { width:auto; margin-top:2px; flex-shrink:0; }
+/* The ≤780px "stack to 1 column" rule above never took effect: it sits
+   EARLIER in this stylesheet than the base 3-column rule, and with equal
+   specificity the later rule wins — so on phones the IR and NCAR checklists
+   stayed 3 columns and pushed the page sideways. Restated here, after the
+   base rule, so it actually applies. */
+@media (max-width: 780px) {
+  .ir-checkgrid { grid-template-columns: minmax(0, 1fr); }
+}
 .ir-others-row { display:flex; align-items:center; gap:7px; font-size:12.5px; color:#333; }
 .ir-others-row input[type="text"] { flex:1; padding:5px 8px; font-size:12.5px; }
 .file-drop { border:2px dashed #e0e0e0; border-radius:8px; padding:24px;
@@ -1726,7 +1741,7 @@ function signOut() {
   var dp = document.getElementById('doc-panel');
   if (dp) dp.innerHTML = '';
 
-  ['detail-view', 'new-sop-view', 'ir-new-view', 'ir-decide-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
+  ['detail-view', 'new-sop-view', 'ir-new-view', 'ir-decide-view', 'ncar-new-view', 'ncar-decide-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.classList.remove('active'); }
   });
@@ -1886,7 +1901,11 @@ function switchTab(tab) {
 function showView(id) {
   ['dash-view', 'docs-view', 'ir-view', 'ncar-view', 'audit-content', 'admin-view'].forEach(function(v) {
     var el = document.getElementById(v);
-    if (el) { el.classList.toggle('active', v === id); }
+    // Clear any inline display first: openIrDecide/openNcarDecide hide these
+    // views with style.display='none', and an inline style beats the
+    // .view.active class — so after reviewing a report, Approvals, Documents,
+    // Audit Trail and the report's own tab stayed blank until a reload.
+    if (el) { el.style.display = ''; el.classList.toggle('active', v === id); }
   });
 }
 
