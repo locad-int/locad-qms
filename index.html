@@ -499,12 +499,19 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
             style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
             onfocus="this.style.borderColor='#4ADE80'" onblur="this.style.borderColor='#e0e0e0'">
         </div>
-        <div style="margin-bottom:16px">
+        <div style="margin-bottom:12px">
           <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Password</label>
           <input id="login-password" type="password" placeholder="••••••••" required
             style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
             onfocus="this.style.borderColor='#4ADE80'" onblur="this.style.borderColor='#e0e0e0'">
         </div>
+        <!-- Opt-in on purpose: warehouse PCs are often shared, so the default
+             stays "signed out when the tab closes". -->
+        <label for="login-remember" style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;cursor:pointer">
+          <input id="login-remember" type="checkbox" style="margin-top:2px;accent-color:#16a34a">
+          <span style="font-size:12px;color:#555;line-height:1.4">Keep me signed in on this device for 14 days
+            <span style="display:block;color:#999">Leave unticked on shared computers.</span></span>
+        </label>
         <div id="login-err" style="font-size:12px;color:#dc2626;margin-bottom:10px;display:none"></div>
         <button type="submit" id="btn-login" class="btn-login">
           Sign in
@@ -1426,38 +1433,64 @@ var App = {
 };
 
 // ── Session persistence ───────────────────────────────────────────────────────
-// Kept in sessionStorage, not localStorage, deliberately: this survives a page
-// refresh (the server session is valid for 8h, so being thrown back to the login
-// screen was pure friction) but is gone once the tab closes. On a shared machine
-// that means no token is left behind on disk.
+// Default: sessionStorage. It survives a page refresh (the server session is
+// valid for 8h, so being thrown back to the login screen was pure friction) but
+// is gone once the tab closes — on a shared machine no token is left behind.
+//
+// Opt-in "Keep me signed in on this device": localStorage instead, paired with
+// a 14-day server-side session, so a personal laptop/phone (or the installed
+// app) skips the sign-in screen entirely until it expires or the user signs
+// out. Only one of the two stores ever holds the session at a time.
 var SESSION_KEY = 'locad_qms_session';
+
+function _sessionStores() {
+  var out = [];
+  try { if (window.sessionStorage) out.push(window.sessionStorage); } catch(e) {}
+  try { if (window.localStorage)   out.push(window.localStorage);   } catch(e) {}
+  return out;
+}
 
 function saveSession() {
   if (!App.user) return;
+  var json = JSON.stringify({
+    email:    App.user.email,
+    name:     App.user.name,
+    token:    App.user.token,
+    expiry:   App.user.expiry || '',
+    remember: !!App.user.remember
+  });
+  // Clear first so a session never lingers in the store it's no longer meant
+  // to be in (e.g. signing in again without "Keep me signed in" ticked).
+  clearSession();
   try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-      email:  App.user.email,
-      name:   App.user.name,
-      token:  App.user.token,
-      expiry: App.user.expiry || ''
-    }));
+    (App.user.remember ? localStorage : sessionStorage).setItem(SESSION_KEY, json);
   } catch(e) {}   // private mode / storage disabled — just don't persist
 }
 
 function clearSession() {
-  try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+  _sessionStores().forEach(function(st) {
+    try { st.removeItem(SESSION_KEY); } catch(e) {}
+  });
 }
 
 // Returns a stored session if one exists and hasn't expired, else null.
+// The tab's own sessionStorage wins over a remembered device session.
 function readSession() {
-  try {
-    var raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    var s = JSON.parse(raw);
-    if (!s || !s.email || !s.token) return null;
-    if (s.expiry && new Date(s.expiry) <= new Date()) { clearSession(); return null; }
-    return s;
-  } catch(e) { return null; }
+  var stores = _sessionStores();
+  for (var i = 0; i < stores.length; i++) {
+    try {
+      var raw = stores[i].getItem(SESSION_KEY);
+      if (!raw) continue;
+      var s = JSON.parse(raw);
+      if (!s || !s.email || !s.token) continue;
+      if (s.expiry && new Date(s.expiry) <= new Date()) {
+        try { stores[i].removeItem(SESSION_KEY); } catch(e) {}
+        continue;
+      }
+      return s;
+    } catch(e) {}
+  }
+  return null;
 }
 
 // If we're going to restore a session, hide the login screen right now so it
@@ -1493,6 +1526,7 @@ window.onload = function() {
     name:     s.name || s.email.split('@')[0],
     token:    s.token,
     expiry:   s.expiry || '',
+    remember: !!s.remember,
     initials: initials(s.name || s.email.split('@')[0])
   };
   showApp();
@@ -1565,7 +1599,9 @@ function handleLogin(e) {
   btn.disabled    = true;
   btn.textContent = 'Signing in…';
 
-  var payload = JSON.stringify({ action: 'login', email: email, password: password });
+  var rememberEl = document.getElementById('login-remember');
+  var remember   = !!(rememberEl && rememberEl.checked);
+  var payload = JSON.stringify({ action: 'login', email: email, password: password, remember: remember });
   var loginStart = Date.now();
 
   // GAS sometimes internally redirects a POST to doGet. That yields either
@@ -1631,10 +1667,13 @@ function handleLogin(e) {
           name:     r.name || email.split('@')[0],
           token:    r.token,
           expiry:   r.expiry || '',
+          remember: remember,
           initials: initials(r.name || email.split('@')[0])
         };
-        saveSession();   // survive a refresh
-        showApp();
+        saveSession();   // survive a refresh (or, if remembered, a closed tab)
+        // The login response carries the dashboard's first data, so the screen
+        // fills in immediately instead of after a second round trip.
+        showApp(r.prefetch);
       } else {
         errEl.textContent   = r.message || 'Invalid email or password.';
         errEl.style.display = 'block';
@@ -1654,6 +1693,16 @@ function handleLogin(e) {
 }
 
 function signOut() {
+  // Revoke this device's token server-side too — matters most for a
+  // "Keep me signed in" token, which would otherwise stay valid for days.
+  // Fire-and-forget: signing out must be instant and must work offline.
+  var leaving = App.user;
+  if (leaving && leaving.token) {
+    try {
+      _xhrPostText(GAS_URL, JSON.stringify({ action: 'logout', email: leaving.email, token: leaving.token }))
+        .catch(function() {});
+    } catch(e) {}
+  }
   App.user = null;
   clearSession();
   // Clear all cached data — otherwise the next user to sign in on this browser
@@ -1688,6 +1737,7 @@ function signOut() {
 
   document.getElementById('login-email').value    = '';
   document.getElementById('login-password').value = '';
+  var rem = document.getElementById('login-remember'); if (rem) rem.checked = false;
   document.getElementById('login-err').style.display = 'none';
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('main-app').style.display   = 'none';
@@ -1768,7 +1818,10 @@ var DOCUMENT_CONTROLLER_EMAIL = 'larry.capacete@golocad.com';
 // Cosmetic only — used in placeholder text. The backend enforces the real check.
 var ALLOWED_DOMAIN = 'golocad.com';
 
-function showApp() {
+// prefetch (optional): data the login response already carried — currently
+// { myApprovals: [...] } — so the first screen doesn't need its own request.
+// Absent on a restored session or an older backend; falls back to fetching.
+function showApp(prefetch) {
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('main-app').style.display   = 'block';
   document.getElementById('tb-user-name').textContent = App.user.name;
@@ -1782,7 +1835,7 @@ function showApp() {
   var canExport = isSu || App.user.email.toLowerCase() === DOCUMENT_CONTROLLER_EMAIL.toLowerCase();
   var exportBtn = document.getElementById('btn-export-register');
   if (exportBtn) exportBtn.style.display = canExport ? '' : 'none';
-  loadApprovals();
+  loadApprovals(prefetch && prefetch.myApprovals);
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
@@ -1937,8 +1990,16 @@ function apiPost(body) {
 }
 
 // ── Load approvals dashboard ──────────────────────────────────────────────────
-function loadApprovals() {
+// prefetched (optional): the myApprovals list already returned with the login
+// response. When present, render it straight away instead of re-requesting it.
+function loadApprovals(prefetched) {
   if (!App.user) return;
+  if (Object.prototype.toString.call(prefetched) === '[object Array]') {
+    loadReviewDue();   // still its own independent request, as below
+    App.myApprovals = prefetched;
+    renderApprovalsTable();
+    return;
+  }
   document.getElementById('dash-table-body').innerHTML =
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
   // Don't leave a stale count showing while we fetch — it read as
