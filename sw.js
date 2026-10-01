@@ -8,7 +8,7 @@
 // control system would be actively misleading, not a helpful convenience.
 // The app's own retry logic (apiPost / handleLogin) already handles those
 // calls failing; this worker stays out of the way of that entirely.
-var CACHE_NAME = 'locad-qms-shell-v1';
+var CACHE_NAME = 'locad-qms-shell-v2';
 var SHELL_FILES = [
   './',
   './index.html',
