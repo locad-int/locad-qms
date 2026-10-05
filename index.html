@@ -956,6 +956,14 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     </div>
     <div id="ir-revise-note" style="display:none;font-size:13px;color:#92400e;background:#fef3c7;
       border-radius:6px;padding:10px 12px;margin-bottom:16px"></div>
+    <!-- Only shown when revising an already-approved report: the reason is
+         recorded on the revision and shown to the approver. -->
+    <div id="ir-revision-reason-wrap" class="form-section" style="display:none">
+      <div class="form-section-title">Reason for revision *</div>
+      <div class="field"><textarea id="ir-revision-reason" rows="2" placeholder="What is being corrected, and why?"></textarea></div>
+      <div class="field-hint" style="margin-top:6px">The approved version stays on file. This revision is sent to
+        the approver to sign; once approved it becomes the current version of this report.</div>
+    </div>
 
     <div class="form-section">
       <div class="form-section-title">Event details</div>
@@ -1723,6 +1731,7 @@ function signOut() {
   // Clear all cached data — otherwise the next user to sign in on this browser
   // sees the previous user's approvals and documents.
   App.myApprovals    = [];
+  App.myReportApprovals = { ir: [], ncar: [] };
   App.allSops        = [];
   App.currentSop     = null;
   App.currentIrDraft = null;
@@ -2013,9 +2022,14 @@ function apiPost(body) {
 // response. When present, render it straight away instead of re-requesting it.
 function loadApprovals(prefetched) {
   if (!App.user) return;
+  // Report rows (loadReportApprovals) only paint once the document list is
+  // in — otherwise "You're all caught up!" could flash while it's loading.
+  App.docApprovalsReady = false;
   if (Object.prototype.toString.call(prefetched) === '[object Array]') {
     loadReviewDue();   // still its own independent request, as below
+    loadReportApprovals();
     App.myApprovals = prefetched;
+    App.docApprovalsReady = true;
     renderApprovalsTable();
     return;
   }
@@ -2028,9 +2042,11 @@ function loadApprovals(prefetched) {
   // The review list is a second, independent fetch: a failure there must not
   // stop your approvals rendering, which is the reason you opened the page.
   loadReviewDue();
+  loadReportApprovals();
 
   apiGet('myApprovals').then(function(r) {
     App.myApprovals = r.data || [];
+    App.docApprovalsReady = true;
     renderApprovalsTable();
   }).catch(function(err) {
     document.getElementById('dash-sub').textContent = 'Could not load your approvals.';
@@ -2040,14 +2056,74 @@ function loadApprovals(prefetched) {
   });
 }
 
+// Incident reports and NCARs routed to the signed-in user. They live in
+// their own tabs, but My Approvals is the one place people check for "what's
+// waiting on me" — previously an incident report routed to an approver only
+// appeared under Incident Reports → Awaiting your approval, so approvers
+// looking at this tab saw "You're all caught up!" with a report pending.
+// Fetched in parallel and best-effort: a failure here never hides or delays
+// the document approvals, it just leaves these rows out.
+App.myReportApprovals = { ir: [], ncar: [] };
+
+function loadReportApprovals() {
+  if (!App.user) return;
+  var who = App.user.email;
+  App.myReportApprovals = { ir: [], ncar: [] };
+  apiPost({ action: 'myIncidentApprovals' }).then(function(r) {
+    if (!App.user || App.user.email !== who) return;   // signed out meanwhile
+    App.myReportApprovals.ir = (r && r.ok && r.data) || [];
+    if (App.docApprovalsReady) renderApprovalsTable();
+  }).catch(function() {});
+  apiPost({ action: 'myNcarApprovals' }).then(function(r) {
+    if (!App.user || App.user.email !== who) return;
+    App.myReportApprovals.ncar = (r && r.ok && r.data) || [];
+    if (App.docApprovalsReady) renderApprovalsTable();
+  }).catch(function() {});
+}
+
+function _reportApprovalRows() {
+  var rep = App.myReportApprovals || { ir: [], ncar: [] };
+  var html = '';
+  var badge = function(label, bg, color) {
+    return '<span class="doctype-badge" style="background:' + bg + ';color:' + color + '">' + label + '</span>';
+  };
+  (rep.ir || []).forEach(function(d) {
+    html += '<tr onclick="openIrDecide(\'' + esc(d.draftId) + '\')">' +
+      '<td>' + badge('IR', '#fef2f2', '#b91c1c') + '</td>' +
+      '<td><span class="sop-code">' + (d.revisionOf ? esc(d.revisionOf) + ' Rev. ' + esc(String(d.revisionNo || '')) : 'Incident Report') + '</span></td>' +
+      '<td><span class="sop-title">' + esc(d.problemSummary || d.locationOfEvent || 'Incident report') + '</span>' +
+        '<div class="sop-meta" style="font-size:12px">' + esc([d.locationOfEvent, d.dateOfEvent].filter(Boolean).join(' · ')) + '</div></td>' +
+      '<td class="sop-meta">—</td>' +
+      '<td class="sop-meta">Approver</td>' +
+      '<td class="sop-meta">' + esc(d.prepEmail) + '</td>' +
+      '<td><span class="badge badge-approval">Awaiting approval</span></td>' +
+      '</tr>';
+  });
+  (rep.ncar || []).forEach(function(d) {
+    html += '<tr onclick="openNcarDecide(\'' + esc(d.draftId) + '\')">' +
+      '<td>' + badge('NCAR', '#fff7ed', '#c2410c') + '</td>' +
+      '<td><span class="sop-code">' + esc(d.ncarId) + '</span></td>' +
+      '<td><span class="sop-title">' + esc(d.problemWhat || 'NCAR') + '</span>' +
+        (d.department ? '<div class="sop-meta" style="font-size:12px">' + esc(d.department) + '</div>' : '') + '</td>' +
+      '<td class="sop-meta">—</td>' +
+      '<td class="sop-meta">' + esc(d.currentStageLabel || 'Approver') + '</td>' +
+      '<td class="sop-meta">' + esc(d.initiatorEmail) + '</td>' +
+      '<td><span class="badge badge-approval">Awaiting approval</span></td>' +
+      '</tr>';
+  });
+  return html;
+}
+
 function renderApprovalsTable() {
   var list = App.myApprovals;
-  var count = list.length;
+  var rep = App.myReportApprovals || { ir: [], ncar: [] };
+  var reportCount = (rep.ir || []).length + (rep.ncar || []).length;
+  var count = list.length + reportCount;
   document.getElementById('dash-title').textContent = 'My Approvals';
   document.getElementById('dash-sub').textContent =
     count === 0 ? 'Nothing waiting on you right now.' :
-    count === 1 ? '1 document is waiting on you' :
-                  count + ' documents are waiting on you';
+    count === 1 ? '1 item is waiting on you' :
+                  count + ' items are waiting on you';
 
   if (count === 0) {
     document.getElementById('dash-table-body').innerHTML =
@@ -2069,6 +2145,7 @@ function renderApprovalsTable() {
       '<td>' + statusBadge(sop.status) + '</td>' +
       '</tr>';
   });
+  html += _reportApprovalRows();
   html += '</tbody></table>';
   document.getElementById('dash-table-body').innerHTML = html;
 }
@@ -3663,9 +3740,13 @@ function renderIrTable(list) {
     '<th>IR #</th><th>Date of Event</th><th>Location</th><th>Problem</th>' +
     '<th>Submitted by</th><th>Approved by</th><th>Submitted</th><th></th>' +
     '</tr></thead><tbody>';
+  var me = App.user ? App.user.email.toLowerCase() : '';
+  var isSu = App.user && App.user.email.toLowerCase() === String(SUPERUSER_EMAIL).toLowerCase();
   list.forEach(function(r) {
+    var canRevise = isSu || (r.submittedBy && r.submittedBy.toLowerCase() === me);
     html += '<tr onclick="window.open(\'' + esc(r.pdfUrl) + '\', \'_blank\')">' +
-      '<td><span class="sop-code">' + esc(r.irNumber) + '</span></td>' +
+      '<td><span class="sop-code">' + esc(r.irNumber) + '</span>' +
+        (r.rev ? '<div style="font-size:11px;color:#888;margin-top:2px">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
       '<td class="sop-meta">' + esc(r.dateOfEvent) + '</td>' +
       '<td class="sop-meta">' + esc(r.locationOfEvent) + '</td>' +
       '<td class="sop-meta">' + esc(r.problemSummary) + '</td>' +
@@ -3674,7 +3755,10 @@ function renderIrTable(list) {
       '<td class="sop-meta">' + fmtDate(r.submittedAt) + '</td>' +
       '<td><a href="' + esc(r.pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
       'onclick="event.stopPropagation()" style="font-size:12px;color:#16a34a;text-decoration:underline">' +
-      'View PDF →</a></td>' +
+      'View PDF →</a>' +
+      (canRevise ? '<div style="margin-top:6px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" ' +
+        'onclick="event.stopPropagation();openIrReviseApproved(\'' + esc(r.irNumber) + '\')">Revise</button></div>' : '') +
+      '</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -3721,12 +3805,18 @@ function renderIrDraftsTable(list) {
     html += '<tr>' +
       '<td class="sop-meta">' + esc(d.dateOfEvent) + '</td>' +
       '<td class="sop-meta">' + esc(d.locationOfEvent) + '</td>' +
-      '<td>' + statusBadge + (d.status === 'returned' && d.returnComments ?
+      '<td>' + statusBadge +
+        (d.revisionOf ? '<div style="font-size:12px;color:#555;margin-top:4px">Revision ' + esc(String(d.revisionNo || '')) +
+          ' of ' + esc(d.revisionOf) + '</div>' : '') +
+        (d.status === 'returned' && d.returnComments ?
         '<div style="font-size:12px;color:#92400e;margin-top:4px">' + esc(d.returnComments) + '</div>' : '') + '</td>' +
       '<td class="sop-meta">' + esc(d.approverName || d.approverEmail) + '</td>' +
       '<td>' + (d.status === 'returned'
         ? '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
           'onclick="openIrRevise(\'' + esc(d.draftId) + '\')">Revise & Resubmit</button>'
+        : d.status === 'pending_approval'
+        ? '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
+          'onclick="openIrRevise(\'' + esc(d.draftId) + '\')">Edit</button>'
         : '') + '</td>' +
       '</tr>';
   });
@@ -3820,6 +3910,11 @@ function renderIrPhotosPreview() {
 // resubmits that same draft instead of creating a new one. Null for a
 // genuinely new report.
 var _irEditingDraftId = null;
+// Set while revising an already-APPROVED report (openIrReviseApproved): the IR
+// number being revised. Mutually exclusive with _irEditingDraftId.
+var _irRevisingIrNumber = null;
+// Whether the draft being edited is itself a revision (needs a reason).
+var _irEditingIsRevision = false;
 
 function showNewIrForm() {
   // Reachable both from the Incident Reports tab's own button and from the
@@ -3829,8 +3924,12 @@ function showNewIrForm() {
     var el = document.getElementById(id); if (el) el.classList.remove('active');
   });
   _irEditingDraftId = null;
+  _irRevisingIrNumber = null;
+  _irEditingIsRevision = false;
   document.getElementById('ir-form-title').textContent = 'New Incident Report';
   document.getElementById('ir-revise-note').style.display = 'none';
+  document.getElementById('ir-revision-reason-wrap').style.display = 'none';
+  document.getElementById('ir-revision-reason').value = '';
   document.getElementById('btn-submit-ir').textContent = 'Submit for approval';
   renderIrChecklist();
   // Clear every field so a previous draft can't bleed into a new report.
@@ -3937,30 +4036,46 @@ function submitIncidentReport() {
     return;
   }
 
-  var isRevise = !!_irEditingDraftId;
-  var btn = document.getElementById('btn-submit-ir');
-  btn.disabled = true;
-  btn.textContent = isRevise ? 'Resubmitting…' : 'Submitting…';
+  var needsReason = !!_irRevisingIrNumber || _irEditingIsRevision;
+  var reason = (document.getElementById('ir-revision-reason').value || '').trim();
+  if (needsReason && !reason) {
+    errEl.textContent = 'Give a reason for the revision.';
+    errEl.style.display = 'block';
+    return;
+  }
 
-  var payload = isRevise
-    ? { action: 'resubmitIncidentReport', draftId: _irEditingDraftId, fields: fields }
+  var isRevise = !!_irEditingDraftId;
+  var isApprovedRevision = !!_irRevisingIrNumber;
+  var btn = document.getElementById('btn-submit-ir');
+  var idleLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = (isRevise || isApprovedRevision) ? 'Sending…' : 'Submitting…';
+
+  var payload = isApprovedRevision
+    ? { action: 'submitIrRevision', irNumber: _irRevisingIrNumber, fields: fields, revisionReason: reason }
+    : isRevise
+    ? { action: 'resubmitIncidentReport', draftId: _irEditingDraftId, fields: fields, revisionReason: reason }
     : { action: 'submitIncidentReportForApproval', fields: fields };
 
   apiPost(payload).then(function(r) {
     btn.disabled = false;
-    btn.textContent = 'Submit for approval';
+    btn.textContent = idleLabel;
     if (!r.ok) {
       errEl.textContent = r.message || 'Could not submit the report.';
       errEl.style.display = 'block';
       return;
     }
-    showToast(isRevise ? 'Resubmitted for approval.' : 'Report submitted — sent to ' + fields.approverEmail + ' for approval.');
+    showToast(isApprovedRevision ? 'Revision ' + (r.revisionNo || '') + ' of ' + _irRevisingIrNumber + ' sent to ' + fields.approverEmail + ' for approval.' :
+              isRevise ? 'Changes saved — sent to ' + fields.approverEmail + ' for approval.' :
+              'Report submitted — sent to ' + fields.approverEmail + ' for approval.');
     _irEditingDraftId = null;
+    _irRevisingIrNumber = null;
+    _irEditingIsRevision = false;
     backFromNewIr();
     loadIncidentReports();
   }).catch(function(err) {
     btn.disabled = false;
-    btn.textContent = 'Submit for approval';
+    btn.textContent = idleLabel;
     errEl.textContent = err.message || 'Network error — please try again.';
     errEl.style.display = 'block';
   });
@@ -3971,20 +4086,44 @@ function submitIncidentReport() {
 // same approver rather than creating a brand new report.
 function openIrRevise(draftId) {
   showNewIrForm();
-  document.getElementById('ir-form-title').textContent = 'Revise Incident Report';
-  document.getElementById('btn-submit-ir').textContent = 'Resubmit for approval';
+  document.getElementById('ir-form-title').textContent = 'Edit Incident Report';
+  document.getElementById('btn-submit-ir').disabled = true;   // until loaded
 
   apiPost({ action: 'getIrDraft', draftId: draftId }).then(function(r) {
     if (!r.ok) { showToast(r.message || 'Could not load this report.'); backFromNewIr(); return; }
     var d = r.data, f = d.fields || {};
     _irEditingDraftId = draftId;
+    _irEditingIsRevision = !!d.revisionOf;
+    var btn = document.getElementById('btn-submit-ir');
+    btn.disabled = false;
 
-    if (d.returnComments) {
-      var note = document.getElementById('ir-revise-note');
-      note.textContent = 'Returned for changes: ' + d.returnComments;
+    var note = document.getElementById('ir-revise-note');
+    if (d.status === 'returned') {
+      document.getElementById('ir-form-title').textContent = d.revisionOf ? 'Revise ' + d.revisionOf : 'Revise Incident Report';
+      btn.textContent = 'Resubmit for approval';
+      note.textContent = 'Returned for changes: ' + (d.returnComments || '');
+      note.style.display = 'block';
+    } else {
+      // Still waiting on the approver: the preparer is correcting their own
+      // inputs. Saving sends the updated report to the approver.
+      document.getElementById('ir-form-title').textContent = d.revisionOf ? 'Edit revision of ' + d.revisionOf : 'Edit Incident Report';
+      btn.textContent = 'Save changes & send for approval';
+      note.textContent = 'This report hasn\'t been approved yet. Saving your changes sends the updated version to ' +
+        (d.approverName || d.approverEmail) + ' — they\'ll sign the corrected report.';
       note.style.display = 'block';
     }
+    if (d.revisionOf) {
+      document.getElementById('ir-revision-reason-wrap').style.display = 'block';
+      document.getElementById('ir-revision-reason').value = d.revisionReason || '';
+    }
+    _irPrefillForm(f);
+  }).catch(function(err) { showToast(err.message); backFromNewIr(); });
+}
 
+// Fills the New Incident Report form from a saved set of fields — shared by
+// editing a pending/returned draft and revising an approved report.
+function _irPrefillForm(f) {
+    f = f || {};
     var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
     set('ir-date-of-event', f.dateOfEvent);
     set('ir-location', f.locationOfEvent);
@@ -4026,6 +4165,39 @@ function openIrRevise(draftId) {
 
     _irPhotos = (f.photos || []).slice();
     renderIrPhotosPreview();
+}
+
+// Revise an already-APPROVED report: pre-fills its original inputs, asks for
+// a reason, and sends it to an approver. The approved version stays current
+// until the revision is approved.
+function openIrReviseApproved(irNumber) {
+  showNewIrForm();
+  _irRevisingIrNumber = irNumber;
+  document.getElementById('ir-form-title').textContent = 'Revise ' + irNumber;
+  var btn = document.getElementById('btn-submit-ir');
+  btn.textContent = 'Submit revision for approval';
+  btn.disabled = true;   // until the original inputs have loaded
+  document.getElementById('ir-revision-reason-wrap').style.display = 'block';
+
+  apiPost({ action: 'getIrSourceForRevision', irNumber: irNumber }).then(function(r) {
+    if (!r.ok) {
+      showToast(r.message || 'Could not open this report for revision.');
+      backFromNewIr();
+      return;
+    }
+    var d = r.data || {};
+    var f = {};
+    Object.keys(d.fields || {}).forEach(function(k) { f[k] = d.fields[k]; });
+    if (!f.approverName && d.approverName)  f.approverName  = d.approverName;
+    if (!f.approverEmail && d.approverEmail) f.approverEmail = d.approverEmail;
+    _irPrefillForm(f);
+    var note = document.getElementById('ir-revise-note');
+    note.textContent = d.partial
+      ? 'The full original inputs for ' + irNumber + ' weren\'t stored (it was approved before revisions were supported). ' +
+        'The basics are filled in — please re-enter the rest, including the Checked By signature and any photos.'
+      : 'Revising ' + irNumber + (d.rev ? ' (currently Rev. ' + d.rev + ')' : '') + '. Its approved inputs are filled in below — change what needs correcting.';
+    note.style.display = 'block';
+    btn.disabled = false;
   }).catch(function(err) { showToast(err.message); backFromNewIr(); });
 }
 
@@ -4080,6 +4252,17 @@ function renderIrDecide(d) {
   ];
 
   var html = '<div class="sb-section">';
+  if (d.revisionOf) {
+    html += '<div style="font-size:13px;color:#1e3a8a;background:#dbeafe;border-radius:6px;' +
+      'padding:10px 12px;margin-bottom:14px"><strong>Revision ' + esc(String(d.revisionNo || '')) + ' of ' +
+      esc(d.revisionOf) + '</strong> — a correction to an already-approved report. Approving replaces the current ' +
+      'version; the earlier PDF is kept as superseded.' +
+      (d.revisionReason ? '<br><strong>Reason:</strong> ' + esc(d.revisionReason) : '') + '</div>';
+  }
+  if (d.status === 'pending_approval' && d.editCount) {
+    html += '<div style="font-size:12px;color:#555;background:#f5f5f5;border-radius:6px;padding:8px 12px;margin-bottom:14px">' +
+      'Updated by the preparer ' + fmtDate(d.updatedAt) + ' — this is the latest version.</div>';
+  }
   if (d.status === 'returned') {
     html += '<div style="font-size:13px;color:#92400e;background:#fef3c7;border-radius:6px;' +
       'padding:10px 12px;margin-bottom:14px">Returned ' + fmtDate(d.returnedAt) +
@@ -4154,22 +4337,34 @@ function decideIrReport(decision) {
   decBtns.forEach(function(b) { b.disabled = true; b.style.opacity = '0.55'; });
 
   apiPost({ action: 'decideIncidentReport', draftId: d.draftId, decision: decision,
-            comments: comments, sig: _irDecideSigDataUrl }).then(function(r) {
+            comments: comments, sig: _irDecideSigDataUrl,
+            // The version this screen is showing — the server refuses the
+            // decision if the preparer has saved edits since.
+            seenVersion: d.updatedAt || d.resubmittedAt || d.prepAt || '' }).then(function(r) {
+    if (!r.ok && r.error === 'changed') {
+      showToast(r.message);
+      openIrDecide(d.draftId);   // reload the latest content
+      return;
+    }
     if (!r.ok) {
       showToast(r.message || 'Could not submit your decision.');
       decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
       return;
     }
     if (decision === 'approve') {
-      showToast('Approved — report ' + r.record.irNumber + ' generated.');
+      showToast(r.record.rev
+        ? 'Approved — ' + r.record.irNumber + ' Rev. ' + r.record.rev + ' generated; the earlier version is kept as superseded.'
+        : 'Approved — report ' + r.record.irNumber + ' generated.');
       App.irApprovedCount = null;   // stale now — Documents grid re-fetches next render
       backFromIrDecide();
       loadIncidentReports();
+      if (App.currentTab === 'approvals') loadApprovals();
       window.open(r.record.pdfUrl, '_blank');
     } else {
       showToast('Returned to the preparer for revision.');
       backFromIrDecide();
       loadIncidentReports();
+      if (App.currentTab === 'approvals') loadApprovals();
     }
   }).catch(function(err) {
     showToast(err.message);
@@ -4841,6 +5036,7 @@ function decideNcarReport(decision) {
     }
     backFromNcarDecide();
     loadNcarList();
+    if (App.currentTab === 'approvals') loadApprovals();
   }).catch(function(err) {
     showToast(err.message);
     decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
