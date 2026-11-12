@@ -1049,8 +1049,14 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="field"><label>Total TN/ ON affected</label><input id="ir-total-tn-on" type="text"></div>
       </div>
       <div class="field-row" id="ir-warehouse-ids-row" style="display:none">
-        <div class="field"><label>Brand</label><input id="ir-brand" type="text"></div>
-        <div class="field"><label>SKU</label><input id="ir-sku" type="text"></div>
+        <div class="field"><label>Brand</label><input id="ir-brand" type="text" list="ir-brand-list" autocomplete="off"
+            oninput="checkIrBrand()" placeholder="As spelled in the Quarantine Tracker">
+          <datalist id="ir-brand-list"></datalist>
+          <div id="ir-brand-note" class="field-hint" style="display:none;color:#92400e;margin-top:4px">Not in the Quarantine
+            Tracker's brand list — the tracker link only lands on rows with exactly the same brand.</div></div>
+        <div class="field"><label>SKU</label><input id="ir-sku" type="text" placeholder="e.g. KH-001, KH-002">
+          <div class="field-hint" style="margin-top:4px">Same SKU as entered in the Quarantine Tracker (actual or system
+            SKU). Separate several with commas.</div></div>
       </div>
       <div class="field-row" style="margin-top:12px">
         <div class="field" id="ir-tracking-number-wrap"><label>Tracking number</label><input id="ir-tracking-number" type="text"></div>
@@ -3844,6 +3850,25 @@ function _irWarehouseChecked() {
   return !!(cb && cb.checked);
 }
 
+// Brand names as the Quarantine Tracker spells them (loaded once per page).
+var _irBrandList = null;
+function loadIrBrandList() {
+  if (_irBrandList !== null || !App.user) return;
+  _irBrandList = [];
+  apiPost({ action: 'quarantineBrands' }).then(function(r) {
+    _irBrandList = (r && r.ok && r.data) || [];
+    document.getElementById('ir-brand-list').innerHTML =
+      _irBrandList.map(function(b) { return '<option value="' + esc(b) + '">'; }).join('');
+    checkIrBrand();
+  }).catch(function() { _irBrandList = []; });
+}
+function checkIrBrand() {
+  var v = (document.getElementById('ir-brand').value || '').trim().toLowerCase();
+  var known = !v || !_irBrandList || !_irBrandList.length ||
+    _irBrandList.some(function(b) { return b.toLowerCase() === v; });
+  document.getElementById('ir-brand-note').style.display = known ? 'none' : 'block';
+}
+
 // Section 3 switches between the package layout (Order number / Total TN/ON,
 // tracking, client, customer) and the warehouse-damage layout (Brand / SKU).
 // Values typed into hidden fields are kept on screen (so unticking by mistake
@@ -3854,8 +3879,11 @@ function toggleIrWarehouseMode() {
   show('ir-package-ids-row', !wh);
   show('ir-warehouse-ids-row', wh);
   document.getElementById('ir-investigation-hint').textContent = wh
-    ? 'For an item damaged in the warehouse, record the brand and SKU affected.'
+    ? 'For an item damaged in the warehouse, record the brand and SKU affected. Once approved, this report\'s link is ' +
+      'added to the matching Quarantine Tracker row (column AI): same brand and SKU, Damage by Warehouse = Yes, ' +
+      'entered on the day this report is submitted or the day before.'
     : 'For incidents involving packages, fill up the basic information below.';
+  if (wh) loadIrBrandList();
   show('ir-tracking-number-wrap', !wh);
   show('ir-client-row', !wh);
   show('ir-customer-row', !wh);
@@ -3897,6 +3925,41 @@ function _loadIncidentReportsLegacy() {
   }).catch(function() { renderIrDraftsTable([]); });
 }
 
+// Quarantine Tracker link status, for warehouse-damage reports. When a
+// Brand + SKU matched more than one tracker row, the candidates are listed
+// with a button to link the right one.
+function _irTrackerStatus(r) {
+  if (!r.warehouseDamage) return '';
+  var line = function(txt, color) {
+    return '<div style="font-size:11px;color:' + (color || '#888') + ';margin-top:3px">' + esc(txt) + '</div>';
+  };
+  var html = '';
+  if (r.qtError) html += line('Tracker: not linked — ' + r.qtError, '#b45309');
+  else if (r.qtLinkedRows) html += line('Tracker: linked on ' + r.qtLinkedRows + ' row' + (r.qtLinkedRows === 1 ? '' : 's'));
+  else if (!(r.qtPending || []).length) html += line('Tracker: no matching row yet (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
+  (r.qtPending || []).forEach(function(p) {
+    html += line('Tracker: SKU ' + p.sku + ' matches ' + p.candidates.length + ' rows — pick the one for this report:', '#b45309');
+    p.candidates.forEach(function(c) {
+      var when = c.at ? fmtDate(c.at) : '';
+      var bits = ['Row ' + c.row, when, c.qty ? c.qty + ' pcs' : '', c.location, c.reason].filter(Boolean).join(' · ');
+      html += '<div style="margin-top:3px"><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" ' +
+        'onclick="event.stopPropagation();linkIrTrackerRow(\'' + esc(r.irNumber) + '\',' + Number(c.row) + ',this)">' +
+        'Link ' + esc(bits) + '</button></div>';
+    });
+  });
+  return html;
+}
+
+function linkIrTrackerRow(irNumber, row, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Linking…'; }
+  apiPost({ action: 'qtLinkRow', irNumber: irNumber, row: row }).then(function(r) {
+    if (r && r.error === 'unauthorized') { signOut(); return; }
+    if (!r || !r.ok) { showToast((r && r.message) || 'Could not link that row.'); if (btn) { btn.disabled = false; btn.textContent = 'Try again'; } return; }
+    showToast(irNumber + ' linked on tracker row ' + row + '.');
+    loadIncidentReports();
+  }).catch(function(err) { showToast(err.message); if (btn) btn.disabled = false; });
+}
+
 function renderIrTable(list) {
   var body = document.getElementById('ir-table-body');
   // The "+ New Incident Report" button lives in only one place at a time:
@@ -3925,7 +3988,7 @@ function renderIrTable(list) {
         (r.rev ? '<div style="font-size:11px;color:#888;margin-top:2px">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
       '<td class="sop-meta">' + esc(r.dateOfEvent) + '</td>' +
       '<td class="sop-meta">' + esc(r.locationOfEvent) + '</td>' +
-      '<td class="sop-meta">' + esc(r.problemSummary) + '</td>' +
+      '<td class="sop-meta">' + esc(r.problemSummary) + _irTrackerStatus(r) + '</td>' +
       '<td class="sop-meta">' + esc(r.submittedBy) + '</td>' +
       '<td class="sop-meta">' + esc(r.approvedBy || '—') + '</td>' +
       '<td class="sop-meta">' + fmtDate(r.submittedAt) + '</td>' +
@@ -4343,6 +4406,7 @@ function _irPrefillForm(f) {
     set('ir-brand', f.brand);
     set('ir-sku', f.sku);
     toggleIrWarehouseMode();
+    checkIrBrand();
 
     if (f.checkedBySig) {
       _irCheckedSigDataUrl = f.checkedBySig;
