@@ -754,7 +754,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <button onclick="backFromCreateChoice()" class="btn btn-secondary">← Back</button>
       <div style="font-size:22px;font-weight:700;color:#111">What would you like to create?</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
       <div class="create-choice-card" onclick="showNewSopForm()">
         <div class="create-choice-icon">📄</div>
         <div class="create-choice-title">New Document</div>
@@ -766,6 +766,12 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="create-choice-title">Incident Report</div>
         <div class="create-choice-desc">Fill in what happened — the app generates a signed-off PDF
           straight from the approved Incident Report template.</div>
+      </div>
+      <div class="create-choice-card" onclick="showNewNcarForm()">
+        <div class="create-choice-icon">⚠️</div>
+        <div class="create-choice-title">NCAR</div>
+        <div class="create-choice-desc">Nonconforming and Corrective Action Report — signed off by four approvers,
+          then issued as a PDF from the approved NCAR template.</div>
       </div>
     </div>
   </div>
@@ -1034,20 +1040,27 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
     <div class="form-section">
       <div class="form-section-title">3. Detailed Investigation</div>
-      <div class="field-hint" style="margin-bottom:10px">For incidents involving packages, fill up the basic information below.</div>
-      <div class="field-row">
+      <div class="field-hint" id="ir-investigation-hint" style="margin-bottom:10px">For incidents involving packages, fill up the basic information below.</div>
+      <!-- When "Item damaged in Warehouse" is ticked (toggleIrWarehouseMode):
+           Order number → Brand, Total TN/ON affected → SKU, and the
+           package-only fields are hidden. -->
+      <div class="field-row" id="ir-package-ids-row">
         <div class="field"><label>Order number</label><input id="ir-order-number" type="text"></div>
         <div class="field"><label>Total TN/ ON affected</label><input id="ir-total-tn-on" type="text"></div>
       </div>
-      <div class="field-row" style="margin-top:12px">
-        <div class="field"><label>Tracking number</label><input id="ir-tracking-number" type="text"></div>
-        <div class="field"><label>Department involved</label><input id="ir-department" type="text"></div>
+      <div class="field-row" id="ir-warehouse-ids-row" style="display:none">
+        <div class="field"><label>Brand</label><input id="ir-brand" type="text"></div>
+        <div class="field"><label>SKU</label><input id="ir-sku" type="text"></div>
       </div>
       <div class="field-row" style="margin-top:12px">
+        <div class="field" id="ir-tracking-number-wrap"><label>Tracking number</label><input id="ir-tracking-number" type="text"></div>
+        <div class="field"><label>Department involved</label><input id="ir-department" type="text"></div>
+      </div>
+      <div class="field-row" id="ir-client-row" style="margin-top:12px">
         <div class="field"><label>Client name</label><input id="ir-client-name" type="text"></div>
         <div class="field"><label>Customer address</label><input id="ir-customer-address" type="text"></div>
       </div>
-      <div class="field-row" style="margin-top:12px">
+      <div class="field-row" id="ir-customer-row" style="margin-top:12px">
         <div class="field"><label>Customer name</label><input id="ir-customer-name" type="text"></div>
         <div class="field"></div>
       </div>
@@ -1139,6 +1152,13 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
     </div>
     <div id="ncar-revise-note" style="display:none;font-size:13px;color:#92400e;background:#fef3c7;
       border-radius:6px;padding:10px 12px;margin-bottom:16px"></div>
+    <!-- Shown only when revising an approved NCAR (or editing such a revision). -->
+    <div id="ncar-revision-reason-wrap" class="form-section" style="display:none">
+      <div class="form-section-title">Reason for revision *</div>
+      <div class="field"><textarea id="ncar-revision-reason" rows="2" placeholder="What is being corrected, and why?"></textarea></div>
+      <div class="field-hint" style="margin-top:6px">The approved version stays on file. The revision goes through all four
+        sign-offs; once approved it becomes the current version (Rev. 1, 2, …) under the same NCAR No.</div>
+    </div>
 
     <div class="form-section">
       <div class="form-section-title">NCAR details</div>
@@ -1516,6 +1536,60 @@ function readSession() {
   return null;
 }
 
+// ── Last-seen screen data ─────────────────────────────────────────────────────
+// Each main screen keeps its last result so the next visit (or a page
+// refresh) paints immediately while the fresh copy loads in the background.
+// Kept per signed-in user, in sessionStorage (gone when the tab closes), and
+// wiped on sign-out — so nothing is left behind on a shared computer.
+var SCREEN_CACHE_PREFIX = 'qms_screen_';
+var _screenCache = {};
+
+function screenCacheGet(name) {
+  if (!App.user) return null;
+  var who = App.user.email;
+  var mem = _screenCache[name];
+  if (mem && mem.user === who) return mem.data;
+  try {
+    var raw = sessionStorage.getItem(SCREEN_CACHE_PREFIX + name);
+    if (raw) {
+      var o = JSON.parse(raw);
+      if (o && o.user === who) { _screenCache[name] = o; return o.data; }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function screenCachePut(name, data) {
+  if (!App.user) return;
+  var o = { user: App.user.email, at: Date.now(), data: data };
+  _screenCache[name] = o;
+  try { sessionStorage.setItem(SCREEN_CACHE_PREFIX + name, JSON.stringify(o)); } catch (e) {}
+}
+
+function screenCacheClear() {
+  _screenCache = {};
+  try {
+    for (var i = sessionStorage.length - 1; i >= 0; i--) {
+      var k = sessionStorage.key(i);
+      if (k && k.indexOf(SCREEN_CACHE_PREFIX) === 0) sessionStorage.removeItem(k);
+    }
+  } catch (e) {}
+}
+
+// Calls one of the per-screen endpoints. Resolves with the parts, or with
+// null when the backend is older and doesn't have it (callers then fall back
+// to the old separate requests). An expired session signs out.
+function fetchScreen(action) {
+  if (!App.user) return Promise.reject(new Error('Not signed in.'));
+  return apiPost({ action: action }).then(function(r) {
+    if (r && r.error === 'unauthorized') { signOut(); throw new Error('Session expired. Please sign in again.'); }
+    if (r && r.error === 'unknown_action') return null;
+    if (!r || !r.ok || !r.parts) throw new Error((r && r.message) || 'Could not load this screen.');
+    return r.parts;
+  });
+}
+function _part(p) { return p && p.ok ? (p.data || []) : null; }
+
 // If we're going to restore a session, hide the login screen right now so it
 // never paints. This only touches the DOM — the actual restore has to wait for
 // window.onload, because showApp() reads vars assigned further down the script.
@@ -1732,6 +1806,9 @@ function signOut() {
   // sees the previous user's approvals and documents.
   App.myApprovals    = [];
   App.myReportApprovals = { ir: [], ncar: [] };
+  screenCacheClear();
+  Object.keys(_reportJobPolls).forEach(function(k) { clearInterval(_reportJobPolls[k]); });
+  _reportJobPolls = {};
   App.allSops        = [];
   App.currentSop     = null;
   App.currentIrDraft = null;
@@ -1859,7 +1936,7 @@ function showApp(prefetch) {
   var canExport = isSu || App.user.email.toLowerCase() === DOCUMENT_CONTROLLER_EMAIL.toLowerCase();
   var exportBtn = document.getElementById('btn-export-register');
   if (exportBtn) exportBtn.style.display = canExport ? '' : 'none';
-  loadApprovals(prefetch && prefetch.myApprovals);
+  loadApprovals(prefetch);
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
@@ -1899,7 +1976,7 @@ function switchTab(tab) {
            tab === 'admin'     ? 'admin-view'      :
                                  'audit-content');
 
-  if (tab === 'approvals' && App.myApprovals.length === 0) loadApprovals();
+  if (tab === 'approvals')                                  loadApprovals();
   if (tab === 'documents' && App.allSops.length === 0)     loadAllSops();
   if (tab === 'incidents')                                  loadIncidentReports();
   if (tab === 'ncar')                                       loadNcarList();
@@ -2018,16 +2095,64 @@ function apiPost(body) {
 }
 
 // ── Load approvals dashboard ──────────────────────────────────────────────────
-// prefetched (optional): the myApprovals list already returned with the login
-// response. When present, render it straight away instead of re-requesting it.
-function loadApprovals(prefetched) {
+// prefetch (optional): what the login response already carried — the whole
+// Approvals screen ({ screen: parts }) from the current backend, or just the
+// document list ({ myApprovals: [...] }) from an older one.
+function loadApprovals(prefetch) {
   if (!App.user) return;
-  // Report rows (loadReportApprovals) only paint once the document list is
-  // in — otherwise "You're all caught up!" could flash while it's loading.
+  if (prefetch && prefetch.screen) {
+    applyApprovalsScreen(prefetch.screen);
+    screenCachePut('approvals', prefetch.screen);
+    return;
+  }
+  if (prefetch && Object.prototype.toString.call(prefetch.myApprovals) === '[object Array]') {
+    _loadApprovalsLegacy(prefetch.myApprovals);
+    return;
+  }
+  var cached = screenCacheGet('approvals');
+  if (cached) {
+    applyApprovalsScreen(cached);
+  } else {
+    document.getElementById('dash-table-body').innerHTML =
+      '<div class="spinner-wrap"><div class="spinner"></div></div>';
+    document.getElementById('dash-sub').textContent = 'Loading…';
+  }
+  fetchScreen('screenApprovals').then(function(parts) {
+    if (!parts) { _loadApprovalsLegacy(); return; }
+    applyApprovalsScreen(parts);
+    screenCachePut('approvals', parts);
+  }).catch(function(err) {
+    if (cached) return;   // keep showing the last good copy
+    document.getElementById('dash-sub').textContent = 'Could not load your approvals.';
+    document.getElementById('dash-table-body').innerHTML = '<div class="empty">' + esc(err.message) + '</div>';
+    showToast(err.message);
+  });
+}
+
+// Paints My Approvals (documents + incident reports + NCARs waiting on you)
+// and the review-due block from one screen result.
+function applyApprovalsScreen(parts) {
+  App.myReportApprovals = { ir: _part(parts.irApprovals) || [], ncar: _part(parts.ncarApprovals) || [] };
+  var docs = _part(parts.myApprovals);
+  App.docApprovalsReady = true;
+  if (docs === null) {
+    App.myApprovals = [];
+    document.getElementById('dash-sub').textContent = 'Could not load your approvals.';
+    document.getElementById('dash-table-body').innerHTML =
+      '<div class="empty">' + esc((parts.myApprovals && parts.myApprovals.message) || 'Please refresh.') + '</div>';
+  } else {
+    App.myApprovals = docs;
+    renderApprovalsTable();
+  }
+  renderReviewDue(_part(parts.reviewDue));
+}
+
+// The previous behaviour, kept for a backend without the per-screen call.
+function _loadApprovalsLegacy(prefetched) {
   App.docApprovalsReady = false;
+  loadReviewDue();
+  loadReportApprovals();
   if (Object.prototype.toString.call(prefetched) === '[object Array]') {
-    loadReviewDue();   // still its own independent request, as below
-    loadReportApprovals();
     App.myApprovals = prefetched;
     App.docApprovalsReady = true;
     renderApprovalsTable();
@@ -2035,15 +2160,7 @@ function loadApprovals(prefetched) {
   }
   document.getElementById('dash-table-body').innerHTML =
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
-  // Don't leave a stale count showing while we fetch — it read as
-  // "Nothing waiting on you" next to a spinner.
   document.getElementById('dash-sub').textContent = 'Loading…';
-
-  // The review list is a second, independent fetch: a failure there must not
-  // stop your approvals rendering, which is the reason you opened the page.
-  loadReviewDue();
-  loadReportApprovals();
-
   apiGet('myApprovals').then(function(r) {
     App.myApprovals = r.data || [];
     App.docApprovalsReady = true;
@@ -2102,7 +2219,7 @@ function _reportApprovalRows() {
   (rep.ncar || []).forEach(function(d) {
     html += '<tr onclick="openNcarDecide(\'' + esc(d.draftId) + '\')">' +
       '<td>' + badge('NCAR', '#fff7ed', '#c2410c') + '</td>' +
-      '<td><span class="sop-code">' + esc(d.ncarId) + '</span></td>' +
+      '<td><span class="sop-code">' + esc(d.ncarId) + (d.revisionOf ? ' Rev. ' + esc(String(d.revisionNo || '')) : '') + '</span></td>' +
       '<td><span class="sop-title">' + esc(d.problemWhat || 'NCAR') + '</span>' +
         (d.department ? '<div class="sop-meta" style="font-size:12px">' + esc(d.department) + '</div>' : '') + '</td>' +
       '<td class="sop-meta">—</td>' +
@@ -2154,8 +2271,15 @@ function renderApprovalsTable() {
 // Shows everyone's, not just yours: an overdue document is a system-wide problem,
 // and the owner may well be the person who has stopped looking at it.
 function loadReviewDue() {
+  apiGet('reviewDue').then(function(r) { renderReviewDue(r.data || []); })
+    .catch(function() { renderReviewDue(null); });   // supplementary — hide on failure
+}
+
+// list: documents from the reviewDue call, or null to hide the block.
+function renderReviewDue(list) {
   var block = document.getElementById('dash-review-block');
-  apiGet('reviewDue').then(function(r) {
+  if (!list) { block.style.display = 'none'; return; }
+  (function(r) {
     var rows = (r.data || []).filter(function(d) {
       return d.reviewStatus === 'overdue' || d.reviewStatus === 'due_soon';
     });
@@ -2184,20 +2308,22 @@ function loadReviewDue() {
     html += '</tbody></table>';
     document.getElementById('dash-review-body').innerHTML = html;
     block.style.display = '';
-  }).catch(function() {
-    // Silent: this is supplementary. The Slack digest is the real prompt.
-    block.style.display = 'none';
-  });
+  })({ data: list });
 }
 
 // ── Load all documents ────────────────────────────────────────────────────────
 function loadAllSops() {
-  if (App.docsFolder) {
+  if (!App.allSops.length) {
+    var cached = screenCacheGet('documents');
+    if (cached) { App.allSops = cached; renderDocsFolders(); if (App.docsFolder) applyDocsFilter(); }
+  }
+  if (App.docsFolder && !App.allSops.length) {
     document.getElementById('docs-table-body').innerHTML =
       '<div class="spinner-wrap"><div class="spinner"></div></div>';
   }
   apiGet('allSops').then(function(r) {
     App.allSops = r.data || [];
+    screenCachePut('documents', App.allSops);
     renderDocsFolders();
     if (App.docsFolder) applyDocsFilter();
   }).catch(function(err) { showToast(err.message); });
@@ -3703,10 +3829,60 @@ var IR_PROBLEM_LABELS = [
   'Robbery/Nilooban', 'Double served/Double Order', 'Non compliance to House rules/Di pagsunod sa House rules',
   'Agency SLA Breach', 'SOP non-compliance/Di pagsunod sa SOP'
 ];
+// Added after the original boxes (index 17 is "Others"), so it's index 18 and
+// older reports keep their meaning. Must match IR_WAREHOUSE_DAMAGE_IDX in Code.gs.
+var IR_WAREHOUSE_DAMAGE_IDX   = 18;
+var IR_WAREHOUSE_DAMAGE_LABEL = 'Item damaged in Warehouse';
+
+function _irProblemLabel(i) {
+  if (Number(i) === IR_WAREHOUSE_DAMAGE_IDX) return IR_WAREHOUSE_DAMAGE_LABEL;
+  return IR_PROBLEM_LABELS[i] ? IR_PROBLEM_LABELS[i].split('/')[0] : null;
+}
+
+function _irWarehouseChecked() {
+  var cb = document.getElementById('ir-problem-' + IR_WAREHOUSE_DAMAGE_IDX);
+  return !!(cb && cb.checked);
+}
+
+// Section 3 switches between the package layout (Order number / Total TN/ON,
+// tracking, client, customer) and the warehouse-damage layout (Brand / SKU).
+// Values typed into hidden fields are kept on screen (so unticking by mistake
+// loses nothing) but only the visible layout's fields are submitted.
+function toggleIrWarehouseMode() {
+  var wh = _irWarehouseChecked();
+  var show = function(id, on) { var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  show('ir-package-ids-row', !wh);
+  show('ir-warehouse-ids-row', wh);
+  document.getElementById('ir-investigation-hint').textContent = wh
+    ? 'For an item damaged in the warehouse, record the brand and SKU affected.'
+    : 'For incidents involving packages, fill up the basic information below.';
+  show('ir-tracking-number-wrap', !wh);
+  show('ir-client-row', !wh);
+  show('ir-customer-row', !wh);
+}
+
+function applyIncidentsScreen(parts) {
+  var log = _part(parts.log);
+  if (log === null) showToast((parts.log && parts.log.message) || 'Could not load incident reports.');
+  else renderIrTable(log);
+  renderIrApprovalsTable(_part(parts.myApprovals) || []);
+  renderIrDraftsTable(_part(parts.myDrafts) || []);
+}
 
 function loadIncidentReports() {
-  document.getElementById('ir-table-body').innerHTML =
+  var cached = screenCacheGet('incidents');
+  if (cached) applyIncidentsScreen(cached);
+  else document.getElementById('ir-table-body').innerHTML =
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
+  fetchScreen('screenIncidents').then(function(parts) {
+    if (!parts) { _loadIncidentReportsLegacy(); return; }
+    applyIncidentsScreen(parts);
+    screenCachePut('incidents', parts);
+  }).catch(function(err) { if (!cached) showToast(err.message); });
+}
+
+// The previous three separate requests, for a backend without screenIncidents.
+function _loadIncidentReportsLegacy() {
   apiPost({ action: 'getIncidentReports' }).then(function(r) {
     if (!r.ok) { showToast(r.message || 'Could not load incident reports.'); return; }
     renderIrTable(r.data || []);
@@ -3801,6 +3977,8 @@ function renderIrDraftsTable(list) {
   list.forEach(function(d) {
     var statusBadge = d.status === 'returned'
       ? '<span style="color:#92400e;background:#fef3c7;padding:2px 8px;border-radius:10px;font-size:12px">Returned for changes</span>'
+      : d.status === 'finalizing'
+      ? '<span style="color:#166534;background:#dcfce7;padding:2px 8px;border-radius:10px;font-size:12px">Approved — generating PDF</span>'
       : '<span style="color:#1d4ed8;background:#dbeafe;padding:2px 8px;border-radius:10px;font-size:12px">Awaiting approval</span>';
     html += '<tr>' +
       '<td class="sop-meta">' + esc(d.dateOfEvent) + '</td>' +
@@ -3833,7 +4011,11 @@ function renderIrChecklist() {
       '<input type="checkbox" id="ir-problem-' + i + '">' +
       '<span>' + esc(label) + '</span></label>';
   });
+  html += '<label class="ir-check">' +
+    '<input type="checkbox" id="ir-problem-' + IR_WAREHOUSE_DAMAGE_IDX + '" onchange="toggleIrWarehouseMode()">' +
+    '<span>' + esc(IR_WAREHOUSE_DAMAGE_LABEL) + '</span></label>';
   el.innerHTML = html;
+  toggleIrWarehouseMode();
 }
 
 // ── Evidence photos (Description of Events) ──────────────────────────────────
@@ -3934,7 +4116,7 @@ function showNewIrForm() {
   renderIrChecklist();
   // Clear every field so a previous draft can't bleed into a new report.
   ['ir-date-of-event','ir-location','ir-time-of-event','ir-witnessed-by','ir-ticket-number',
-   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-tracking-number',
+   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-brand','ir-sku','ir-tracking-number',
    'ir-department','ir-client-name','ir-customer-address','ir-customer-name','ir-other-info',
    'ir-basic-cause','ir-immediate-actions','ir-preventive-actions','ir-checked-by',
    'ir-business-impact','ir-approved-by','ir-approved-email','ir-received-by-customer'].forEach(function(id) {
@@ -3984,6 +4166,8 @@ function collectIrFields() {
   var othersChecked = document.getElementById('ir-others-check').checked;
   var othersText = v('ir-others-text');
   if (othersChecked || othersText) problems.push(17);
+  var wh = _irWarehouseChecked();
+  if (wh) problems.push(IR_WAREHOUSE_DAMAGE_IDX);
 
   return {
     dateOfEvent: v('ir-date-of-event'),
@@ -3994,13 +4178,16 @@ function collectIrFields() {
     descriptionOfEvents: v('ir-description'),
     problems: problems,
     othersText: othersText,
-    orderNumber: v('ir-order-number'),
-    totalTnOn: v('ir-total-tn-on'),
-    trackingNumber: v('ir-tracking-number'),
+    // Warehouse damage: Brand / SKU are sent instead of the package-only fields.
+    orderNumber: wh ? '' : v('ir-order-number'),
+    totalTnOn: wh ? '' : v('ir-total-tn-on'),
+    brand: wh ? v('ir-brand') : '',
+    sku: wh ? v('ir-sku') : '',
+    trackingNumber: wh ? '' : v('ir-tracking-number'),
     departmentInvolved: v('ir-department'),
-    clientName: v('ir-client-name'),
-    customerAddress: v('ir-customer-address'),
-    customerName: v('ir-customer-name'),
+    clientName: wh ? '' : v('ir-client-name'),
+    customerAddress: wh ? '' : v('ir-customer-address'),
+    customerName: wh ? '' : v('ir-customer-name'),
     otherRelevantInfo: v('ir-other-info'),
     basicCause: v('ir-basic-cause'),
     immediateActions: v('ir-immediate-actions'),
@@ -4153,6 +4340,9 @@ function _irPrefillForm(f) {
       if (i === 17) { document.getElementById('ir-others-check').checked = true; return; }
       var cb = document.getElementById('ir-problem-' + i); if (cb) cb.checked = true;
     });
+    set('ir-brand', f.brand);
+    set('ir-sku', f.sku);
+    toggleIrWarehouseMode();
 
     if (f.checkedBySig) {
       _irCheckedSigDataUrl = f.checkedBySig;
@@ -4232,16 +4422,16 @@ function backFromIrDecide() {
 
 function renderIrDecide(d) {
   var f = d.fields || {};
-  var problemLabels = (f.problems || []).map(function(i) {
-    return IR_PROBLEM_LABELS[i] ? IR_PROBLEM_LABELS[i].split('/')[0] : null;
-  }).filter(Boolean);
+  var problemLabels = (f.problems || []).map(_irProblemLabel).filter(Boolean);
   if (f.othersText) problemLabels.push(f.othersText);
 
   var rows = [
     ['Date of Event', f.dateOfEvent], ['Location of Event', f.locationOfEvent],
     ['Time of Event', f.timeOfEvent], ['Witnessed By', f.witnessedBy],
     ['Ticket Number', f.ticketNumber], ['Description of Events', f.descriptionOfEvents],
-    ['Problem(s)', problemLabels.join(', ')], ['Order Number', f.orderNumber],
+    ['Problem(s)', problemLabels.join(', ')],
+    ['Brand', f.brand], ['SKU', f.sku],
+    ['Order Number', f.orderNumber],
     ['Total TN on Order', f.totalTnOn], ['Tracking Number', f.trackingNumber],
     ['Department Involved', f.departmentInvolved], ['Client Name', f.clientName],
     ['Customer Address', f.customerAddress], ['Customer Name', f.customerName],
@@ -4279,7 +4469,7 @@ function renderIrDecide(d) {
   if (f.checkedBySig) {
     html += '<div style="margin-bottom:12px">' +
       '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">Checked By — signature</div>' +
-      '<img src="' + f.checkedBySig + '" style="max-height:60px;max-width:240px;border:1px solid #eee;' +
+      '<img src="' + esc(f.checkedBySig) + '" style="max-height:60px;max-width:240px;border:1px solid #eee;' +
       'border-radius:4px;padding:4px;background:#fff;margin-top:4px"></div>';
   }
   if (f.photos && f.photos.length) {
@@ -4287,7 +4477,7 @@ function renderIrDecide(d) {
       '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">Evidence Photos</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
       f.photos.map(function(p) {
-        return '<img src="' + p.dataUrl + '" style="width:90px;height:90px;object-fit:cover;' +
+        return '<img src="' + esc(p.dataUrl) + '" style="width:90px;height:90px;object-fit:cover;' +
           'border-radius:6px;border:1px solid #eee">';
       }).join('') + '</div></div>';
   }
@@ -4351,7 +4541,13 @@ function decideIrReport(decision) {
       decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
       return;
     }
-    if (decision === 'approve') {
+    if (decision === 'approve' && r.status === 'finalizing') {
+      showToast('Approved. The PDF is being generated — you\'ll see it here in a moment.');
+      watchReportJob('IR', d.draftId);
+      backFromIrDecide();
+      loadIncidentReports();
+      if (App.currentTab === 'approvals') loadApprovals();
+    } else if (decision === 'approve') {
       showToast(r.record.rev
         ? 'Approved — ' + r.record.irNumber + ' Rev. ' + r.record.rev + ' generated; the earlier version is kept as superseded.'
         : 'Approved — report ' + r.record.irNumber + ' generated.');
@@ -4370,6 +4566,38 @@ function decideIrReport(decision) {
     showToast(err.message);
     decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
   });
+}
+
+// ── Waiting for a background PDF ────────────────────────────────────────────────
+// Final approval of an incident report or NCAR now returns straight away and
+// the PDF is generated in the background (usually well under a minute). This
+// checks back every few seconds for up to 3 minutes and then refreshes the
+// lists, so the approver sees the result without reloading.
+var _reportJobPolls = {};
+
+function watchReportJob(kind, draftId) {
+  var key = kind + ':' + draftId;
+  if (_reportJobPolls[key]) return;
+  var tries = 0;
+  _reportJobPolls[key] = setInterval(function() {
+    tries++;
+    if (!App.user || tries > 45) { clearInterval(_reportJobPolls[key]); delete _reportJobPolls[key]; return; }
+    apiPost({ action: 'reportJobStatus', kind: kind, draftId: draftId }).then(function(r) {
+      if (!r || !r.ok || r.state === 'working') return;
+      clearInterval(_reportJobPolls[key]); delete _reportJobPolls[key];
+      var label = kind === 'IR' ? 'Incident report' : 'NCAR';
+      if (r.state === 'done') {
+        showToast(label + ' ' + r.number + (r.rev ? ' Rev. ' + r.rev : '') + ' — PDF is ready.');
+        if (kind === 'IR') App.irApprovedCount = null;
+      } else if (r.state === 'failed') {
+        showToast(label + ' PDF could not be generated: ' + (r.message || 'unknown error') +
+          ' It has been sent back for approval.');
+      }
+      if (App.currentTab === 'incidents' && kind === 'IR') loadIncidentReports();
+      if (App.currentTab === 'ncar' && kind === 'NCAR') loadNcarList();
+      if (App.currentTab === 'approvals') loadApprovals();
+    }).catch(function() {});
+  }, 4000);
 }
 
 // ── NCAR (Nonconforming and Corrective Action Report) ──────────────────────────────
@@ -4415,19 +4643,64 @@ function _ncarStageIndexForStatus(status) {
   return NCAR_STAGE_KEYS.indexOf(status.slice(8));
 }
 
+// NCAR requests go through here: an expired session signs the user out
+// (like the rest of the app) instead of surfacing as "Could not load NCARs".
+function _ncarPost(body) {
+  if (!App.user) return Promise.reject(new Error('Not signed in.'));
+  return apiPost(body).then(function(r) {
+    if (r && r.error === 'unauthorized') {
+      signOut();
+      throw new Error('Session expired. Please sign in again.');
+    }
+    return r;
+  });
+}
+
+function _ncarIsSuperuser() {
+  return !!(App.user && App.user.email.toLowerCase() === String(SUPERUSER_EMAIL).toLowerCase());
+}
+
+// "2 of 4 signed" plus who's up next, for the initiator's own list.
+function _ncarProgressText(d) {
+  var p = d.progress || [];
+  if (!p.length) return esc(d.currentStageLabel || '—');
+  var signed = p.filter(function(x) { return x.signed; }).length;
+  return esc(signed + ' of ' + p.length + ' signed') +
+    (d.currentStageLabel ? '<div style="font-size:12px;color:#888">Next: ' + esc(d.currentApproverName || d.currentStageLabel) + '</div>' : '');
+}
+
+function applyNcarScreen(parts) {
+  var log = _part(parts.log);
+  if (log === null) showToast((parts.log && parts.log.message) || 'Could not load NCARs.');
+  else renderNcarTable(log);
+  renderNcarApprovalsTable(_part(parts.myApprovals) || []);
+  renderNcarDraftsTable(_part(parts.myDrafts) || []);
+}
+
 function loadNcarList() {
-  document.getElementById('ncar-table-body').innerHTML =
+  var cached = screenCacheGet('ncar');
+  if (cached) applyNcarScreen(cached);
+  else document.getElementById('ncar-table-body').innerHTML =
     '<div class="spinner-wrap"><div class="spinner"></div></div>';
-  apiPost({ action: 'getNcarLog' }).then(function(r) {
+  fetchScreen('screenNcar').then(function(parts) {
+    if (!parts) { _loadNcarListLegacy(); return; }
+    applyNcarScreen(parts);
+    screenCachePut('ncar', parts);
+  }).catch(function(err) { if (!cached) showToast(err.message); });
+}
+
+// The previous three separate requests, for a backend without screenNcar.
+function _loadNcarListLegacy() {
+  _ncarPost({ action: 'getNcarLog' }).then(function(r) {
     if (!r.ok) { showToast(r.message || 'Could not load NCARs.'); return; }
     renderNcarTable(r.data || []);
   }).catch(function(err) { showToast(err.message); });
 
-  apiPost({ action: 'myNcarApprovals' }).then(function(r) {
+  _ncarPost({ action: 'myNcarApprovals' }).then(function(r) {
     renderNcarApprovalsTable(r.ok ? (r.data || []) : []);
   }).catch(function() { renderNcarApprovalsTable([]); });
 
-  apiPost({ action: 'myNcarDrafts' }).then(function(r) {
+  _ncarPost({ action: 'myNcarDrafts' }).then(function(r) {
     renderNcarDraftsTable(r.ok ? (r.data || []) : []);
   }).catch(function() { renderNcarDraftsTable([]); });
 }
@@ -4444,18 +4717,29 @@ function renderNcarTable(list) {
     return;
   }
   if (headerBtn) headerBtn.style.display = '';
+  var me = App.user ? App.user.email.toLowerCase() : '';
+  var isSu = _ncarIsSuperuser();
   var html = '<table><thead><tr>' +
     '<th>NCAR #</th><th>Department</th><th>Problem</th><th>Degree</th>' +
-    '<th>Initiated by</th><th>Approved</th>' +
+    '<th>Initiated by</th><th>Approved</th><th></th>' +
     '</tr></thead><tbody>';
   list.forEach(function(r) {
-    html += '<tr>' +
-      '<td><span class="sop-code">' + esc(r.ncarId) + '</span></td>' +
+    var canRevise = isSu || (r.initiatorEmail && r.initiatorEmail.toLowerCase() === me);
+    // Rows open the signed PDF (they used to be dead rows).
+    html += '<tr' + (r.pdfUrl ? ' onclick="window.open(\'' + esc(r.pdfUrl) + '\', \'_blank\')"' : '') + '>' +
+      '<td><span class="sop-code">' + esc(r.ncarId) + '</span>' +
+        (r.rev ? '<div style="font-size:11px;color:#888;margin-top:2px">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
       '<td class="sop-meta">' + esc(r.department) + '</td>' +
       '<td class="sop-meta">' + esc(r.problemWhat) + '</td>' +
       '<td class="sop-meta">' + esc(r.degree ? (r.degree.charAt(0).toUpperCase() + r.degree.slice(1)) : '') + '</td>' +
       '<td class="sop-meta">' + esc(r.initiatorEmail) + '</td>' +
       '<td class="sop-meta">' + fmtDate(r.approvedAt) + '</td>' +
+      '<td>' +
+        (r.pdfUrl ? '<a href="' + esc(r.pdfUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" ' +
+          'style="font-size:12px;color:#16a34a;text-decoration:underline">View PDF →</a>' : '') +
+        (canRevise ? '<div style="margin-top:6px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" ' +
+          'onclick="event.stopPropagation();openNcarReviseApproved(\'' + esc(r.ncarId) + '\')">Revise</button></div>' : '') +
+      '</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -4473,7 +4757,7 @@ function renderNcarApprovalsTable(list) {
     '</tr></thead><tbody>';
   list.forEach(function(d) {
     html += '<tr onclick="openNcarDecide(\'' + esc(d.draftId) + '\')">' +
-      '<td class="sop-meta">' + esc(d.ncarId) + '</td>' +
+      '<td class="sop-meta">' + esc(d.ncarId) + (d.revisionOf ? ' <span style="font-size:11px;color:#888">Rev. ' + esc(String(d.revisionNo)) + '</span>' : '') + '</td>' +
       '<td class="sop-meta">' + esc(d.department) + '</td>' +
       '<td class="sop-meta">' + esc(d.problemWhat) + '</td>' +
       '<td class="sop-meta">' + esc(d.currentStageLabel) + '</td>' +
@@ -4486,30 +4770,40 @@ function renderNcarApprovalsTable(list) {
   body.innerHTML = html;
 }
 
-// The signed-in user's own NCARs still mid-flight — either waiting on the
-// current stage's approver, or sent back for revision.
+// The signed-in user's own NCARs still in flight. Rows open a read-only view
+// with sign-off progress; Edit / Revise & Resubmit / Withdraw act on it.
 function renderNcarDraftsTable(list) {
   var wrap = document.getElementById('ncar-my-drafts-wrap');
   var body = document.getElementById('ncar-my-drafts-body');
   if (!list.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
   wrap.style.display = 'block';
   var html = '<table><thead><tr>' +
-    '<th>NCAR #</th><th>Department</th><th>Status</th><th>Current stage</th><th></th>' +
+    '<th>NCAR #</th><th>Department</th><th>Status</th><th>Sign-offs</th><th></th>' +
     '</tr></thead><tbody>';
   list.forEach(function(d) {
+    var id = esc(d.draftId);
+    var finalizing = d.status === 'finalizing';
     var statusBadge = d.status === 'returned'
       ? '<span style="color:#92400e;background:#fef3c7;padding:2px 8px;border-radius:10px;font-size:12px">Returned for changes</span>'
+      : finalizing
+      ? '<span style="color:#166534;background:#dcfce7;padding:2px 8px;border-radius:10px;font-size:12px">Approved — generating PDF</span>'
       : '<span style="color:#1d4ed8;background:#dbeafe;padding:2px 8px;border-radius:10px;font-size:12px">Awaiting approval</span>';
-    html += '<tr>' +
-      '<td class="sop-meta">' + esc(d.ncarId) + '</td>' +
+    var btn = function(label, fn, cls) {
+      return '<button class="btn ' + (cls || 'btn-secondary') + '" style="padding:5px 10px;font-size:12px;margin:2px 4px 2px 0" ' +
+        'onclick="event.stopPropagation();' + fn + '(\'' + id + '\')">' + label + '</button>';
+    };
+    html += '<tr' + (finalizing ? '' : ' onclick="openNcarDecide(\'' + id + '\')"') + '>' +
+      '<td class="sop-meta">' + esc(d.ncarId) +
+        (d.revisionOf ? '<div style="font-size:11px;color:#888">Revision ' + esc(String(d.revisionNo)) + '</div>' : '') + '</td>' +
       '<td class="sop-meta">' + esc(d.department) + '</td>' +
       '<td>' + statusBadge + (d.status === 'returned' && d.returnComments ?
-        '<div style="font-size:12px;color:#92400e;margin-top:4px">' + esc(d.returnComments) + '</div>' : '') + '</td>' +
-      '<td class="sop-meta">' + esc(d.currentStageLabel || '—') + '</td>' +
-      '<td>' + (d.status === 'returned'
-        ? '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
-          'onclick="openNcarRevise(\'' + esc(d.draftId) + '\')">Revise & Resubmit</button>'
-        : '') + '</td>' +
+        '<div style="font-size:12px;color:#92400e;margin-top:4px">' +
+          (d.returnedAtStage ? esc(d.returnedAtStage) + ': ' : '') + esc(d.returnComments) + '</div>' : '') + '</td>' +
+      '<td class="sop-meta">' + (d.status === 'returned' ? '—' : finalizing ? '4 of 4 signed' : _ncarProgressText(d)) + '</td>' +
+      '<td>' + (finalizing ? '' :
+        (d.status === 'returned' ? btn('Revise & Resubmit', 'openNcarRevise') : btn('Edit', 'openNcarRevise')) +
+        btn('Withdraw', 'withdrawNcar', 'btn-ghost btn-ghost-danger')) +
+      '</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -4645,15 +4939,30 @@ function addNcarCorrectiveAction() {
 function removeNcarCorrectiveAction(i) { _ncarCorrectiveActionRows.splice(i, 1); renderNcarCorrectiveActionRows(); }
 
 var _ncarEditingDraftId = null;
+// Set while revising an already-APPROVED NCAR (openNcarReviseApproved).
+var _ncarRevisingNcarId = null;
+// Whether the open draft being edited is itself a revision (needs a reason).
+var _ncarEditingIsRevision = false;
+
+function _ncarTodayYmd() {
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
 
 function showNewNcarForm() {
   ['dash-view','docs-view','audit-content','ncar-view','create-choice-view'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.classList.remove('active');
   });
   _ncarEditingDraftId = null;
+  _ncarRevisingNcarId = null;
+  _ncarEditingIsRevision = false;
   document.getElementById('ncar-form-title').textContent = 'New NCAR';
   document.getElementById('ncar-revise-note').style.display = 'none';
-  document.getElementById('btn-submit-ncar').textContent = 'Submit for approval';
+  document.getElementById('ncar-revision-reason-wrap').style.display = 'none';
+  document.getElementById('ncar-revision-reason').value = '';
+  var btn = document.getElementById('btn-submit-ncar');
+  btn.textContent = 'Submit for approval';
+  btn.disabled = false;
   renderNcarTypeGrid();
   renderNcarActionGrid();
 
@@ -4664,6 +4973,8 @@ function showNewNcarForm() {
    'ncar-ap-locad1-name','ncar-ap-locad1-email','ncar-ap-locad2-name','ncar-ap-locad2-email'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.value = '';
   });
+  // A new NCAR can't target a date in the past.
+  document.getElementById('ncar-target-completion').min = _ncarTodayYmd();
   document.querySelectorAll('input[name="ncar-degree"]').forEach(function(r) { r.checked = false; });
   document.querySelectorAll('input[name="ncar-docchange"]').forEach(function(r) { r.checked = false; });
   document.getElementById('ncar-type-others-wrap').style.display = 'none';
@@ -4739,14 +5050,18 @@ function collectNcarFields() {
   };
 }
 
+
 function submitNcar() {
   var errEl = document.getElementById('ncar-form-error');
   errEl.style.display = 'none';
   var fields = collectNcarFields();
 
   var fail = function(msg) { errEl.textContent = msg; errEl.style.display = 'block'; };
+  var emailOk = function(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); };
   if (!fields.department) return fail('Department is required.');
   if (!fields.targetCompletion) return fail('Target Completion date is required.');
+  var minTarget = document.getElementById('ncar-target-completion').min;
+  if (minTarget && fields.targetCompletion < minTarget) return fail('Target Completion can\'t be in the past.');
   if (!fields.problemWhat || !fields.problemWhen || !fields.problemWho || !fields.problemWhere) {
     return fail('What, When, Who, and Where are all required in "Describe the Problem".');
   }
@@ -4759,113 +5074,183 @@ function submitNcar() {
   if (fields.requiresDocChange === null) return fail('Answer "Requires Document Change?" (Yes or No).');
   if (fields.requiresDocChange === true && !fields.changeFormNumber) return fail('Provide the Change Form Number.');
   if (fields.requiresDocChange === false && !fields.noChangeReason) return fail('Explain why no document change is required.');
+  if (fields.recipientEmail && !emailOk(fields.recipientEmail)) return fail('The recipient email doesn\'t look right.');
+  var seen = {};
   for (var i = 0; i < NCAR_APPROVAL_STAGE_LABELS.length; i++) {
-    if (!fields.approvers[i].email) return fail('An approver email is required for every stage (' + NCAR_APPROVAL_STAGE_LABELS[i] + ').');
+    var ae = (fields.approvers[i].email || '').toLowerCase();
+    if (!ae) return fail('An approver email is required for every stage (' + NCAR_APPROVAL_STAGE_LABELS[i] + ').');
+    if (!emailOk(ae)) return fail('That doesn\'t look like a valid email for ' + NCAR_APPROVAL_STAGE_LABELS[i] + '.');
+    if (seen[ae]) return fail(ae + ' is named for two approval stages — each stage needs a different person.');
+    seen[ae] = true;
   }
+  var needsReason = !!_ncarRevisingNcarId || _ncarEditingIsRevision;
+  var reason = (document.getElementById('ncar-revision-reason').value || '').trim();
+  if (needsReason && !reason) return fail('Give a reason for the revision.');
 
-  var isRevise = !!_ncarEditingDraftId;
+  var isEdit = !!_ncarEditingDraftId;
+  var isApprovedRevision = !!_ncarRevisingNcarId;
   var btn = document.getElementById('btn-submit-ncar');
+  var idleLabel = btn.textContent;
   btn.disabled = true;
-  btn.textContent = isRevise ? 'Resubmitting…' : 'Submitting…';
+  btn.textContent = 'Sending…';
 
-  var payload = isRevise
-    ? { action: 'resubmitNcar', draftId: _ncarEditingDraftId, fields: fields }
+  var payload = isApprovedRevision
+    ? { action: 'submitNcarRevision', ncarId: _ncarRevisingNcarId, fields: fields, revisionReason: reason }
+    : isEdit
+    ? { action: 'resubmitNcar', draftId: _ncarEditingDraftId, fields: fields, revisionReason: reason }
     : { action: 'submitNcar', fields: fields };
 
-  apiPost(payload).then(function(r) {
+  _ncarPost(payload).then(function(r) {
     btn.disabled = false;
-    btn.textContent = 'Submit for approval';
+    btn.textContent = idleLabel;
     if (!r.ok) { fail(r.message || 'Could not submit the NCAR.'); return; }
-    showToast(isRevise ? 'Resubmitted for approval.' : 'NCAR ' + r.ncarId + ' submitted for approval.');
+    showToast(isApprovedRevision ? 'Revision ' + (r.revisionNo || '') + ' of ' + _ncarRevisingNcarId + ' sent for approval.' :
+              isEdit ? 'Saved — sent to the first approver again.' :
+              'NCAR ' + r.ncarId + ' submitted for approval.');
     _ncarEditingDraftId = null;
+    _ncarRevisingNcarId = null;
+    _ncarEditingIsRevision = false;
     backFromNewNcar();
     loadNcarList();
   }).catch(function(err) {
     btn.disabled = false;
-    btn.textContent = 'Submit for approval';
+    btn.textContent = idleLabel;
     fail(err.message || 'Network error — please try again.');
   });
 }
 
-// Loads a returned NCAR's fields back into the New NCAR form so the
-// initiator can revise, then resubmits — restarting the whole 4-stage chain
-// (matches _resubmitNcar in Code_FINAL.gs).
+// Fills the NCAR form from saved content — shared by editing an open NCAR
+// and revising an approved one.
+function _ncarPrefillForm(d) {
+  var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+  // The department is threaded through the loader: setting a <select> before
+  // its options exist is a silent no-op.
+  loadTeamsIntoDropdown('ncar-department', d.department);
+  set('ncar-target-completion', d.targetCompletion);
+  set('ncar-initiator-name', d.initiatorName);
+  set('ncar-recipient-name', d.recipientName);
+  set('ncar-recipient-email', d.recipientEmail);
+  set('ncar-type-others-text', d.typeOfNCOthers);
+  set('ncar-problem-what', d.problemWhat);
+  set('ncar-problem-when', d.problemWhen);
+  set('ncar-problem-who', d.problemWho);
+  set('ncar-problem-where', d.problemWhere);
+  set('ncar-problem-howmany', d.problemHowMany);
+  set('ncar-root-cause', d.rootCause);
+  set('ncar-change-form-number', d.changeFormNumber);
+  set('ncar-no-change-reason', d.noChangeReason);
+
+  NCAR_TYPE_LABELS.forEach(function(t, i) {
+    var cb = document.getElementById('ncar-type-' + i);
+    if (cb) cb.checked = !!(d.typeOfNC || {})[t.key];
+  });
+  toggleNcarTypeOthers();
+  NCAR_ACTION_LABELS.forEach(function(a, i) {
+    var cb = document.getElementById('ncar-action-' + i);
+    if (cb) cb.checked = !!(d.immediateActionType || {})[a.key];
+  });
+  if (d.degree) {
+    var dr = document.querySelector('input[name="ncar-degree"][value="' + d.degree + '"]');
+    if (dr) dr.checked = true;
+  }
+  if (d.requiresDocChange === true || d.requiresDocChange === false) {
+    var dc = document.querySelector('input[name="ncar-docchange"][value="' + (d.requiresDocChange ? 'yes' : 'no') + '"]');
+    if (dc) dc.checked = true;
+    toggleNcarDocChange(d.requiresDocChange);
+  }
+  NCAR_STAGE_KEYS.forEach(function(key, i) {
+    var a = (d.approvers || [])[i] || {};
+    set('ncar-ap-' + key + '-name', String(a.name || '').replace(/ \(on behalf of .*\)$/, ''));
+    set('ncar-ap-' + key + '-email', a.email);
+  });
+  _ncarWhys = (d.whys && d.whys.length) ? d.whys.slice() : [''];
+  _ncarImmediateActionRows = (d.immediateActions && d.immediateActions.length) ? d.immediateActions.map(function(r) {
+    return { action: r.action || '', dateInitiated: r.dateInitiated || '', pic: r.pic || '', dateImplemented: r.dateImplemented || '', verifiedBy: r.verifiedBy || '' };
+  }) : [{ action: '', dateInitiated: '', pic: '', dateImplemented: '', verifiedBy: '' }];
+  _ncarCorrectiveActionRows = (d.correctiveActions && d.correctiveActions.length) ? d.correctiveActions.map(function(r) {
+    return { action: r.action || '', dateInitiated: r.dateInitiated || '', pic: r.pic || '', targetImplementation: r.targetImplementation || '', verifiedBy: r.verifiedBy || '', dateEffectivenessChecked: r.dateEffectivenessChecked || '' };
+  }) : [{ action: '', dateInitiated: '', pic: '', targetImplementation: '', verifiedBy: '', dateEffectivenessChecked: '' }];
+  renderNcarWhys();
+  renderNcarImmediateActionRows();
+  renderNcarCorrectiveActionRows();
+}
+
+// Edit an open NCAR: after it was returned, or while it's still in approval.
+// Saving restarts the four sign-offs (the content changed).
 function openNcarRevise(draftId) {
   showNewNcarForm();
-  document.getElementById('ncar-form-title').textContent = 'Revise NCAR';
-  document.getElementById('btn-submit-ncar').textContent = 'Resubmit for approval';
+  document.getElementById('ncar-form-title').textContent = 'Edit NCAR';
+  var btn = document.getElementById('btn-submit-ncar');
+  btn.disabled = true;   // until loaded
 
-  apiPost({ action: 'getNcarDraft', draftId: draftId }).then(function(r) {
+  _ncarPost({ action: 'getNcarDraft', draftId: draftId }).then(function(r) {
     if (!r.ok) { showToast(r.message || 'Could not load this NCAR.'); backFromNewNcar(); return; }
     var d = r.data;
     _ncarEditingDraftId = draftId;
+    _ncarEditingIsRevision = !!d.revisionOf;
+    btn.disabled = false;
+    // The target date may legitimately sit before today on an older NCAR,
+    // but never before the day it was issued.
+    document.getElementById('ncar-target-completion').min = (d.dateIssued || '').slice(0, 10);
 
-    if (d.returnComments) {
-      var note = document.getElementById('ncar-revise-note');
-      note.textContent = 'Returned for changes: ' + d.returnComments;
-      note.style.display = 'block';
+    var label = d.ncarId + (d.revisionOf ? ' (Rev. ' + d.revisionNo + ')' : '');
+    var note = document.getElementById('ncar-revise-note');
+    var signedNames = (d.approvers || []).filter(function(a) { return a.signedAt; }).map(function(a) { return a.name; });
+    if (d.status === 'returned') {
+      document.getElementById('ncar-form-title').textContent = 'Revise ' + label;
+      btn.textContent = 'Resubmit for approval';
+      note.textContent = 'Returned for changes' + (d.returnedAtStage ? ' by ' + d.returnedAtStage : '') + ': ' + (d.returnComments || '');
+    } else {
+      document.getElementById('ncar-form-title').textContent = 'Edit ' + label;
+      btn.textContent = 'Save changes & restart approvals';
+      note.textContent = 'This NCAR is still in approval. Saving your changes sends it back to the first approver' +
+        (signedNames.length ? ' — ' + signedNames.join(', ') + ' will need to sign again.' : '.');
     }
-
-    var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
-    // Re-run with a preset: showNewNcarForm() already kicked off the team
-    // list load with no preset, and that fetch may not have resolved yet —
-    // setting a <select>'s value before its matching <option> exists is a
-    // silent no-op, so the department has to be threaded through the loader.
-    loadTeamsIntoDropdown('ncar-department', d.department);
-    set('ncar-target-completion', d.targetCompletion);
-    set('ncar-initiator-name', d.initiatorName);
-    set('ncar-recipient-name', d.recipientName);
-    set('ncar-recipient-email', d.recipientEmail);
-    set('ncar-type-others-text', d.typeOfNCOthers);
-    set('ncar-problem-what', d.problemWhat);
-    set('ncar-problem-when', d.problemWhen);
-    set('ncar-problem-who', d.problemWho);
-    set('ncar-problem-where', d.problemWhere);
-    set('ncar-problem-howmany', d.problemHowMany);
-    set('ncar-root-cause', d.rootCause);
-    set('ncar-change-form-number', d.changeFormNumber);
-    set('ncar-no-change-reason', d.noChangeReason);
-
-    NCAR_TYPE_LABELS.forEach(function(t, i) {
-      var cb = document.getElementById('ncar-type-' + i);
-      if (cb) cb.checked = !!(d.typeOfNC || {})[t.key];
-    });
-    toggleNcarTypeOthers();
-    NCAR_ACTION_LABELS.forEach(function(a, i) {
-      var cb = document.getElementById('ncar-action-' + i);
-      if (cb) cb.checked = !!(d.immediateActionType || {})[a.key];
-    });
-
-    if (d.degree) {
-      var dr = document.querySelector('input[name="ncar-degree"][value="' + d.degree + '"]');
-      if (dr) dr.checked = true;
+    note.style.display = 'block';
+    if (d.revisionOf) {
+      document.getElementById('ncar-revision-reason-wrap').style.display = 'block';
+      document.getElementById('ncar-revision-reason').value = d.revisionReason || '';
     }
-    if (d.requiresDocChange === true || d.requiresDocChange === false) {
-      var dc = document.querySelector('input[name="ncar-docchange"][value="' + (d.requiresDocChange ? 'yes' : 'no') + '"]');
-      if (dc) dc.checked = true;
-      toggleNcarDocChange(d.requiresDocChange);
-    }
-
-    NCAR_STAGE_KEYS.forEach(function(key, i) {
-      var a = (d.approvers || [])[i] || {};
-      set('ncar-ap-' + key + '-name', a.name);
-      set('ncar-ap-' + key + '-email', a.email);
-    });
-
-    _ncarWhys = (d.whys && d.whys.length) ? d.whys.slice() : [''];
-    _ncarImmediateActionRows = (d.immediateActions && d.immediateActions.length) ? d.immediateActions.map(function(r) {
-      return { action: r.action || '', dateInitiated: r.dateInitiated || '', pic: r.pic || '', dateImplemented: r.dateImplemented || '', verifiedBy: r.verifiedBy || '' };
-    }) : [{ action: '', dateInitiated: '', pic: '', dateImplemented: '', verifiedBy: '' }];
-    _ncarCorrectiveActionRows = (d.correctiveActions && d.correctiveActions.length) ? d.correctiveActions.map(function(r) {
-      return { action: r.action || '', dateInitiated: r.dateInitiated || '', pic: r.pic || '', targetImplementation: r.targetImplementation || '', verifiedBy: r.verifiedBy || '', dateEffectivenessChecked: r.dateEffectivenessChecked || '' };
-    }) : [{ action: '', dateInitiated: '', pic: '', targetImplementation: '', verifiedBy: '', dateEffectivenessChecked: '' }];
-    renderNcarWhys();
-    renderNcarImmediateActionRows();
-    renderNcarCorrectiveActionRows();
+    _ncarPrefillForm(d);
   }).catch(function(err) { showToast(err.message); backFromNewNcar(); });
 }
 
-// ── Approver's review/decide screen (stage-aware) ───────────────────────────────
+// Revise an APPROVED NCAR: content pre-filled, reason required, then all four
+// sign-offs again. The approved version stays current until then.
+function openNcarReviseApproved(ncarId) {
+  showNewNcarForm();
+  _ncarRevisingNcarId = ncarId;
+  document.getElementById('ncar-form-title').textContent = 'Revise ' + ncarId;
+  var btn = document.getElementById('btn-submit-ncar');
+  btn.textContent = 'Submit revision for approval';
+  btn.disabled = true;
+  document.getElementById('ncar-revision-reason-wrap').style.display = 'block';
+
+  _ncarPost({ action: 'getNcarSourceForRevision', ncarId: ncarId }).then(function(r) {
+    if (!r.ok) { showToast(r.message || 'Could not open this NCAR for revision.'); backFromNewNcar(); return; }
+    var d = r.data || {};
+    _ncarPrefillForm(d);
+    document.getElementById('ncar-target-completion').min = '';
+    var note = document.getElementById('ncar-revise-note');
+    note.textContent = 'Revising ' + ncarId + (d.rev ? ' (currently Rev. ' + d.rev + ')' : '') +
+      '. Its approved content is filled in below — change what needs correcting.';
+    note.style.display = 'block';
+    btn.disabled = false;
+  }).catch(function(err) { showToast(err.message); backFromNewNcar(); });
+}
+
+function withdrawNcar(draftId) {
+  var reason = window.prompt('Withdraw this NCAR? It will be removed from the approval queue (its number stays on record).\n\nReason for withdrawing:');
+  if (reason === null) return;
+  if (!reason.trim()) { showToast('A reason is required to withdraw.'); return; }
+  _ncarPost({ action: 'withdrawNcar', draftId: draftId, reason: reason.trim() }).then(function(r) {
+    if (!r.ok) { showToast(r.message || 'Could not withdraw this NCAR.'); return; }
+    showToast('NCAR withdrawn.');
+    loadNcarList();
+  }).catch(function(err) { showToast(err.message); });
+}
+
+// ── Review screen: approvers decide here; the initiator gets a read-only view
 function openNcarDecide(draftId) {
   ['dash-view','docs-view','audit-content','ncar-view','create-choice-view','ncar-new-view'].forEach(function(id) {
     var el = document.getElementById(id);
@@ -4875,14 +5260,16 @@ function openNcarDecide(draftId) {
   document.getElementById('ncar-decide-view').style.display = 'block';
   document.getElementById('ncar-decide-body').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
 
-  apiPost({ action: 'getNcarDraft', draftId: draftId }).then(function(r) {
+  _ncarPost({ action: 'getNcarDraft', draftId: draftId }).then(function(r) {
     if (!r.ok) {
       document.getElementById('ncar-decide-body').innerHTML =
         '<div class="empty">' + esc(r.message || 'Could not load this NCAR.') + '</div>';
       return;
     }
     App.currentNcarDraft = r.data;
-    renderNcarDecide(r.data);
+    // Older backends don't send canDecide; fall back to the previous behaviour.
+    var canDecide = (r.canDecide === undefined) ? (_ncarStageIndexForStatus(r.data.status) >= 0) : !!r.canDecide;
+    renderNcarDecide(r.data, canDecide);
   }).catch(function(err) { showToast(err.message); });
 }
 
@@ -4894,13 +5281,28 @@ function backFromNcarDecide() {
            App.currentTab === 'ncar'      ? 'ncar-view' : 'audit-content');
 }
 
-function renderNcarDecide(d) {
+function _ncarFmtYmd(v) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
+  return m ? (m[3] + '.' + m[2] + '.' + m[1].slice(2)) : String(v || '');
+}
+
+// "Initiated 19.10.26 · PIC Ana" — only the parts that were filled in.
+function _ncarRowMeta(r, parts) {
+  return parts.map(function(p) {
+    var v = r[p[0]];
+    if (!v) return '';
+    return esc(p[1]) + ' ' + esc(p[2] ? _ncarFmtYmd(v) : v);
+  }).filter(Boolean).join(' · ');
+}
+
+function renderNcarDecide(d, canDecide) {
   var typeLabels = NCAR_TYPE_LABELS.filter(function(t) { return (d.typeOfNC || {})[t.key]; }).map(function(t) { return t.label; });
   if (d.typeOfNCOthers) typeLabels.push(d.typeOfNCOthers);
   var actionLabels = NCAR_ACTION_LABELS.filter(function(a) { return (d.immediateActionType || {})[a.key]; }).map(function(a) { return a.label; });
 
   var rows = [
-    ['NCAR No.', d.ncarId], ['Department', d.department], ['Target Completion', d.targetCompletion],
+    ['NCAR No.', d.ncarId + (d.revisionNo ? ' Rev. ' + d.revisionNo : '')], ['Department', d.department],
+    ['Target Completion', _ncarFmtYmd(d.targetCompletion)],
     ['Initiator', d.initiatorName || d.initiatorEmail],
     ['Recipient (FYI)', d.recipientName ? d.recipientName + (d.recipientEmail ? ' (' + d.recipientEmail + ')' : '') : ''],
     ['Type of Non-Conformance', typeLabels.join(', ')],
@@ -4912,14 +5314,41 @@ function renderNcarDecide(d) {
     ['Requires Document Change?', d.requiresDocChange === true ? 'YES — ' + d.changeFormNumber :
       (d.requiresDocChange === false ? 'NO — ' + d.noChangeReason : '')]
   ];
+  var lbl = function(t) {
+    return '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">' + esc(t) + '</div>';
+  };
 
   var html = '<div class="sb-section">';
+  if (d.revisionOf) {
+    html += '<div style="font-size:13px;color:#1e3a8a;background:#dbeafe;border-radius:6px;padding:10px 12px;margin-bottom:14px">' +
+      '<strong>Revision ' + esc(String(d.revisionNo || '')) + ' of ' + esc(d.revisionOf) + '</strong> — a correction to an ' +
+      'already-approved NCAR. Once all four sign, it replaces the current version; the earlier PDF is kept as superseded.' +
+      (d.revisionReason ? '<br><strong>Reason:</strong> ' + esc(d.revisionReason) : '') + '</div>';
+  }
+  if (d.editCount && d.status !== 'returned') {
+    html += '<div style="font-size:12px;color:#555;background:#f5f5f5;border-radius:6px;padding:8px 12px;margin-bottom:14px">' +
+      'Updated by the initiator ' + fmtDate(d.updatedAt) + ' — approvals restarted on this latest version.</div>';
+  }
   if (d.status === 'returned') {
     html += '<div style="font-size:13px;color:#92400e;background:#fef3c7;border-radius:6px;' +
       'padding:10px 12px;margin-bottom:14px">Returned ' + fmtDate(d.returnedAt) +
+      (d.returnedAtStage ? ' by ' + esc(d.returnedAtStage) : '') +
       ' — waiting on the initiator to revise and resubmit.' +
       (d.returnComments ? '<br><strong>Comments:</strong> ' + esc(d.returnComments) : '') + '</div>';
   }
+
+  // Sign-off progress across the four stages.
+  var curIdx = _ncarStageIndexForStatus(d.status);
+  html += '<div style="margin-bottom:14px">' + lbl('Sign-offs');
+  (d.approvers || []).forEach(function(a, i) {
+    var state = a.signedAt ? '✓ Signed ' + fmtDate(a.signedAt) : (i === curIdx ? 'Waiting' : '—');
+    var color = a.signedAt ? '#166534' : (i === curIdx ? '#1d4ed8' : '#999');
+    html += '<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid #f3f3f3">' +
+      '<span><span style="color:#888">' + esc(a.label || NCAR_APPROVAL_STAGE_LABELS[i]) + '</span><br>' + esc(a.name || a.email) + '</span>' +
+      '<span style="color:' + color + ';white-space:nowrap">' + esc(state) + '</span></div>';
+  });
+  html += '</div>';
+
   rows.forEach(function(r) {
     if (!r[1]) return;
     html += '<div style="margin-bottom:12px">' +
@@ -4928,44 +5357,43 @@ function renderNcarDecide(d) {
       '<div style="font-size:14px;color:#222;white-space:pre-wrap">' + esc(r[1]) + '</div></div>';
   });
 
+  var actionBox = function(r, meta) {
+    return '<div style="border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#333">' +
+      '<div style="white-space:pre-wrap">' + esc(r.action) + '</div>' +
+      (meta ? '<div style="font-size:11px;color:#888;margin-top:4px">' + meta + '</div>' : '') + '</div>';
+  };
   if ((d.immediateActions || []).length) {
-    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Details of Immediate Action</div>';
+    html += '<div style="margin-bottom:12px">' + lbl('Details of Immediate Action');
     d.immediateActions.forEach(function(r) {
-      html += '<div style="border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#333">' +
-        '<div style="white-space:pre-wrap">' + esc(r.action) + '</div>' +
-        '<div style="font-size:11px;color:#888;margin-top:4px">Initiated ' + esc(r.dateInitiated) + ' · PIC ' + esc(r.pic) +
-        ' · Implemented ' + esc(r.dateImplemented) + ' · Verified by ' + esc(r.verifiedBy) + '</div></div>';
+      html += actionBox(r, _ncarRowMeta(r, [['dateInitiated', 'Initiated', true], ['pic', 'PIC'],
+        ['dateImplemented', 'Implemented', true], ['verifiedBy', 'Verified by']]));
     });
     html += '</div>';
   }
-
   if ((d.whys || []).length) {
-    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Root Cause Analysis</div>';
+    html += '<div style="margin-bottom:12px">' + lbl('Root Cause Analysis');
     d.whys.forEach(function(w, i) {
       html += '<div style="font-size:13px;color:#333;margin-bottom:4px"><strong>WHY ' + ('0' + (i + 1)).slice(-2) + ':</strong> ' + esc(w) + '</div>';
     });
     html += '</div>';
   }
-
   if ((d.correctiveActions || []).length) {
-    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Corrective Action</div>';
+    html += '<div style="margin-bottom:12px">' + lbl('Corrective Action');
     d.correctiveActions.forEach(function(r) {
-      html += '<div style="border:1px solid #eee;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#333">' +
-        '<div style="white-space:pre-wrap">' + esc(r.action) + '</div>' +
-        '<div style="font-size:11px;color:#888;margin-top:4px">Initiated ' + esc(r.dateInitiated) + ' · PIC ' + esc(r.pic) +
-        ' · Target ' + esc(r.targetImplementation) + ' · Verified by ' + esc(r.verifiedBy) +
-        ' · Effectiveness checked ' + esc(r.dateEffectivenessChecked) + '</div></div>';
+      html += actionBox(r, _ncarRowMeta(r, [['dateInitiated', 'Initiated', true], ['pic', 'PIC'],
+        ['targetImplementation', 'Target', true], ['verifiedBy', 'Verified by'],
+        ['dateEffectivenessChecked', 'Effectiveness checked', true]]));
     });
     html += '</div>';
   }
 
   var signed = (d.approvers || []).filter(function(a) { return a.signedAt; });
   if (signed.length) {
-    html += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Prior sign-offs</div>';
+    html += '<div style="margin-bottom:12px">' + lbl('Prior sign-offs');
     signed.forEach(function(a) {
       html += '<div style="margin-bottom:8px">' +
         '<div style="font-size:12px;color:#333">' + esc(a.label) + ' — ' + esc(a.name) + ' (' + fmtDate(a.signedAt) + ')</div>' +
-        (a.sig ? '<img src="' + a.sig + '" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff;margin-top:4px">' : '') +
+        (a.sig ? '<img src="' + esc(a.sig) + '" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff;margin-top:4px">' : '') +
         (a.comments ? '<div style="font-size:12px;color:#666;margin-top:2px">' + esc(a.comments) + '</div>' : '') +
         '</div>';
     });
@@ -4974,12 +5402,16 @@ function renderNcarDecide(d) {
   html += '</div>';
 
   var stageIdx = _ncarStageIndexForStatus(d.status);
-  if (stageIdx >= 0) {
+  if (stageIdx >= 0 && canDecide) {
     var stageLabel = NCAR_APPROVAL_STAGE_LABELS[stageIdx];
-    var curName = (d.approvers || [])[stageIdx] ? (d.approvers[stageIdx].name || '') : '';
+    var stageApprover = (d.approvers || [])[stageIdx] || {};
+    var isMe = App.user && stageApprover.email && stageApprover.email.toLowerCase() === App.user.email.toLowerCase();
+    var curName = isMe ? (stageApprover.name || '') : (App.user ? App.user.name : '');
     html += '<div class="sb-section"><div class="sb-label">Your decision · ' + esc(stageLabel) + '</div>' +
       '<div class="decision-area">' +
-      '<div class="field" style="margin-bottom:10px"><label style="font-size:12px">Your name</label>' +
+      (isMe ? '' : '<div style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:6px;padding:8px 10px;margin-bottom:10px">' +
+        'You are signing on behalf of ' + esc(stageApprover.name || stageApprover.email) + '. Your own name will be recorded, marked "on behalf of".</div>') +
+      '<div class="field" style="margin-bottom:10px"><label style="font-size:12px">Your name (as it should print)</label>' +
         '<input id="ncar-decide-approver-name" type="text" placeholder="Full name" value="' + esc(curName) + '"></div>' +
       '<div style="margin-bottom:10px">' +
         '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
@@ -4998,6 +5430,10 @@ function renderNcarDecide(d) {
       '<button class="decision-btn db-approve" onclick="decideNcarReport(\'approve\')">Approve</button>' +
       '<button class="decision-btn db-reject" onclick="decideNcarReport(\'return\')">Return with comments</button>' +
       '</div></div>';
+  } else if (stageIdx >= 0) {
+    var waiting = (d.approvers || [])[stageIdx] || {};
+    html += '<div class="sb-section"><div style="font-size:13px;color:#555">Waiting on ' +
+      esc(waiting.name || waiting.email || 'the next approver') + ' (' + esc(NCAR_APPROVAL_STAGE_LABELS[stageIdx]) + ').</div></div>';
   }
 
   document.getElementById('ncar-decide-body').innerHTML = html;
@@ -5022,15 +5458,30 @@ function decideNcarReport(decision) {
   var decBtns = document.querySelectorAll('#ncar-decide-body .decision-btn');
   decBtns.forEach(function(b) { b.disabled = true; b.style.opacity = '0.55'; });
 
-  apiPost({ action: 'decideNcar', draftId: d.draftId, decision: decision,
-            comments: comments, sig: _ncarDecideSigDataUrl, approverName: approverName }).then(function(r) {
+  _ncarPost({ action: 'decideNcar', draftId: d.draftId, decision: decision,
+              comments: comments, sig: _ncarDecideSigDataUrl, approverName: approverName,
+              // The version on screen — refused if the initiator has saved changes since.
+              seenVersion: d.updatedAt || d.initiatorAt || '' }).then(function(r) {
+    if (!r.ok && r.error === 'changed') {
+      showToast(r.message);
+      openNcarDecide(d.draftId);
+      return;
+    }
     if (!r.ok) {
       showToast(r.message || 'Could not submit your decision.');
       decBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; });
       return;
     }
     if (decision === 'approve') {
-      showToast(r.status === 'approved' ? 'Approved — NCAR ' + d.ncarId + ' is now fully approved.' : 'Approved — routed to the next approver.');
+      if (r.status === 'finalizing') {
+        showToast('Approved — all four have signed. The PDF is being generated.');
+        watchReportJob('NCAR', d.draftId);
+      } else if (r.status === 'approved') {
+        showToast('Approved — NCAR ' + d.ncarId + (r.rev ? ' Rev. ' + r.rev : '') + ' is now fully approved.');
+        if (r.pdfUrl) window.open(r.pdfUrl, '_blank');
+      } else {
+        showToast('Approved — routed to the next approver.');
+      }
     } else {
       showToast('Returned to the initiator for revision.');
     }
@@ -5133,7 +5584,13 @@ function loadTeamsIntoDropdown(selId, presetValue) {
   var sel = document.getElementById(selId || 'f-team');
   if (!sel) return Promise.resolve();
   var keep = presetValue !== undefined ? presetValue : sel.value;
+  // Only the most recent load for this dropdown may write to it. Opening a
+  // returned NCAR fires two loads (blank, then with its department); if the
+  // blank one resolved last it wiped the department.
+  var seq = (sel._loadSeq || 0) + 1;
+  sel._loadSeq = seq;
   return apiGet('listTeams').then(function(r) {
+    if (sel._loadSeq !== seq) return;
     var teams = r.data || [];
     sel.innerHTML = '<option value="">Select a team...</option>' +
       teams.map(function(t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
