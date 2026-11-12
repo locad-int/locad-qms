@@ -3936,6 +3936,7 @@ function _irTrackerStatus(r) {
   var html = '';
   if (r.qtError) html += line('Tracker: not linked — ' + r.qtError, '#b45309');
   else if (r.qtLinkedRows) html += line('Tracker: linked on ' + r.qtLinkedRows + ' row' + (r.qtLinkedRows === 1 ? '' : 's'));
+  else if (!r.qtCheckedAt) html += line('Tracker: linking… (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
   else if (!(r.qtPending || []).length) html += line('Tracker: no matching row yet (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
   (r.qtPending || []).forEach(function(p) {
     html += line('Tracker: SKU ' + p.sku + ' matches ' + p.candidates.length + ' rows — pick the one for this report:', '#b45309');
