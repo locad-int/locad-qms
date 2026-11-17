@@ -509,7 +509,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <div class="login-sub">Use your Locad QMS credentials to continue.</div>
       <form onsubmit="handleLogin(event)" style="text-align:left">
         <div style="margin-bottom:12px">
-          <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Work email</label>
+          <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Email</label>
           <input id="login-email" type="email" placeholder="you@golocad.com" required
             style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;color:#333;outline:none;transition:border .15s"
             onfocus="this.style.borderColor='#4ADE80'" onblur="this.style.borderColor='#e0e0e0'">
@@ -1373,7 +1373,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <div style="flex:2;min-width:200px">
               <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Email address</label>
-              <input id="au-email" type="email" placeholder="user@golocad.com" required
+              <input id="au-email" type="email" placeholder="user@golocad.com or name@partner.com" required
                 style="width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;outline:none;transition:border .15s"
                 onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='#e0e0e0'">
             </div>
@@ -1691,8 +1691,8 @@ function handleLogin(e) {
   var errEl    = document.getElementById('login-err');
   errEl.style.display = 'none';
 
-  if (!email.endsWith('@golocad.com')) {
-    errEl.textContent   = 'Must be a @golocad.com email address.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent   = 'Enter a valid email address.';
     errEl.style.display = 'block';
     return;
   }
@@ -2696,7 +2696,9 @@ function loadUsers() {
       html += '<tr>' +
         '<td>' + esc(u.email) + '</td>' +
         '<td><span class="badge ' + (u.isSuperuser ? 'badge-approved' : 'badge-approval') + '">' +
-          (u.isSuperuser ? 'Superuser' : 'User') + '</span></td>' +
+          (u.isSuperuser ? 'Superuser' : 'User') + '</span>' +
+          (u.isExternal ? ' <span class="badge" style="background:#fef3c7;color:#92400e" ' +
+            'title="Not a @golocad.com address">External</span>' : '') + '</td>' +
         '<td style="text-align:right">' +
           (!u.isSuperuser
             ? '<button onclick="adminResetPwd(\'' + esc(u.email) + '\')" ' +
