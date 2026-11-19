@@ -688,6 +688,12 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
       <!-- Reports routed to the signed-in user for Approved By sign-off.
            Hidden entirely when empty. -->
+      <!-- Superuser only: every report waiting for a decision, so an admin can step in. -->
+      <div id="ir-admin-pending-wrap" style="display:none;margin-bottom:28px">
+        <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:4px">All pending reports <span style="font-weight:500;color:#888;font-size:12px">· admin</span></div>
+        <div style="font-size:12px;color:#888;margin-bottom:10px">Every report waiting for approval. Open one to approve it yourself or return it — useful when the approver is away or the preparer named themselves.</div>
+        <div class="table-wrap"><div id="ir-admin-pending-body"></div></div>
+      </div>
       <div id="ir-my-approvals-wrap" style="display:none;margin-bottom:28px">
         <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Awaiting your approval</div>
         <div class="table-wrap"><div id="ir-my-approvals-body"></div></div>
@@ -3908,6 +3914,30 @@ function applyIncidentsScreen(parts) {
   else renderIrTable(log);
   renderIrApprovalsTable(_part(parts.myApprovals) || []);
   renderIrDraftsTable(_part(parts.myDrafts) || []);
+  renderIrAdminPending(_part(parts.allPending) || []);
+}
+
+function renderIrAdminPending(list) {
+  var wrap = document.getElementById('ir-admin-pending-wrap');
+  var body = document.getElementById('ir-admin-pending-body');
+  if (!wrap) return;
+  var me = App.user ? String(App.user.email || '').toLowerCase() : '';
+  list = list.filter(function(d) { return String(d.approverEmail || '').toLowerCase() !== me; });  // yours are listed above
+  if (!list.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
+  wrap.style.display = 'block';
+  var html = '<table><thead><tr><th>Date of Event</th><th>Problem</th><th>Submitted by</th><th>Approver</th><th>Waiting since</th><th></th></tr></thead><tbody>';
+  list.forEach(function(d) {
+    html += '<tr onclick="openIrDecide(\'' + esc(d.draftId) + '\')">' +
+      '<td class="sop-meta">' + esc(d.dateOfEvent) + '</td>' +
+      '<td class="sop-meta">' + esc(d.problemSummary) + '</td>' +
+      '<td class="sop-meta">' + esc(d.prepEmail) + '</td>' +
+      '<td class="sop-meta">' + esc(d.approverName || d.approverEmail) +
+        (d.selfApproval ? ' <span style="color:#92400e;background:#fef3c7;padding:1px 7px;border-radius:10px;font-size:11px;white-space:nowrap">Own report</span>' : '') + '</td>' +
+      '<td class="sop-meta">' + fmtDate(d.prepAt) + '</td>' +
+      '<td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
+      'onclick="event.stopPropagation();openIrDecide(\'' + esc(d.draftId) + '\')">Review as admin</button></td></tr>';
+  });
+  body.innerHTML = html + '</tbody></table>';
 }
 
 function loadIncidentReports() {
@@ -4565,8 +4595,18 @@ function renderIrDecide(d) {
   html += '</div>';
 
   if (d.status === 'pending_approval') {
-    html += '<div class="sb-section"><div class="sb-label">Your decision · Approver</div>' +
+    var meEmail = App.user ? String(App.user.email || '').toLowerCase() : '';
+    var asAdmin = String(d.approverEmail || '').toLowerCase() !== meEmail;
+    html += '<div class="sb-section"><div class="sb-label">Your decision · ' + (asAdmin ? 'Admin' : 'Approver') + '</div>' +
       '<div class="decision-area">' +
+      (asAdmin
+        ? '<div style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:10px">' +
+            'This report is routed to <b>' + esc(d.approverName || d.approverEmail) + '</b>. If you approve, the report shows ' +
+            '<b>your</b> name and signature as Approved By, not theirs.</div>' +
+          '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your name on the report</div>' +
+          '<input id="ir-decide-name" type="text" value="' + esc((App.user && (App.user.name || App.user.email)) || '') + '" ' +
+            'style="width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:13px"></div>'
+        : '') +
       '<div style="margin-bottom:10px">' +
         '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
         '<div id="ir-decide-sig-box" onclick="openSigModal(\'ir-decide\')" ' +
@@ -4609,6 +4649,7 @@ function decideIrReport(decision) {
 
   apiPost({ action: 'decideIncidentReport', draftId: d.draftId, decision: decision,
             comments: comments, sig: _irDecideSigDataUrl,
+            approverName: ((document.getElementById('ir-decide-name') || {}).value || '').trim(),
             // The version this screen is showing — the server refuses the
             // decision if the preparer has saved edits since.
             seenVersion: d.updatedAt || d.resubmittedAt || d.prepAt || '' }).then(function(r) {
