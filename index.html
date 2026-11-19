@@ -1839,7 +1839,7 @@ function signOut() {
   var dp = document.getElementById('doc-panel');
   if (dp) dp.innerHTML = '';
 
-  ['detail-view', 'new-sop-view', 'ir-new-view', 'ir-decide-view', 'ncar-new-view', 'ncar-decide-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal'].forEach(function(id) {
+  ['detail-view', 'new-sop-view', 'ir-new-view', 'ir-decide-view', 'ncar-new-view', 'ncar-decide-view', 'create-choice-view', 'change-pwd-modal', 'sig-modal', 'ir-reassign-modal'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.style.display = 'none'; el.classList.remove('active'); }
   });
@@ -3934,10 +3934,58 @@ function renderIrAdminPending(list) {
       '<td class="sop-meta">' + esc(d.approverName || d.approverEmail) +
         (d.selfApproval ? ' <span style="color:#92400e;background:#fef3c7;padding:1px 7px;border-radius:10px;font-size:11px;white-space:nowrap">Own report</span>' : '') + '</td>' +
       '<td class="sop-meta">' + fmtDate(d.prepAt) + '</td>' +
-      '<td><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
+      '<td style="white-space:nowrap"><button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;margin-right:6px" ' +
+      'onclick="event.stopPropagation();openIrReassign(\'' + esc(d.draftId) + '\')">Change approver</button>' +
+      '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" ' +
       'onclick="event.stopPropagation();openIrDecide(\'' + esc(d.draftId) + '\')">Review as admin</button></td></tr>';
   });
   body.innerHTML = html + '</tbody></table>';
+  App.irAdminPending = list;
+}
+
+// ── Admin: re-route a pending report to a different approver ───────────────
+var _irReassignId = null, _irReassignUsersLoaded = false;
+function openIrReassign(draftId) {
+  var d = (App.irAdminPending || []).filter(function(x) { return x.draftId === draftId; })[0] ||
+          (App.currentIrDraft && App.currentIrDraft.draftId === draftId ? App.currentIrDraft : null);
+  if (!d) return;
+  _irReassignId = draftId;
+  document.getElementById('ir-reassign-sub').textContent =
+    'Submitted by ' + (d.prepEmail || '') + ' · now routed to ' + (d.approverName || d.approverEmail || '—');
+  document.getElementById('ir-reassign-email').value = '';
+  document.getElementById('ir-reassign-name').value = '';
+  document.getElementById('ir-reassign-err').style.display = 'none';
+  document.getElementById('ir-reassign-modal').style.display = 'flex';
+  document.getElementById('ir-reassign-email').focus();
+  if (!_irReassignUsersLoaded) {
+    _irReassignUsersLoaded = true;
+    apiGet('listUsers').then(function(r) {
+      document.getElementById('ir-reassign-users').innerHTML = ((r && r.data) || [])
+        .map(function(u) { return '<option value="' + esc(u.email) + '">'; }).join('');
+    }).catch(function() { _irReassignUsersLoaded = false; });
+  }
+}
+function closeIrReassign() {
+  document.getElementById('ir-reassign-modal').style.display = 'none';
+  _irReassignId = null;
+}
+function saveIrReassign() {
+  var email = document.getElementById('ir-reassign-email').value.trim().toLowerCase();
+  var name  = document.getElementById('ir-reassign-name').value.trim();
+  var errEl = document.getElementById('ir-reassign-err');
+  errEl.style.display = 'none';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Enter the new approver\'s email.'; errEl.style.display = 'block'; return; }
+  var btn = document.getElementById('ir-reassign-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  var id = _irReassignId;
+  apiPost({ action: 'reassignIrApprover', draftId: id, approverEmail: email, approverName: name }).then(function(r) {
+    btn.disabled = false; btn.textContent = 'Re-route';
+    if (r && r.error === 'unauthorized') { signOut(); return; }
+    if (!r || !r.ok) { errEl.textContent = (r && r.message) || 'Could not change the approver.'; errEl.style.display = 'block'; return; }
+    closeIrReassign();
+    showToast(r.unchanged ? 'No change — already routed there.' : 'Re-routed to ' + (r.approverName || email) + '. They\'ve been notified on Slack.');
+    if (document.getElementById('ir-decide-view').style.display === 'block') backFromIrDecide();
+    loadIncidentReports();
+  }).catch(function(err) { btn.disabled = false; btn.textContent = 'Re-route'; showToast(err.message); });
 }
 
 function loadIncidentReports() {
@@ -4602,7 +4650,8 @@ function renderIrDecide(d) {
       (asAdmin
         ? '<div style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:10px">' +
             'This report is routed to <b>' + esc(d.approverName || d.approverEmail) + '</b>. If you approve, the report shows ' +
-            '<b>your</b> name and signature as Approved By, not theirs.</div>' +
+            '<b>your</b> name and signature as Approved By, not theirs. ' +
+            '<a href="#" onclick="event.preventDefault();openIrReassign(\'' + esc(d.draftId) + '\')" style="color:#92400e;font-weight:600">Change approver instead</a></div>' +
           '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your name on the report</div>' +
           '<input id="ir-decide-name" type="text" value="' + esc((App.user && (App.user.name || App.user.email)) || '') + '" ' +
             'style="width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:13px"></div>'
@@ -6199,6 +6248,25 @@ function showToast(msg) {
 </script>
 
 <!-- ── Signature Modal ───────────────────────────────────────────────────── -->
+<div id="ir-reassign-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:22px 24px;box-sizing:border-box">
+    <div style="font-size:16px;font-weight:600;color:#111;margin-bottom:4px">Change approver</div>
+    <div id="ir-reassign-sub" style="font-size:12px;color:#888;margin-bottom:14px"></div>
+    <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">New approver email *</label>
+    <input id="ir-reassign-email" type="email" list="ir-reassign-users" autocomplete="off" placeholder="name@golocad.com"
+      style="width:100%;padding:9px 11px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px">
+    <datalist id="ir-reassign-users"></datalist>
+    <label style="font-size:12px;font-weight:500;color:#555;display:block;margin-bottom:4px">Name (as it should print)</label>
+    <input id="ir-reassign-name" type="text" placeholder="e.g. Michael Porto"
+      style="width:100%;padding:9px 11px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:14px;box-sizing:border-box">
+    <div id="ir-reassign-err" style="display:none;color:#b91c1c;font-size:12px;margin-top:8px"></div>
+    <div style="font-size:12px;color:#888;margin-top:10px">They get a Slack request, and the report moves to their Awaiting your approval list.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeIrReassign()">Cancel</button>
+      <button id="ir-reassign-save" class="btn btn-primary" onclick="saveIrReassign()">Re-route</button>
+    </div>
+  </div>
+</div>
 <div id="sig-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden">
     <!-- Header -->
