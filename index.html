@@ -1050,10 +1050,10 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
       <div class="field-row" id="ir-warehouse-ids-row" style="display:none">
         <div class="field"><label>Brand</label><input id="ir-brand" type="text" list="ir-brand-list" autocomplete="off"
-            oninput="checkIrBrand()" placeholder="As spelled in the Quarantine Tracker">
+            oninput="checkIrBrand()" onchange="fixIrBrand()" onblur="fixIrBrand()" placeholder="Pick from the list">
           <datalist id="ir-brand-list"></datalist>
-          <div id="ir-brand-note" class="field-hint" style="display:none;color:#92400e;margin-top:4px">Not in the Quarantine
-            Tracker's brand list — the tracker link only lands on rows with exactly the same brand.</div></div>
+          <div id="ir-brand-note" class="field-hint" style="display:none;color:#92400e;margin-top:4px">Not a brand used in the Quarantine
+            Tracker — pick one from the list so the report can be linked to the tracker row.</div></div>
         <div class="field"><label>SKU</label><input id="ir-sku" type="text" placeholder="e.g. KH-001, KH-002">
           <div class="field-hint" style="margin-top:4px">Same SKU as entered in the Quarantine Tracker (actual or system
             SKU). Separate several with commas.</div></div>
@@ -3864,11 +3864,22 @@ function loadIrBrandList() {
     checkIrBrand();
   }).catch(function() { _irBrandList = []; });
 }
+function _irBrandKey(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function checkIrBrand() {
-  var v = (document.getElementById('ir-brand').value || '').trim().toLowerCase();
-  var known = !v || !_irBrandList || !_irBrandList.length ||
-    _irBrandList.some(function(b) { return b.toLowerCase() === v; });
+  var k = _irBrandKey(document.getElementById('ir-brand').value);
+  var known = !k || !_irBrandList || !_irBrandList.length ||
+    _irBrandList.some(function(b) { return _irBrandKey(b) === k; });
   document.getElementById('ir-brand-note').style.display = known ? 'none' : 'block';
+}
+// "tiktok-rb" → "Tiktok - RB", "kiehls" → "Kiehl's": use the tracker's spelling.
+function fixIrBrand() {
+  var el = document.getElementById('ir-brand');
+  var k = _irBrandKey(el.value);
+  if (k && _irBrandList) {
+    var hit = _irBrandList.filter(function(b) { return _irBrandKey(b) === k; })[0];
+    if (hit && hit !== el.value) el.value = hit;
+  }
+  checkIrBrand();
 }
 
 // Section 3 switches between the package layout (Order number / Total TN/ON,
@@ -3941,10 +3952,13 @@ function _irTrackerStatus(r) {
   else if (!r.qtCheckedAt) html += line('Tracker: linking… (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
   else if (!(r.qtPending || []).length) html += line('Tracker: no matching row yet (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
   (r.qtPending || []).forEach(function(p) {
-    html += line('Tracker: SKU ' + p.sku + ' matches ' + p.candidates.length + ' rows — pick the one for this report:', '#b45309');
+    html += line(p.otherBrand
+      ? 'Tracker: no row under brand "' + (r.brand || '') + '", but SKU ' + p.sku + ' (Damage by Warehouse = Yes, same dates) is on ' +
+        p.candidates.length + ' row' + (p.candidates.length === 1 ? '' : 's') + ' under another brand — link it if it\'s the same item:'
+      : 'Tracker: SKU ' + p.sku + ' matches ' + p.candidates.length + ' rows — pick the one for this report:', '#b45309');
     p.candidates.forEach(function(c) {
       var when = c.at ? fmtDate(c.at) : '';
-      var bits = ['Row ' + c.row, when, c.qty ? c.qty + ' pcs' : '', c.location, c.reason].filter(Boolean).join(' · ');
+      var bits = ['Row ' + c.row, p.otherBrand ? c.brand : '', when, c.qty ? c.qty + ' pcs' : '', c.location, c.reason].filter(Boolean).join(' · ');
       html += '<div style="margin-top:3px"><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" ' +
         'onclick="event.stopPropagation();linkIrTrackerRow(\'' + esc(r.irNumber) + '\',' + Number(c.row) + ',this)">' +
         'Link ' + esc(bits) + '</button></div>';
@@ -4247,7 +4261,7 @@ function collectIrFields() {
     // Warehouse damage: Brand / SKU are sent instead of the package-only fields.
     orderNumber: wh ? '' : v('ir-order-number'),
     totalTnOn: wh ? '' : v('ir-total-tn-on'),
-    brand: wh ? v('ir-brand') : '',
+    brand: wh ? (fixIrBrand(), v('ir-brand')) : '',
     sku: wh ? v('ir-sku') : '',
     trackingNumber: wh ? '' : v('ir-tracking-number'),
     departmentInvolved: v('ir-department'),
