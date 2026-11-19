@@ -750,6 +750,103 @@ nav button[data-tab="admin"] { --ic: url("data:image/svg+xml,%3Csvg xmlns='http:
 .th-light .tb-logo-mark { filter: invert(1); }
 @media (max-width: 780px) { .tb-logo-mark { height: 15px; } .th-dark .tb-logo { padding: 0; gap: 8px; } }
 
+/* ═══ Match SupplyBase (sb2): same sidebar tokens, type, and motion ═════════
+   Calm Mac-style motion: a gliding highlight under the active sidebar item
+   and filter, pages that ease in, dialogs that pop in over a blurred
+   backdrop, springy toasts, and press feedback on buttons. All of it is
+   switched off for people who ask their device to reduce motion.          */
+body.th-dark { --side-w: 215px; --font-head: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --line: #e9ebef; --radius: 12px; --radius-sm: 9px; --brand: #16a34a; --brand-600: #15803d;
+  letter-spacing: -0.005em; }
+body.th-dark #topbar { background: #0b0b0c; border-right: 1px solid #1c1c1f; padding: 0 0 12px; }
+.th-dark .tb-logo { padding: 22px 20px 16px; }
+.th-dark .tb-logo-mark { height: 18px; }
+.th-dark nav::before { padding: 6px 22px 8px; color: #5d6169; }
+.th-dark nav button { width: calc(100% - 20px); margin: 1px 10px; padding: 8px 12px; gap: 11px; border-radius: 8px;
+  font-size: 13.5px; font-weight: 500; color: #8b8f98; transition: color .25s ease, background .15s ease; }
+.th-dark nav button:hover { background: #17171a; color: #e5e7eb; }
+.th-dark nav button.active { background: rgba(34,197,94,.10); color: #f9fafb; font-weight: 600; box-shadow: none; }
+.th-dark nav button.active::before { background: #4ade80; }
+.th-dark .tb-right { margin: auto 10px 0; padding: 12px 10px 4px; border-top: 1px solid #1c1c1f; }
+.th-dark .tb-user { color: #f3f4f6; }
+.th-dark .tb-signout { color: #8b8f98; } .th-dark .tb-signout:hover { color: #e5e7eb; }
+
+/* Type: Inter throughout, like the other builds */
+.th-dark .dash-title, .th-dark #main-app [style*="font-size:28px"], .th-dark #main-app [style*="font-size:22px;font-weight:700"] {
+  font-family: var(--font-head); font-weight: 650; letter-spacing: -0.02em; }
+.th-dark .dash-title { font-size: 24px; }
+
+/* Surfaces, tables, controls */
+.th-dark .table-wrap, .th-dark .form-section, .th-dark .rv-sec, .th-dark .rv-head { border-color: var(--line); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04); transition: box-shadow .2s ease, border-color .2s ease; }
+.th-dark thead th { background: #fff; color: #6b7280; font-size: 12px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.th-dark tbody tr { transition: background .15s ease; }
+.th-dark .btn, .th-dark .btn-submit, .th-dark .btn-cancel-form, .th-dark .decision-btn, .th-dark .chip, .th-dark .ir-step-pill {
+  transition: background .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .12s ease; }
+.th-dark .btn:active, .th-dark .btn-submit:active, .th-dark .btn-cancel-form:active, .th-dark .decision-btn:active,
+.th-dark .ir-step-pill:active, .th-dark nav button:active { transform: scale(.98); }
+.th-dark .btn { border-radius: 9px; font-weight: 500; }
+.th-dark .btn-primary, .th-dark .btn-submit { font-weight: 600; box-shadow: 0 1px 2px rgba(22,163,74,.25); }
+.th-dark .field input, .th-dark .field select, .th-dark .field textarea, .th-dark .list-search input, .th-dark .search-input {
+  border-color: var(--line); border-radius: 9px; transition: border-color .15s ease, box-shadow .15s ease; }
+.th-dark .field input:focus, .th-dark .field textarea:focus, .th-dark .field select:focus, .th-dark .list-search input:focus, .th-dark .search-input:focus {
+  border-color: #86efac; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
+
+/* Filters as a segmented control (like SupplyBase) */
+.th-dark .chips { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: #f9fafb; border: 1px solid var(--line); border-radius: 10px; }
+.th-dark .chip { border: none; background: none; box-shadow: none; border-radius: 7px; padding: 5px 12px; font-size: 13px; color: #6b7280; }
+.th-dark .chip:hover { color: #111827; }
+.th-dark .chip.on { background: #fff; color: #111827; border: none; box-shadow: 0 1px 2px rgba(16,24,40,.12); }
+
+/* Gliding highlight (see qmsGlideSync) */
+.qms-glide { position: relative; }
+.qms-glide > button { position: relative; z-index: 1; }
+.qms-glide > button.active, .qms-glide > button.on { background: transparent !important; box-shadow: none !important; }
+.qms-thumb { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; border-radius: 7px; background: #fff;
+  box-shadow: 0 1px 3px rgba(16,24,40,.14), 0 1px 1px rgba(16,24,40,.06); will-change: transform, width;
+  transition: transform .42s cubic-bezier(.3,1.32,.5,1), width .42s cubic-bezier(.3,1.32,.5,1), height .2s ease, opacity .2s; }
+nav .qms-thumb { border-radius: 8px; background: rgba(34,197,94,.10); box-shadow: none;
+  transition: transform .42s cubic-bezier(.3,1.25,.5,1), width .3s ease, height .3s ease, opacity .2s; }
+
+/* Pages ease in */
+@keyframes qmsPageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes qmsFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qmsPopIn  { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+body.th-dark #main-app .view.active, body.th-dark #ir-new-view.active, body.th-dark #ir-decide-view.active,
+body.th-dark #ncar-new-view.active, body.th-dark #ncar-decide-view.active, body.th-dark #create-choice-view.active,
+body.th-dark #new-sop-view.active { animation: qmsPageIn .26s cubic-bezier(.2,.8,.2,1); }
+body.th-dark #login-view .login-card { animation: qmsPopIn .4s cubic-bezier(.2,.9,.3,1); }
+
+/* Dialogs pop in over a blurred backdrop */
+body.th-dark #sig-modal, body.th-dark #ir-reassign-modal, body.th-dark #change-pwd-modal, body.th-dark #ir-photo-viewer {
+  -webkit-backdrop-filter: blur(6px) saturate(140%); backdrop-filter: blur(6px) saturate(140%); animation: qmsFadeIn .18s ease-out; }
+body.th-dark #sig-modal > div, body.th-dark #ir-reassign-modal > div, body.th-dark #change-pwd-modal > div, body.th-dark #ir-photo-viewer > img {
+  animation: qmsPopIn .26s cubic-bezier(.2,.9,.3,1); }
+body.th-dark #sig-modal > div, body.th-dark #ir-reassign-modal > div, body.th-dark #change-pwd-modal > div { border-radius: 16px !important; }
+
+/* Sticky bars: frosted glass */
+body.th-dark .ir-stepbar, body.th-dark .rv-bar { background: rgba(246,247,249,.78); -webkit-backdrop-filter: saturate(180%) blur(12px); backdrop-filter: saturate(180%) blur(12px); }
+
+/* Toast: springs up from the bottom, hidden fully when idle */
+body.th-dark #toast { background: #0f172a; border-radius: 10px; padding: 10px 16px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  opacity: 0; visibility: hidden; transform: translateX(-50%) translateY(24px) scale(.98);
+  transition: transform .42s cubic-bezier(.3,1.32,.5,1), opacity .2s ease, visibility 0s linear .42s; }
+body.th-dark #toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); transition: transform .42s cubic-bezier(.3,1.32,.5,1), opacity .2s ease; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  body.th-dark *, body.th-dark *::before { animation: none !important; transition: none !important; }
+}
+@media (max-width: 780px) {
+  body.th-dark #topbar { padding: 10px 12px 0; border-right: none; }
+  .th-dark .tb-logo { padding: 0; }
+  .th-dark .tb-logo-mark { height: 15px; }
+  .th-dark nav button { width: auto; margin: 0; padding: 7px 11px; }
+  .th-dark .tb-right { margin: 0 0 0 auto; padding: 0; border: none; }
+  .th-dark .chips { display: flex; }
+}
+
 </style>
 </head>
 <body class="th-dark">
@@ -6838,6 +6935,53 @@ function submitNewSop() {
 }
 
 var _toastTimer;
+
+// ── Gliding highlight (same behaviour as SupplyBase's sbSegSync) ──────────
+// A soft "thumb" sits behind the active sidebar item and the active filter
+// and glides to the new one with a slight spring when the choice changes.
+var QMS_GLIDES = [
+  { sel: 'body.th-dark #topbar nav', key: 'nav', act: ':scope > button.active', nav: true },
+  { sel: 'body.th-dark #ir-chips', key: 'irc', act: ':scope > button.on' },
+  { sel: 'body.th-dark #ncar-chips', key: 'ncc', act: ':scope > button.on' }
+];
+var _qmsGlideLast = {};
+function qmsGlideSync(instant) {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  QMS_GLIDES.forEach(function(def) {
+    document.querySelectorAll(def.sel).forEach(function(box, n) {
+      var key = def.key + n;
+      var btn = box.querySelector(def.act);
+      var th = box.querySelector(':scope > .qms-thumb');
+      if (!btn || !box.offsetWidth || !btn.offsetWidth) { if (th) th.style.opacity = '0'; return; }
+      box.classList.add('qms-glide');
+      var fresh = false;
+      if (!th) { th = document.createElement('span'); th.className = 'qms-thumb'; box.insertBefore(th, box.firstChild); fresh = true; }
+      th.style.opacity = '';
+      var to = { x: btn.offsetLeft, y: btn.offsetTop, w: btn.offsetWidth, h: btn.offsetHeight };
+      var cur = th._pos;
+      if (cur && cur.x === to.x && cur.w === to.w && cur.y === to.y && cur.h === to.h) return;
+      var from = cur || (fresh ? _qmsGlideLast[key] : null);
+      var put = function(p) { th.style.transform = 'translate(' + p.x + 'px,' + p.y + 'px)'; th.style.width = p.w + 'px'; th.style.height = p.h + 'px'; };
+      if (from && !instant && !reduce) { th.style.transition = 'none'; put(from); void th.offsetWidth; th.style.transition = ''; }
+      else th.style.transition = 'none';
+      put(to);
+      if (!from || instant || reduce) { void th.offsetWidth; th.style.transition = ''; }
+      th._pos = to; _qmsGlideLast[key] = to;
+    });
+  });
+}
+(function() {
+  var queued = false;
+  var run = function() { queued = false; qmsGlideSync(false); };
+  function start() {
+    qmsGlideSync(true);
+    new MutationObserver(function() { if (!queued) { queued = true; requestAnimationFrame(run); } })
+      .observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
+    window.addEventListener('resize', function() { qmsGlideSync(true); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
 function showToast(msg) {
   var el = document.getElementById('toast');
   el.textContent = msg;
