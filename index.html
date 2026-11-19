@@ -470,6 +470,131 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
                  transition:width .3s; }
 
 /* ── Toast ────────────────────────────────────────────────────────────────── */
+/* ── Incident report review screen ──────────────────────────────────────── */
+.rv-note { font-size:13px; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+.rv-blue { color:#1e3a8a; background:#dbeafe; } .rv-grey { color:#555; background:#f1f1f1; } .rv-amber { color:#92400e; background:#fef3c7; }
+.rv-head { background:#fff; border:1px solid #e5e5e5; border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+.rv-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.rv-chip { background:#fee2e2; color:#991b1b; font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; }
+.rv-meta { display:flex; gap:6px 18px; flex-wrap:wrap; font-size:13px; color:#666; }
+.rv-meta b { color:#111; }
+.rv-sec { background:#fff; border:1px solid #e5e5e5; border-radius:12px; padding:18px 20px; margin-bottom:14px; }
+.rv-t { font-size:13px; font-weight:600; color:#111; padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid #f0f0f0; }
+.rv-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; }
+.rv-f.wide { grid-column:1 / -1; }
+.rv-l { font-size:11px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+.rv-v { font-size:14px; color:#222; white-space:pre-wrap; word-break:break-word; }
+.rv-sig { max-height:56px; max-width:220px; border:1px solid #eee; border-radius:6px; padding:4px; background:#fff; margin-top:2px; }
+.rv-photos { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px; margin-top:4px; }
+.rv-photo { padding:0; border:1px solid #e5e5e5; border-radius:8px; overflow:hidden; cursor:zoom-in; background:#f5f5f5; aspect-ratio:1; }
+.rv-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+.rv-decide { border-color:#bbf7d0; }
+.rv-decide-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:14px; }
+.rv-decide-grid textarea { min-height:86px; }
+.rv-bar { position:sticky; bottom:0; z-index:20; margin:0 -4px; padding:10px 4px 12px; background:rgba(244,242,238,.96);
+  backdrop-filter:blur(6px); border-top:1px solid #e5e5e5; }
+.rv-bar-inner { display:flex; align-items:center; gap:8px; }
+.rv-bar-hint { flex:1; font-size:12px; color:#888; }
+.rv-bar .decision-btn { display:inline-block; width:auto; margin:0; padding:10px 18px; }
+.rv-bar .rv-approve { background:#16a34a; color:#fff; min-width:140px; }
+.rv-bar .rv-approve:hover { background:#15803d; }
+#ir-photo-viewer { position:fixed; inset:0; z-index:700; background:rgba(0,0,0,.88); display:flex; align-items:center; justify-content:center; }
+#ir-photo-viewer img { max-width:92vw; max-height:86vh; border-radius:6px; }
+#ir-photo-viewer button { position:absolute; background:rgba(255,255,255,.14); color:#fff; border:none; border-radius:999px; cursor:pointer; font-size:22px; width:44px; height:44px; }
+#ir-photo-viewer .pv-x { top:16px; right:16px; font-size:18px; }
+#ir-photo-viewer .pv-prev { left:16px; top:50%; } #ir-photo-viewer .pv-next { right:16px; top:50%; }
+#ir-photo-viewer .pv-n { position:absolute; bottom:18px; color:#ddd; font-size:13px; }
+@media (max-width: 640px) {
+  .rv-grid, .rv-decide-grid { grid-template-columns:1fr; }
+  .rv-bar-hint { display:none; }
+  .rv-bar .decision-btn { flex:1; padding:11px 8px; }
+  .rv-photos { grid-template-columns:repeat(3, 1fr); }
+}
+
+/* ── Incident report form: steps + sticky action bar ─────────────────────── */
+.ir-steps { display:flex; gap:6px; margin:0 0 18px; }
+.ir-step-pill { flex:1; display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #e5e5e5; border-radius:10px;
+  padding:9px 12px; cursor:pointer; font:inherit; text-align:left; color:#777; min-width:0; }
+.ir-step-pill .n { flex:0 0 22px; height:22px; border-radius:50%; background:#f1f1f1; color:#777; font-size:12px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; }
+.ir-step-pill .t { font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ir-step-pill.cur { border-color:#16a34a; color:#111; box-shadow:0 0 0 3px rgba(22,163,74,.12); }
+.ir-step-pill.cur .n { background:#16a34a; color:#fff; }
+.ir-step-pill.done .n { background:#dcfce7; color:#166534; }
+.ir-step-pill.bad { border-color:#fca5a5; }
+.ir-step-pill.bad .n { background:#fee2e2; color:#991b1b; }
+.ir-stepbar { position:sticky; bottom:0; z-index:20; background:rgba(244,242,238,.96); backdrop-filter:blur(6px);
+  border-top:1px solid #e5e5e5; margin:8px -4px 0; padding:10px 4px 12px; }
+.ir-stepbar-row { display:flex; align-items:center; gap:8px; }
+.ir-stepbar-row .btn-cancel-form { flex:0 0 auto; }
+.ir-stepbar-pos { flex:1; font-size:12px; color:#888; text-align:center; }
+.ir-step-btn { flex:0 0 auto; min-width:120px; }
+.ir-stepbar-err { color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; font-size:13px; padding:8px 10px; margin-bottom:8px; }
+.field-invalid, .field input.field-invalid, .field textarea.field-invalid { border-color:#ef4444 !important; background:#fff7f7; }
+.field-err { color:#b91c1c; font-size:12px; margin-top:4px; }
+.ir-checkgrid.field-invalid { outline:1.5px solid #ef4444; outline-offset:6px; border-radius:6px; }
+@media (max-width: 640px) {
+  .ir-steps { gap:4px; }
+  .ir-step-pill { padding:8px 6px; justify-content:center; }
+  .ir-step-pill .t { display:none; }
+  .ir-step-pill.cur .t { display:block; }
+  .ir-step-pill.cur { flex:2.4; }
+  .ir-stepbar-pos { display:none; }
+  .ir-step-btn { min-width:0; flex:1; }
+}
+
+/* ── List toolbars: search + quick filters (IR / NCAR) ───────────────────── */
+.list-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+.list-head-title { font-weight:700; color:#111; font-size:15px; }
+.list-head-count { font-weight:500; color:#888; font-size:12px; margin-left:6px; }
+.list-search { position:relative; flex:0 1 300px; min-width:200px; }
+.list-search input { width:100%; box-sizing:border-box; padding:8px 30px 8px 32px; border:1.5px solid #e0e0e0; border-radius:8px;
+  font:inherit; font-size:13px; background:#fff; outline:none; }
+.list-search input:focus { border-color:#16a34a; }
+.list-search .ls-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#aaa; pointer-events:none; }
+.list-search .ls-clear { position:absolute; right:6px; top:50%; transform:translateY(-50%); border:none; background:none; color:#999;
+  cursor:pointer; font-size:14px; padding:2px 6px; display:none; }
+.chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.chip { border:1.5px solid #e5e5e5; background:#fff; color:#555; border-radius:999px; padding:5px 12px; font:inherit; font-size:12px;
+  font-weight:500; cursor:pointer; white-space:nowrap; }
+.chip:hover { border-color:#cfcfcf; color:#111; }
+.chip.on { background:#111; border-color:#111; color:#fff; }
+.chip .chip-n { opacity:.65; margin-left:4px; }
+.nowrap { white-space:nowrap; }
+.cell-sub { font-size:12px; color:#999; margin-top:2px; }
+.cell-people div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+.tk { display:inline-flex; align-items:center; gap:4px; margin-top:5px; font-size:11px; font-weight:600; border-radius:999px; padding:2px 9px;
+  border:none; font-family:inherit; line-height:1.5; }
+.tk-ok { background:#dcfce7; color:#166534; }
+.tk-wait { background:#f1f1f1; color:#666; }
+.tk-pick { background:#fef3c7; color:#92400e; cursor:pointer; }
+.tk-pick:hover { background:#fde68a; }
+.tk-err { background:#fee2e2; color:#991b1b; }
+tr.ir-detail td { background:#fffbeb; padding-top:10px; padding-bottom:14px; cursor:default; }
+tr.ir-detail:hover td { background:#fffbeb; }
+.pick-list { display:flex; flex-direction:column; gap:6px; }
+.pick-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #f3e3b5; border-radius:8px; padding:8px 10px; font-size:12px; color:#444; }
+.pick-row b { color:#111; }
+.list-empty { padding:28px 16px; text-align:center; color:#888; font-size:13px; }
+@media (max-width: 640px) {
+  .list-search { flex:1 1 100%; }
+  .field-row { grid-template-columns:1fr; }
+  /* Approved incident reports: one card per report instead of a sideways-scrolling table */
+  #ir-table-body table, #ir-table-body tbody { display:block; width:100%; min-width:0; }
+  #ir-table-body thead { display:none; }
+  #ir-table-body tr { display:grid; grid-template-columns:1fr auto; gap:2px 12px; padding:14px 16px; border-bottom:1px solid #f0f0f0; }
+  #ir-table-body td { display:block; padding:0 !important; border:none !important; }
+  #ir-table-body td:nth-child(1) { grid-column:1; grid-row:1; }
+  #ir-table-body td:nth-child(6) { grid-column:2; grid-row:1 / span 2; text-align:right; min-width:0; }
+  #ir-table-body td:nth-child(2) { grid-column:1; grid-row:2; }
+  #ir-table-body td:nth-child(3) { grid-column:1 / -1; margin-top:8px; }
+  #ir-table-body td:nth-child(4) { grid-column:1 / -1; margin-top:6px; }
+  #ir-table-body td:nth-child(5) { display:none; }
+  #ir-table-body tr.ir-detail { display:block; padding:12px 16px; }
+  #ir-table-body tr.ir-detail td:first-child { display:none; }
+  .cell-people div { max-width:none; }
+}
+
 #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
          background: #111; color: #fff; padding: 10px 20px; border-radius: 8px;
          font-size: 13px; font-weight: 500; z-index: 9999; transition: transform .3s; }
@@ -706,7 +831,13 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="table-wrap"><div id="ir-my-drafts-body"></div></div>
       </div>
 
-      <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Approved reports</div>
+      <div class="list-head">
+        <div class="list-head-title">Approved reports<span class="list-head-count" id="ir-list-count"></span></div>
+        <div class="list-search"><svg class="ls-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="ir-search" type="text" enterkeyhint="search" placeholder="Search IR #, brand, SKU, person…" oninput="setIrFilter(null, this.value)" autocomplete="off">
+          <button class="ls-clear" id="ir-search-clear" onclick="setIrFilter(null, '')" aria-label="Clear search">✕</button></div>
+      </div>
+      <div class="chips" id="ir-chips"></div>
       <div class="table-wrap">
         <div id="ir-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
       </div>
@@ -744,7 +875,13 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         <div class="table-wrap"><div id="ncar-my-drafts-body"></div></div>
       </div>
 
-      <div style="font-weight:700;color:#111;font-size:15px;margin-bottom:10px">Approved NCARs</div>
+      <div class="list-head">
+        <div class="list-head-title">Approved NCARs<span class="list-head-count" id="ncar-list-count"></span></div>
+        <div class="list-search"><svg class="ls-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="ncar-search" type="text" enterkeyhint="search" placeholder="Search NCAR #, problem, department…" oninput="setNcarFilter(null, this.value)" autocomplete="off">
+          <button class="ls-clear" id="ncar-search-clear" onclick="setNcarFilter(null, '')" aria-label="Clear search">✕</button></div>
+      </div>
+      <div class="chips" id="ncar-chips"></div>
       <div class="table-wrap">
         <div id="ncar-table-body"><div class="spinner-wrap"><div class="spinner"></div></div></div>
       </div>
@@ -966,6 +1103,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       <button onclick="backFromNewIr()" class="btn btn-secondary">← Back</button>
       <div id="ir-form-title" style="font-size:22px;font-weight:700;color:#111">New Incident Report</div>
     </div>
+    <div class="ir-steps" id="ir-steps"></div>
     <div id="ir-revise-note" style="display:none;font-size:13px;color:#92400e;background:#fef3c7;
       border-radius:6px;padding:10px 12px;margin-bottom:16px"></div>
     <!-- Only shown when revising an already-approved report: the reason is
@@ -977,7 +1115,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
         the approver to sign; once approved it becomes the current version of this report.</div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="1">
       <div class="form-section-title">Event details</div>
       <div class="field-row">
         <div class="field">
@@ -1012,7 +1150,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="1">
       <div class="form-section-title">1. Description of Events</div>
       <div class="field">
         <label>Include the full details of the affected item *</label>
@@ -1034,7 +1172,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="2">
       <div class="form-section-title">2. Problem Description</div>
       <div class="ir-checkgrid" id="ir-checkgrid"></div>
       <div class="ir-others-row" style="margin-top:10px">
@@ -1044,7 +1182,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="2">
       <div class="form-section-title">3. Detailed Investigation</div>
       <div class="field-hint" id="ir-investigation-hint" style="margin-bottom:10px">For incidents involving packages, fill up the basic information below.</div>
       <!-- When "Item damaged in Warehouse" is ticked (toggleIrWarehouseMode):
@@ -1082,14 +1220,14 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="3">
       <div class="form-section-title">4. Basic Cause</div>
       <div class="field">
         <textarea id="ir-basic-cause" rows="4"></textarea>
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="3">
       <div class="form-section-title">5. Actions Taken</div>
       <div class="field">
         <label>Immediate Actions Taken</label>
@@ -1101,7 +1239,7 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-ir-step="4">
       <div class="form-section-title">6. Other Details</div>
       <div class="field-row">
         <div class="field"><label>Checked By — full name *</label><input id="ir-checked-by" type="text"></div>
@@ -1127,17 +1265,23 @@ tbody td { padding: 14px 16px; color: #222; vertical-align: middle; }
 
       <div class="field-row" style="margin-top:20px;padding-top:16px;border-top:1px solid #f0f0f0">
         <div class="field"><label>Approved By — full name</label><input id="ir-approved-by" type="text" placeholder="Optional — display name"></div>
-        <div class="field"><label>Approved By — email *</label><input id="ir-approved-email" type="email" placeholder="name@golocad.com"></div>
+        <div class="field"><label>Approved By — email *</label><input id="ir-approved-email" type="email" placeholder="Start typing a name or email" list="ir-approver-list" autocomplete="off">
+          <datalist id="ir-approver-list"></datalist></div>
       </div>
       <div class="field-hint" style="margin-top:6px">This report isn't finished yet — it's sent to this person to
         review and sign off themselves. You don't sign on their behalf.</div>
     </div>
 
-    <div id="ir-form-error" style="color:#dc2626;font-size:13px;margin-bottom:10px;display:none"></div>
-
-    <div class="form-actions">
-      <button class="btn-cancel-form" onclick="backFromNewIr()">Cancel</button>
-      <button class="btn-submit" id="btn-submit-ir" onclick="submitIncidentReport()">Submit for approval</button>
+    <!-- Sticky bar: step navigation and submit, always in reach. -->
+    <div class="ir-stepbar">
+      <div id="ir-form-error" class="ir-stepbar-err" style="display:none"></div>
+      <div class="ir-stepbar-row">
+        <button class="btn-cancel-form" onclick="backFromNewIr()">Cancel</button>
+        <span class="ir-stepbar-pos" id="ir-step-pos"></span>
+        <button class="btn btn-secondary ir-step-btn" id="ir-step-back" onclick="irGoStep(_irStep - 1)">← Back</button>
+        <button class="btn-submit ir-step-btn" id="ir-step-next" onclick="irGoStep(_irStep + 1)">Next →</button>
+        <button class="btn-submit ir-step-btn" id="btn-submit-ir" onclick="submitIncidentReport()">Submit for approval</button>
+      </div>
     </div>
   </div>
 
@@ -4055,48 +4199,140 @@ function linkIrTrackerRow(irNumber, row, btn) {
   }).catch(function(err) { showToast(err.message); if (btn) btn.disabled = false; });
 }
 
+// Approved incident reports, with search and quick filters. The list from the
+// server is kept as-is; filtering happens here, so typing is instant.
+var _irAll = [], _irFilter = { chip: 'all', q: '' }, _irOpenPick = {};
+var IR_CHIPS = [
+  { key: 'all',   label: 'All' },
+  { key: 'pick',  label: 'Needs tracker pick', test: function(r) { return (r.qtPending || []).length > 0; } },
+  { key: 'unlinked', label: 'Not on tracker yet', test: function(r) {
+      return r.warehouseDamage && !r.qtLinkedRows && !(r.qtPending || []).length; } },
+  { key: 'wh',    label: 'Damaged in warehouse', test: function(r) { return !!r.warehouseDamage; } },
+  { key: 'week',  label: 'Last 7 days', test: function(r) { return Date.now() - new Date(r.submittedAt).getTime() < 7 * 864e5; } },
+  { key: 'mine',  label: 'Mine', test: function(r) {
+      var me = App.user ? String(App.user.email || '').toLowerCase() : '';
+      return String(r.submittedBy || '').toLowerCase() === me; } }
+];
+
 function renderIrTable(list) {
-  var body = document.getElementById('ir-table-body');
-  // The "+ New Incident Report" button lives in only one place at a time:
-  // centered in the empty state when there's nothing to show yet, or up in
-  // the header once there's a table to act as the anchor for it instead.
+  _irAll = list || [];
   var headerBtn = document.getElementById('ir-header-new-btn');
-  if (!list.length) {
-    if (headerBtn) headerBtn.style.display = 'none';
+  if (headerBtn) headerBtn.style.display = _irAll.length ? '' : 'none';
+  _renderIrList();
+}
+
+function setIrFilter(chip, q) {
+  if (chip !== null && chip !== undefined) _irFilter.chip = chip;
+  if (q !== null && q !== undefined) {
+    _irFilter.q = q;
+    var inp = document.getElementById('ir-search'); if (inp && inp.value !== q) inp.value = q;
+  }
+  _renderIrList();
+}
+
+function _irMatches(r, q) {
+  if (!q) return true;
+  var hay = [r.irNumber, r.dateOfEvent, r.locationOfEvent, r.problemSummary, r.brand, r.sku,
+             r.submittedBy, r.approvedBy].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(function(w) { return hay.indexOf(w) !== -1; });
+}
+
+function _irTrackerChip(r) {
+  if (!r.warehouseDamage) return '';
+  var pend = r.qtPending || [];
+  if (r.qtError) return '<div><span class="tk tk-err" title="' + esc(r.qtError) + '">⚠ Tracker not linked</span></div>';
+  var out = '';
+  if (r.qtLinkedRows) out += '<span class="tk tk-ok">✓ On tracker · ' + r.qtLinkedRows + ' row' + (r.qtLinkedRows === 1 ? '' : 's') + '</span> ';
+  if (pend.length) {
+    var n = pend.reduce(function(t, p) { return t + p.candidates.length; }, 0);
+    out += '<button class="tk tk-pick" onclick="event.stopPropagation();toggleIrPick(\'' + esc(r.irNumber) + '\')">' +
+      (_irOpenPick[r.irNumber] ? '▾' : '▸') + ' Pick tracker row (' + n + ')</button>';
+  } else if (!r.qtLinkedRows) {
+    out += '<span class="tk tk-wait">' + (r.qtCheckedAt ? 'Not on tracker yet' : 'Linking to tracker…') + '</span>';
+  }
+  return '<div>' + out + '</div>';
+}
+
+function toggleIrPick(irNumber) {
+  _irOpenPick[irNumber] = !_irOpenPick[irNumber];
+  _renderIrList();
+}
+
+function _irPickRow(r) {
+  var html = '';
+  (r.qtPending || []).forEach(function(p) {
+    html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">' + (p.otherBrand
+      ? 'No tracker row under brand <b>' + esc(r.brand || '') + '</b>, but SKU <b>' + esc(p.sku) + '</b> (Damage by Warehouse = Yes, same dates) is on these rows under another brand. Link it if it\'s the same item:'
+      : 'SKU <b>' + esc(p.sku) + '</b> matches ' + p.candidates.length + ' tracker rows. Pick the one for this report:') + '</div>';
+    html += '<div class="pick-list">' + p.candidates.map(function(c) {
+      var bits = [p.otherBrand && c.brand ? 'Brand: ' + c.brand : '', c.at ? fmtDate(c.at) : '', c.qty ? c.qty + ' pcs' : '',
+                  c.location, c.reason].filter(Boolean).map(esc).join(' · ');
+      return '<div class="pick-row"><b>Row ' + Number(c.row) + '</b><span style="flex:1;min-width:180px">' + bits + '</span>' +
+        '<button class="btn btn-secondary" style="padding:4px 12px;font-size:12px" ' +
+        'onclick="event.stopPropagation();linkIrTrackerRow(\'' + esc(r.irNumber) + '\',' + Number(c.row) + ',this)">Link this row</button></div>';
+    }).join('') + '</div>';
+  });
+  return html;
+}
+
+function _renderIrList() {
+  var body = document.getElementById('ir-table-body');
+  var chipsEl = document.getElementById('ir-chips');
+  var countEl = document.getElementById('ir-list-count');
+  var clr = document.getElementById('ir-search-clear');
+  if (clr) clr.style.display = _irFilter.q ? 'block' : 'none';
+  if (!_irAll.length) {
+    if (chipsEl) chipsEl.innerHTML = '';
+    if (countEl) countEl.textContent = '';
     body.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>' +
       'No incident reports filed yet.' +
       '<div style="margin-top:10px"><button onclick="showNewIrForm()" ' +
       'class="btn btn-primary">+ New Incident Report</button></div></div>';
     return;
   }
-  if (headerBtn) headerBtn.style.display = '';
-  var html = '<table><thead><tr>' +
-    '<th>IR #</th><th>Date of Event</th><th>Location</th><th>Problem</th>' +
-    '<th>Submitted by</th><th>Approved by</th><th>Submitted</th><th></th>' +
-    '</tr></thead><tbody>';
+  // Chips show how many reports each would leave (ignoring the other chips).
+  var searched = _irAll.filter(function(r) { return _irMatches(r, _irFilter.q); });
+  if (chipsEl) chipsEl.innerHTML = IR_CHIPS.filter(function(c) {
+      return c.key === 'all' || c.key === _irFilter.chip || _irAll.some(c.test);
+    }).map(function(c) {
+      var n = c.test ? searched.filter(c.test).length : searched.length;
+      return '<button class="chip' + (_irFilter.chip === c.key ? ' on' : '') + '" onclick="setIrFilter(\'' + c.key + '\')">' +
+        esc(c.label) + '<span class="chip-n">' + n + '</span></button>';
+    }).join('');
+  var chip = IR_CHIPS.filter(function(c) { return c.key === _irFilter.chip; })[0] || IR_CHIPS[0];
+  var list = chip.test ? searched.filter(chip.test) : searched;
+  if (countEl) countEl.textContent = list.length === _irAll.length ? '· ' + _irAll.length
+                                    : '· ' + list.length + ' of ' + _irAll.length;
+  if (!list.length) {
+    body.innerHTML = '<div class="list-empty">No reports match' + (_irFilter.q ? ' “' + esc(_irFilter.q) + '”' : '') +
+      '. <a href="#" onclick="event.preventDefault();setIrFilter(\'all\',\'\')" style="color:#16a34a">Clear filters</a></div>';
+    return;
+  }
   var me = App.user ? App.user.email.toLowerCase() : '';
   var isSu = App.user && App.user.email.toLowerCase() === String(SUPERUSER_EMAIL).toLowerCase();
+  var html = '<table><thead><tr><th>IR #</th><th>Event</th><th>Problem</th><th>People</th><th>Submitted</th><th></th></tr></thead><tbody>';
   list.forEach(function(r) {
     var canRevise = isSu || (r.submittedBy && r.submittedBy.toLowerCase() === me);
     html += '<tr onclick="window.open(\'' + esc(r.pdfUrl) + '\', \'_blank\')">' +
-      '<td><span class="sop-code">' + esc(r.irNumber) + '</span>' +
-        (r.rev ? '<div style="font-size:11px;color:#888;margin-top:2px">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
-      '<td class="sop-meta">' + esc(r.dateOfEvent) + '</td>' +
-      '<td class="sop-meta">' + esc(r.locationOfEvent) + '</td>' +
-      '<td class="sop-meta">' + esc(r.problemSummary) + _irTrackerStatus(r) + '</td>' +
-      '<td class="sop-meta">' + esc(r.submittedBy) + '</td>' +
-      '<td class="sop-meta">' + esc(r.approvedBy || '—') + '</td>' +
-      '<td class="sop-meta">' + fmtDate(r.submittedAt) + '</td>' +
-      '<td><a href="' + esc(r.pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
-      'onclick="event.stopPropagation()" style="font-size:12px;color:#16a34a;text-decoration:underline">' +
-      'View PDF →</a>' +
+      '<td class="nowrap"><span class="sop-code">' + esc(r.irNumber) + '</span>' +
+        (r.rev ? '<div class="cell-sub">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
+      '<td class="sop-meta"><div class="nowrap" style="color:#333">' + esc(r.dateOfEvent) + '</div><div class="cell-sub">' + esc(r.locationOfEvent) + '</div></td>' +
+      '<td class="sop-meta"><div style="color:#333">' + esc(r.problemSummary) + '</div>' +
+        (r.warehouseDamage && (r.brand || r.sku) ? '<div class="cell-sub">' + esc([r.brand, r.sku].filter(Boolean).join(' · ')) + '</div>' : '') +
+        _irTrackerChip(r) + '</td>' +
+      '<td class="sop-meta cell-people"><div title="' + esc(r.submittedBy) + '">' + esc(r.submittedBy) + '</div>' +
+        '<div class="cell-sub" title="Approved by">Approved: ' + esc(r.approvedBy || '—') + '</div></td>' +
+      '<td class="sop-meta nowrap">' + fmtDate(r.submittedAt) + '</td>' +
+      '<td class="nowrap"><a href="' + esc(r.pdfUrl) + '" target="_blank" rel="noopener noreferrer" ' +
+      'onclick="event.stopPropagation()" style="font-size:12px;color:#16a34a;text-decoration:underline">View PDF →</a>' +
       (canRevise ? '<div style="margin-top:6px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" ' +
         'onclick="event.stopPropagation();openIrReviseApproved(\'' + esc(r.irNumber) + '\')">Revise</button></div>' : '') +
-      '</td>' +
-      '</tr>';
+      '</td></tr>';
+    if (_irOpenPick[r.irNumber] && (r.qtPending || []).length) {
+      html += '<tr class="ir-detail" onclick="event.stopPropagation()"><td></td><td colspan="5">' + _irPickRow(r) + '</td></tr>';
+    }
   });
-  html += '</tbody></table>';
-  body.innerHTML = html;
+  body.innerHTML = html + '</tbody></table>';
 }
 
 // Reports routed to the signed-in user for Approved By sign-off.
@@ -4299,6 +4535,10 @@ function showNewIrForm() {
   renderIrPhotosPreview();
 
   document.getElementById('ir-form-error').style.display = 'none';
+  // New reports start dated today (Manila); edits load their own date over it.
+  document.getElementById('ir-date-of-event').value = new Date(Date.now() + 8 * 36e5).toISOString().slice(0, 10);
+  _irClearMarks();
+  irGoStep(1, true);
   document.getElementById('ir-new-view').classList.add('active');
   document.getElementById('ir-new-view').style.display = 'block';
 }
@@ -4360,7 +4600,134 @@ function collectIrFields() {
   };
 }
 
+// ── Incident report form steps ────────────────────────────────────────────
+// The form is shown in four steps. Each step is checked before moving on, and
+// Submit re-checks everything (jumping back to the first step with a problem).
+var IR_STEPS = ['What happened', 'Problem & details', 'Cause & actions', 'Sign-off & send'];
+var _irStep = 1, _irApproverDirLoaded = false;
+
+function _irClearMarks() {
+  document.querySelectorAll('#ir-new-view .field-invalid').forEach(function(el) { el.classList.remove('field-invalid'); });
+  document.querySelectorAll('#ir-new-view .field-err').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#ir-steps .ir-step-pill.bad').forEach(function(el) { el.classList.remove('bad'); });
+}
+
+function _irMark(el, msg) {
+  if (!el) return;
+  el.classList.add('field-invalid');
+  var holder = el.closest('.field') || el.parentNode;
+  if (msg && holder && !holder.querySelector(':scope > .field-err')) {
+    var d = document.createElement('div'); d.className = 'field-err'; d.textContent = msg; holder.appendChild(d);
+  }
+  var clear = function() { el.classList.remove('field-invalid'); var e = holder && holder.querySelector(':scope > .field-err'); if (e) e.remove(); };
+  el.addEventListener('input', clear, { once: true });
+  el.addEventListener('change', clear, { once: true });
+}
+
+// Returns the first element with a problem on step n (marking every problem), or null.
+function _irCheckStep(n) {
+  var first = null, $ = function(id) { return document.getElementById(id); };
+  var need = function(id, msg) {
+    var el = $(id); if (el && !String(el.value || '').trim()) { _irMark(el, msg); first = first || el; }
+  };
+  if (n === 1) {
+    need('ir-date-of-event', 'When did it happen?');
+    need('ir-location', 'Where did it happen?');
+    need('ir-description', 'Describe what happened, including the affected item.');
+  }
+  if (n === 2) {
+    var anyBox = Array.prototype.some.call(document.querySelectorAll('#ir-checkgrid input[type=checkbox]'), function(c) { return c.checked; }) ||
+                 ($('ir-others-check') && $('ir-others-check').checked);
+    if (!anyBox) { var g = $('ir-checkgrid'); _irMark(g, null); first = first || g;
+      var gh = g.parentNode; if (!gh.querySelector(':scope > .field-err')) { var d = document.createElement('div'); d.className = 'field-err'; d.style.marginTop = '10px'; d.textContent = 'Tick at least one problem.'; gh.insertBefore(d, g.nextSibling); } }
+    if ($('ir-others-check') && $('ir-others-check').checked) need('ir-others-text', 'Say what the other problem is.');
+    if (_irWarehouseChecked()) {
+      need('ir-brand', 'Brand is needed to link the Quarantine Tracker.');
+      need('ir-sku', 'SKU is needed to link the Quarantine Tracker.');
+    }
+  }
+  if (n === 4) {
+    need('ir-checked-by', 'Your full name.');
+    if (!_irCheckedSigDataUrl) { var sb = $('ir-checked-sig-box'); _irMark(sb, 'Add your signature.'); first = first || sb; }
+    var ae = $('ir-approved-email'), v = String(ae.value || '').trim().toLowerCase();
+    var me = App.user ? String(App.user.email || '').toLowerCase() : '';
+    if (!v) { _irMark(ae, 'Who should approve this report?'); first = first || ae; }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { _irMark(ae, 'That doesn\'t look like an email address.'); first = first || ae; }
+    else if (v === me) { _irMark(ae, 'You can\'t approve your own report — choose your supervisor.'); first = first || ae; }
+  }
+  if (first) { var pill = document.querySelector('#ir-steps .ir-step-pill[data-n="' + n + '"]'); if (pill) pill.classList.add('bad'); }
+  return first;
+}
+
+function _irRenderSteps() {
+  var el = document.getElementById('ir-steps'); if (!el) return;
+  el.innerHTML = IR_STEPS.map(function(t, i) {
+    var n = i + 1;
+    return '<button type="button" class="ir-step-pill' + (n === _irStep ? ' cur' : n < _irStep ? ' done' : '') + '" data-n="' + n + '" ' +
+      'onclick="irGoStep(' + n + ')"><span class="n">' + (n < _irStep ? '✓' : n) + '</span><span class="t">' + esc(t) + '</span></button>';
+  }).join('');
+  document.querySelectorAll('#ir-new-view [data-ir-step]').forEach(function(sec) {
+    sec.style.display = Number(sec.getAttribute('data-ir-step')) === _irStep ? '' : 'none';
+  });
+  var last = _irStep === IR_STEPS.length;
+  // A new report is sent from the last step. When editing or revising an
+  // existing one, every step is already filled in, so Save is always shown.
+  var editing = !!(_irEditingDraftId || _irRevisingIrNumber);
+  document.getElementById('ir-step-back').style.display = _irStep > 1 ? '' : 'none';
+  document.getElementById('ir-step-next').style.display = last ? 'none' : '';
+  document.getElementById('ir-step-next').className = editing ? 'btn btn-secondary ir-step-btn' : 'btn-submit ir-step-btn';
+  document.getElementById('btn-submit-ir').style.display = (last || editing) ? '' : 'none';
+  document.getElementById('ir-step-pos').textContent = 'Step ' + _irStep + ' of ' + IR_STEPS.length + ' · ' + IR_STEPS[_irStep - 1];
+}
+
+function irGoStep(n, force) {
+  n = Math.max(1, Math.min(IR_STEPS.length, n));
+  if (!force && n > _irStep) {
+    _irClearMarks();
+    for (var k = _irStep; k < n; k++) {
+      var bad = _irCheckStep(k);
+      if (bad) { _irStep = k; _irRenderSteps(); _irFocus(bad); return false; }
+    }
+  }
+  _irStep = n;
+  document.getElementById('ir-form-error').style.display = 'none';
+  _irRenderSteps();
+  var top = document.getElementById('ir-new-view'); if (top && top.scrollIntoView) top.scrollIntoView({ block: 'start' });
+  if (n === 4) _irLoadApproverDir();
+  return true;
+}
+
+function _irFocus(el) {
+  if (!el) return;
+  setTimeout(function() { try { el.scrollIntoView({ block: 'center' }); if (el.focus) el.focus({ preventScroll: true }); } catch (e) {} }, 30);
+}
+
+function _irLoadApproverDir() {
+  if (_irApproverDirLoaded) return;
+  _irApproverDirLoaded = true;
+  apiPost({ action: 'approverDirectory' }).then(function(r) {
+    var me = App.user ? String(App.user.email || '').toLowerCase() : '';
+    var list = ((r && r.ok && r.data) || []).filter(function(e) { return e !== me; });
+    document.getElementById('ir-approver-list').innerHTML = list.map(function(e) { return '<option value="' + esc(e) + '">'; }).join('');
+  }).catch(function() { _irApproverDirLoaded = false; });
+}
+
 function submitIncidentReport() {
+  _irClearMarks();
+  for (var k = 1; k <= IR_STEPS.length; k++) {
+    var bad = _irCheckStep(k);
+    if (bad) {
+      _irStep = k; _irRenderSteps(); _irFocus(bad);
+      var errEl0 = document.getElementById('ir-form-error');
+      errEl0.textContent = 'Please fix the highlighted fields in step ' + k + ' (' + IR_STEPS[k - 1] + ').';
+      errEl0.style.display = 'block';
+      return;
+    }
+  }
+  _submitIncidentReportChecked();
+}
+
+function _submitIncidentReportChecked() {
   var errEl = document.getElementById('ir-form-error');
   errEl.style.display = 'none';
   var fields = collectIrFields();
@@ -4441,6 +4808,7 @@ function openIrRevise(draftId) {
     _irEditingIsRevision = !!d.revisionOf;
     var btn = document.getElementById('btn-submit-ir');
     btn.disabled = false;
+    _irRenderSteps();   // editing: Save is available on every step
 
     var note = document.getElementById('ir-revise-note');
     if (d.status === 'returned') {
@@ -4522,6 +4890,7 @@ function _irPrefillForm(f) {
 function openIrReviseApproved(irNumber) {
   showNewIrForm();
   _irRevisingIrNumber = irNumber;
+  _irRenderSteps();   // revising: Submit is available on every step
   document.getElementById('ir-form-title').textContent = 'Revise ' + irNumber;
   var btn = document.getElementById('btn-submit-ir');
   btn.textContent = 'Submit revision for approval';
@@ -4579,104 +4948,143 @@ function backFromIrDecide() {
            App.currentTab === 'incidents' ? 'ir-view'   : 'audit-content');
 }
 
+// Review screen laid out like the paper form (same numbered sections), with
+// large tappable photos and an Approve / Return bar that stays in view.
+function _irRv(label, value, wide) {
+  if (value === undefined || value === null || String(value).trim() === '') return '';
+  return '<div class="rv-f' + (wide ? ' wide' : '') + '"><div class="rv-l">' + esc(label) + '</div><div class="rv-v">' + esc(value) + '</div></div>';
+}
+function _irRvSection(title, inner) {
+  return inner ? '<div class="rv-sec"><div class="rv-t">' + esc(title) + '</div><div class="rv-grid">' + inner + '</div></div>' : '';
+}
+
 function renderIrDecide(d) {
   var f = d.fields || {};
   var problemLabels = (f.problems || []).map(_irProblemLabel).filter(Boolean);
-  if (f.othersText) problemLabels.push(f.othersText);
+  if (f.othersText) problemLabels.push('Others: ' + f.othersText);
+  var wh = (f.problems || []).indexOf(IR_WAREHOUSE_DAMAGE_IDX) !== -1;
+  var html = '';
 
-  var rows = [
-    ['Date of Event', f.dateOfEvent], ['Location of Event', f.locationOfEvent],
-    ['Time of Event', f.timeOfEvent], ['Witnessed By', f.witnessedBy],
-    ['Ticket Number', f.ticketNumber], ['Description of Events', f.descriptionOfEvents],
-    ['Problem(s)', problemLabels.join(', ')],
-    ['Brand', f.brand], ['SKU', f.sku],
-    ['Order Number', f.orderNumber],
-    ['Total TN on Order', f.totalTnOn], ['Tracking Number', f.trackingNumber],
-    ['Department Involved', f.departmentInvolved], ['Client Name', f.clientName],
-    ['Customer Address', f.customerAddress], ['Customer Name', f.customerName],
-    ['Other Relevant Info', f.otherRelevantInfo], ['Basic Cause', f.basicCause],
-    ['Immediate Actions', f.immediateActions], ['Preventive Actions', f.preventiveActions],
-    ['Business Impact', f.businessImpact], ['Received by Customer', f.receivedByCustomer],
-    ['Checked By', f.checkedBy]
-  ];
-
-  var html = '<div class="sb-section">';
+  // Notices
   if (d.revisionOf) {
-    html += '<div style="font-size:13px;color:#1e3a8a;background:#dbeafe;border-radius:6px;' +
-      'padding:10px 12px;margin-bottom:14px"><strong>Revision ' + esc(String(d.revisionNo || '')) + ' of ' +
+    html += '<div class="rv-note rv-blue"><strong>Revision ' + esc(String(d.revisionNo || '')) + ' of ' +
       esc(d.revisionOf) + '</strong> — a correction to an already-approved report. Approving replaces the current ' +
       'version; the earlier PDF is kept as superseded.' +
       (d.revisionReason ? '<br><strong>Reason:</strong> ' + esc(d.revisionReason) : '') + '</div>';
   }
   if (d.status === 'pending_approval' && d.editCount) {
-    html += '<div style="font-size:12px;color:#555;background:#f5f5f5;border-radius:6px;padding:8px 12px;margin-bottom:14px">' +
-      'Updated by the preparer ' + fmtDate(d.updatedAt) + ' — this is the latest version.</div>';
+    html += '<div class="rv-note rv-grey">Updated by the preparer ' + fmtDate(d.updatedAt) + ' — this is the latest version.</div>';
   }
   if (d.status === 'returned') {
-    html += '<div style="font-size:13px;color:#92400e;background:#fef3c7;border-radius:6px;' +
-      'padding:10px 12px;margin-bottom:14px">Returned ' + fmtDate(d.returnedAt) +
+    html += '<div class="rv-note rv-amber">Returned ' + fmtDate(d.returnedAt) +
       ' — waiting on the preparer to revise and resubmit.' +
       (d.returnComments ? '<br><strong>Your comments:</strong> ' + esc(d.returnComments) : '') + '</div>';
   }
-  rows.forEach(function(r) {
-    if (!r[1]) return;
-    html += '<div style="margin-bottom:12px">' +
-      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">' +
-      esc(r[0]) + '</div>' +
-      '<div style="font-size:14px;color:#222;white-space:pre-wrap">' + esc(r[1]) + '</div></div>';
-  });
-  if (f.checkedBySig) {
-    html += '<div style="margin-bottom:12px">' +
-      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">Checked By — signature</div>' +
-      '<img src="' + esc(f.checkedBySig) + '" style="max-height:60px;max-width:240px;border:1px solid #eee;' +
-      'border-radius:4px;padding:4px;background:#fff;margin-top:4px"></div>';
-  }
-  if (f.photos && f.photos.length) {
-    html += '<div style="margin-bottom:12px">' +
-      '<div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.4px">Evidence Photos</div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
-      f.photos.map(function(p) {
-        return '<img src="' + esc(p.dataUrl) + '" style="width:90px;height:90px;object-fit:cover;' +
-          'border-radius:6px;border:1px solid #eee">';
-      }).join('') + '</div></div>';
-  }
-  html += '</div>';
+
+  // Summary
+  html += '<div class="rv-head">' +
+    '<div class="rv-meta"><span><b>' + esc(f.dateOfEvent || '') + '</b>' + (f.timeOfEvent ? ' · ' + esc(f.timeOfEvent) : '') + '</span>' +
+      '<span>' + esc(f.locationOfEvent || '') + '</span>' +
+      '<span>Submitted by ' + esc(d.prepEmail || '') + (d.prepAt ? ' · ' + fmtDate(d.prepAt) : '') + '</span>' +
+      '<span>Approver: ' + esc(d.approverName || d.approverEmail || '—') + '</span></div></div>';
+
+  // Sections, numbered as on the form
+  html += _irRvSection('Event details',
+    _irRv('Date of event', f.dateOfEvent) + _irRv('Time of event', f.timeOfEvent) +
+    _irRv('Location of event', f.locationOfEvent) + _irRv('Witnessed by', f.witnessedBy) + _irRv('Ticket number', f.ticketNumber));
+  var photos = (f.photos || []).map(function(p, i) {
+    return '<button type="button" class="rv-photo" onclick="openIrPhoto(' + i + ')" aria-label="Open photo ' + (i + 1) + '">' +
+      '<img src="' + esc(p.dataUrl) + '" alt=""></button>';
+  }).join('');
+  html += _irRvSection('1. Description of events', _irRv('What happened', f.descriptionOfEvents, true) +
+    (photos ? '<div class="rv-f wide"><div class="rv-l">Evidence photos · ' + f.photos.length + '</div><div class="rv-photos">' + photos + '</div></div>' : ''));
+  html += _irRvSection('2. Problem description', problemLabels.length
+    ? '<div class="rv-f wide"><div class="rv-chips" style="margin:0">' + problemLabels.map(function(p) { return '<span class="rv-chip">' + esc(p) + '</span>'; }).join('') + '</div></div>' : '');
+  html += _irRvSection('3. Detailed investigation', wh
+    ? _irRv('Brand', f.brand) + _irRv('SKU', f.sku) + _irRv('Department involved', f.departmentInvolved) + _irRv('Other relevant information', f.otherRelevantInfo, true)
+    : _irRv('Order number', f.orderNumber) + _irRv('Total TN/ON affected', f.totalTnOn) + _irRv('Tracking number', f.trackingNumber) +
+      _irRv('Department involved', f.departmentInvolved) + _irRv('Client name', f.clientName) + _irRv('Customer name', f.customerName) +
+      _irRv('Customer address', f.customerAddress, true) + _irRv('Other relevant information', f.otherRelevantInfo, true));
+  html += _irRvSection('4. Basic cause', _irRv('Cause', f.basicCause, true));
+  html += _irRvSection('5. Actions taken', _irRv('Immediate actions', f.immediateActions, true) + _irRv('Preventive actions', f.preventiveActions, true));
+  html += _irRvSection('6. Other details', _irRv('Business impact', f.businessImpact) + _irRv('Received by customer', f.receivedByCustomer) +
+    _irRv('Checked by', f.checkedBy) +
+    (f.checkedBySig ? '<div class="rv-f"><div class="rv-l">Checked by — signature</div><img class="rv-sig" src="' + esc(f.checkedBySig) + '" alt="signature"></div>' : ''));
 
   if (d.status === 'pending_approval') {
     var meEmail = App.user ? String(App.user.email || '').toLowerCase() : '';
     var asAdmin = String(d.approverEmail || '').toLowerCase() !== meEmail;
-    html += '<div class="sb-section"><div class="sb-label">Your decision · ' + (asAdmin ? 'Admin' : 'Approver') + '</div>' +
+    html += '<div class="rv-sec rv-decide" id="ir-decide-panel"><div class="rv-t">Your decision · ' + (asAdmin ? 'Admin' : 'Approver') + '</div>' +
       '<div class="decision-area">' +
       (asAdmin
-        ? '<div style="font-size:12px;color:#92400e;background:#fef3c7;border-radius:8px;padding:8px 10px;margin-bottom:10px">' +
+        ? '<div class="rv-note rv-amber" style="margin-bottom:12px">' +
             'This report is routed to <b>' + esc(d.approverName || d.approverEmail) + '</b>. If you approve, the report shows ' +
             '<b>your</b> name and signature as Approved By, not theirs. ' +
             '<a href="#" onclick="event.preventDefault();openIrReassign(\'' + esc(d.draftId) + '\')" style="color:#92400e;font-weight:600">Change approver instead</a></div>' +
-          '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your name on the report</div>' +
+          '<div style="margin-bottom:12px"><div class="rv-l" style="margin-bottom:6px">Your name on the report</div>' +
           '<input id="ir-decide-name" type="text" value="' + esc((App.user && (App.user.name || App.user.email)) || '') + '" ' +
-            'style="width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:13px"></div>'
+            'style="width:100%;box-sizing:border-box;padding:9px 11px;border:1.5px solid #e0e0e0;border-radius:8px;font:inherit;font-size:13px"></div>'
         : '') +
-      '<div style="margin-bottom:10px">' +
-        '<div style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Your signature *</div>' +
+      '<div class="rv-decide-grid"><div>' +
+        '<div class="rv-l" style="margin-bottom:6px">Your signature * <span style="text-transform:none;font-weight:500;color:#999">— needed to approve</span></div>' +
         '<div id="ir-decide-sig-box" onclick="openSigModal(\'ir-decide\')" ' +
-          'style="border:1.5px dashed #e0e0e0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s">' +
+          'style="border:1.5px dashed #d4d4d4;border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:#fafafa;transition:border .15s;min-height:46px">' +
           '<div id="ir-decide-sig-preview-wrap" style="display:none;margin-bottom:6px">' +
             '<img id="ir-decide-sig-preview" style="max-height:50px;max-width:200px;border:1px solid #eee;border-radius:4px;padding:3px;background:#fff">' +
           '</div>' +
-          '<div id="ir-decide-sig-text" style="font-size:12px;color:#aaa">✍ Click to draw, type, or upload</div>' +
+          '<div id="ir-decide-sig-text" style="font-size:13px;color:#999">✍ Tap to sign</div>' +
         '</div>' +
         '<div id="ir-decide-sig-clear" style="display:none;margin-top:4px">' +
           '<button type="button" onclick="event.stopPropagation();clearIrDecideSig()" class="btn-ghost btn-ghost-danger" style="font-size:11px">✕ Remove</button>' +
-        '</div>' +
-      '</div>' +
-      '<textarea id="ir-decide-comments" placeholder="Add comments (required if returning)…"></textarea>' +
-      '<button class="decision-btn db-approve" onclick="decideIrReport(\'approve\')">Approve</button>' +
-      '<button class="decision-btn db-reject" onclick="decideIrReport(\'return\')">Return with comments</button>' +
+        '</div></div>' +
+        '<div><div class="rv-l" style="margin-bottom:6px">Comments <span style="text-transform:none;font-weight:500;color:#999">— required to return</span></div>' +
+        '<textarea id="ir-decide-comments" placeholder="What needs to change, or a note for the record…"></textarea></div>' +
+      '</div></div></div>' +
+      '<div class="rv-bar"><div class="rv-bar-inner">' +
+        '<span class="rv-bar-hint" id="ir-rv-hint">Review the report, sign, then approve — or return it with comments.</span>' +
+        '<button class="decision-btn db-reject" onclick="irStickyDecide(\'return\')">Return with comments</button>' +
+        '<button class="decision-btn db-approve rv-approve" onclick="irStickyDecide(\'approve\')">Approve</button>' +
       '</div></div>';
   }
 
   document.getElementById('ir-decide-body').innerHTML = html;
   _irDecideSigDataUrl = null;
+}
+
+// The sticky bar's buttons: guide the approver to what's missing instead of a toast.
+function irStickyDecide(decision) {
+  var hint = document.getElementById('ir-rv-hint');
+  if (decision === 'approve' && !_irDecideSigDataUrl) {
+    var box = document.getElementById('ir-decide-sig-box');
+    if (box) { box.scrollIntoView({ block: 'center', behavior: 'smooth' }); box.style.borderColor = '#ef4444'; }
+    if (hint) { hint.textContent = 'Add your signature first.'; hint.style.color = '#b91c1c'; }
+    openSigModal('ir-decide');
+    return;
+  }
+  var c = document.getElementById('ir-decide-comments');
+  if (decision === 'return' && c && !c.value.trim()) {
+    c.scrollIntoView({ block: 'center', behavior: 'smooth' }); c.focus({ preventScroll: true }); c.style.borderColor = '#ef4444';
+    if (hint) { hint.textContent = 'Write what needs to change, then press Return again.'; hint.style.color = '#b91c1c'; }
+    return;
+  }
+  decideIrReport(decision);
+}
+
+function openIrPhoto(i) {
+  var d = App.currentIrDraft, p = d && d.fields && (d.fields.photos || [])[i];
+  if (!p) return;
+  var n = d.fields.photos.length;
+  var ov = document.getElementById('ir-photo-viewer');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'ir-photo-viewer';
+    ov.onclick = function(e) { if (e.target === ov) ov.remove(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = '<img src="' + esc(p.dataUrl) + '" alt="">' +
+    '<button class="pv-x" onclick="document.getElementById(\'ir-photo-viewer\').remove()" aria-label="Close">✕</button>' +
+    (n > 1 ? '<button class="pv-nav pv-prev" onclick="openIrPhoto(' + ((i - 1 + n) % n) + ')" aria-label="Previous">‹</button>' +
+             '<button class="pv-nav pv-next" onclick="openIrPhoto(' + ((i + 1) % n) + ')" aria-label="Next">›</button>' +
+             '<div class="pv-n">' + (i + 1) + ' / ' + n + '</div>' : '');
 }
 
 function decideIrReport(decision) {
@@ -4876,18 +5284,69 @@ function _loadNcarListLegacy() {
   }).catch(function() { renderNcarDraftsTable([]); });
 }
 
+var _ncarAll = [], _ncarFilter = { chip: 'all', q: '' };
+var NCAR_CHIPS = [
+  { key: 'all', label: 'All' },
+  { key: 'major', label: 'Major', test: function(r) { return String(r.degree || '').toLowerCase() === 'major'; } },
+  { key: 'minor', label: 'Minor', test: function(r) { return String(r.degree || '').toLowerCase() === 'minor'; } },
+  { key: 'month', label: 'Last 30 days', test: function(r) { return Date.now() - new Date(r.approvedAt).getTime() < 30 * 864e5; } },
+  { key: 'mine', label: 'Mine', test: function(r) {
+      var me = App.user ? String(App.user.email || '').toLowerCase() : '';
+      return String(r.initiatorEmail || '').toLowerCase() === me; } }
+];
+
 function renderNcarTable(list) {
-  var body = document.getElementById('ncar-table-body');
+  _ncarAll = list || [];
   var headerBtn = document.getElementById('ncar-header-new-btn');
-  if (!list.length) {
-    if (headerBtn) headerBtn.style.display = 'none';
+  if (headerBtn) headerBtn.style.display = _ncarAll.length ? '' : 'none';
+  _renderNcarList();
+}
+
+function setNcarFilter(chip, q) {
+  if (chip !== null && chip !== undefined) _ncarFilter.chip = chip;
+  if (q !== null && q !== undefined) {
+    _ncarFilter.q = q;
+    var inp = document.getElementById('ncar-search'); if (inp && inp.value !== q) inp.value = q;
+  }
+  _renderNcarList();
+}
+
+function _renderNcarList() {
+  var body = document.getElementById('ncar-table-body');
+  var chipsEl = document.getElementById('ncar-chips');
+  var countEl = document.getElementById('ncar-list-count');
+  var clr = document.getElementById('ncar-search-clear');
+  if (clr) clr.style.display = _ncarFilter.q ? 'block' : 'none';
+  if (!_ncarAll.length) {
+    if (chipsEl) chipsEl.innerHTML = '';
+    if (countEl) countEl.textContent = '';
     body.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>' +
       'No NCARs filed yet.' +
       '<div style="margin-top:10px"><button onclick="showNewNcarForm()" ' +
       'class="btn btn-primary">+ New NCAR</button></div></div>';
     return;
   }
-  if (headerBtn) headerBtn.style.display = '';
+  var q = _ncarFilter.q.toLowerCase();
+  var searched = _ncarAll.filter(function(r) {
+    if (!q) return true;
+    var hay = [r.ncarId, r.department, r.problemWhat, r.degree, r.initiatorEmail].join(' ').toLowerCase();
+    return q.split(/\s+/).filter(Boolean).every(function(w) { return hay.indexOf(w) !== -1; });
+  });
+  if (chipsEl) chipsEl.innerHTML = NCAR_CHIPS.filter(function(c) {
+      return c.key === 'all' || c.key === _ncarFilter.chip || _ncarAll.some(c.test);
+    }).map(function(c) {
+      var n = c.test ? searched.filter(c.test).length : searched.length;
+      return '<button class="chip' + (_ncarFilter.chip === c.key ? ' on' : '') + '" onclick="setNcarFilter(\'' + c.key + '\')">' +
+        esc(c.label) + '<span class="chip-n">' + n + '</span></button>';
+    }).join('');
+  var chip = NCAR_CHIPS.filter(function(c) { return c.key === _ncarFilter.chip; })[0] || NCAR_CHIPS[0];
+  var list = chip.test ? searched.filter(chip.test) : searched;
+  if (countEl) countEl.textContent = list.length === _ncarAll.length ? '· ' + _ncarAll.length : '· ' + list.length + ' of ' + _ncarAll.length;
+  if (!list.length) {
+    body.innerHTML = '<div class="list-empty">No NCARs match' + (_ncarFilter.q ? ' “' + esc(_ncarFilter.q) + '”' : '') +
+      '. <a href="#" onclick="event.preventDefault();setNcarFilter(\'all\',\'\')" style="color:#16a34a">Clear filters</a></div>';
+    return;
+  }
   var me = App.user ? App.user.email.toLowerCase() : '';
   var isSu = _ncarIsSuperuser();
   var html = '<table><thead><tr>' +
