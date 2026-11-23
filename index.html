@@ -1419,7 +1419,10 @@ body.th-dark .lm-tab-app { color: #94ffa1; font-size: 30px; font-weight: 700; le
         </div>
         <div class="field">
           <label>Location of Event *</label>
-          <input id="ir-location" type="text" placeholder="e.g. Locad Cabuyao Warehouse">
+          <input id="ir-location" type="text" value="Cabuyao Warehouse" readonly aria-readonly="true"
+            style="background:#f6f7f9;color:#374151;cursor:not-allowed">
+          <div class="field-hint" style="margin-top:4px">Fixed for now — every report is filed as IR-CAB. Note a bin or
+            area under "Other relevant information".</div>
         </div>
       </div>
       <div class="field-row" style="margin-top:12px">
@@ -1496,6 +1499,8 @@ body.th-dark .lm-tab-app { color: #94ffa1; font-size: 30px; font-weight: 700; le
         <div class="field"><label>SKU</label><input id="ir-sku" type="text" placeholder="e.g. KH-001, KH-002">
           <div class="field-hint" style="margin-top:4px">Same SKU as entered in the Quarantine Tracker (actual or system
             SKU). Separate several with commas.</div></div>
+        <div class="field" style="flex:0 0 150px;min-width:130px"><label>Qty affected (pcs)</label><input id="ir-qty" type="text" inputmode="numeric" placeholder="e.g. 2">
+          <div class="field-hint" style="margin-top:4px">As on the tracker row. Several SKUs: one each, e.g. 2, 1</div></div>
       </div>
       <div class="field-row" style="margin-top:12px">
         <div class="field" id="ir-tracking-number-wrap"><label>Tracking number</label><input id="ir-tracking-number" type="text"></div>
@@ -4337,9 +4342,9 @@ function toggleIrWarehouseMode() {
   show('ir-package-ids-row', !wh);
   show('ir-warehouse-ids-row', wh);
   document.getElementById('ir-investigation-hint').textContent = wh
-    ? 'For an item damaged in the warehouse, record the brand and SKU affected. Once approved, this report\'s link is ' +
-      'added to the matching Quarantine Tracker row (column AI): same brand and SKU, Damage by Warehouse = Yes, ' +
-      'entered on the day this report is submitted or the day before.'
+    ? 'For an item damaged in the warehouse, record the brand, SKU and quantity affected. Once approved, this report\'s link is ' +
+      'added to the matching Quarantine Tracker row (column AI): same brand, SKU and quantity, Damage by Warehouse = Yes, ' +
+      'entered on the event date, the day this report is submitted or the day before.'
     : 'For incidents involving packages, fill up the basic information below.';
   if (wh) loadIrBrandList();
   show('ir-tracking-number-wrap', !wh);
@@ -4469,10 +4474,13 @@ function _irTrackerStatus(r) {
   else if (!r.qtCheckedAt) html += line('Tracker: linking… (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
   else if (!(r.qtPending || []).length) html += line('Tracker: no matching row yet (' + (r.brand || '') + ' / ' + (r.sku || '') + ')');
   (r.qtPending || []).forEach(function(p) {
-    html += line(p.otherBrand
+    if (p.late) html += line('Tracker: reported after the event (' + (p.eventDay || r.dateOfEvent || '') + '), so not linked automatically. SKU ' + p.sku +
+      ' is on ' + p.candidates.length + ' row' + (p.candidates.length === 1 ? '' : 's') + ' from around that date' +
+      (p.otherBrand ? ' under another brand' : '') + ' — link the one for this report:', '#b45309');
+    else html += line(p.otherBrand
       ? 'Tracker: no row under brand "' + (r.brand || '') + '", but SKU ' + p.sku + ' (Damage by Warehouse = Yes, same dates) is on ' +
         p.candidates.length + ' row' + (p.candidates.length === 1 ? '' : 's') + ' under another brand — link it if it\'s the same item:'
-      : 'Tracker: SKU ' + p.sku + ' matches ' + p.candidates.length + ' rows — pick the one for this report:', '#b45309');
+      : 'Tracker: SKU ' + p.sku + ' matches ' + p.candidates.length + ' rows' + (p.qtyMismatch ? ' (none for ' + p.qty + ' pcs)' : '') + ' — pick the one for this report:', '#b45309');
     p.candidates.forEach(function(c) {
       var when = c.at ? fmtDate(c.at) : '';
       var bits = ['Row ' + c.row, p.otherBrand ? c.brand : '', when, c.qty ? c.qty + ' pcs' : '', c.location, c.reason].filter(Boolean).join(' · ');
@@ -4553,12 +4561,32 @@ function toggleIrPick(irNumber) {
   _renderIrList();
 }
 
+// Why quantity didn't settle it: none of the rows has the reported quantity,
+// or the report has none (older reports, filed before Qty was asked for).
+function _irQtyNote(p, r) {
+  if (p.qtyMismatch) return '<div style="margin-top:4px">None of these rows is for <b>' + esc(String(p.qty)) + ' pcs</b> as on the report — check the quantity, or pick the row if it\'s the same item.</div>';
+  if (p.qty == null && !r.qty) return '<div style="margin-top:4px;color:#888">This report has no quantity. Reports with Qty affected filled in pick the matching row automatically.</div>';
+  return '';
+}
+
+function _irFmtDay(d) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ''));
+  if (!m) return String(d || '');
+  return Number(m[3]) + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m[2]) - 1] + ' ' + m[1];
+}
+
 function _irPickRow(r) {
   var html = '';
   (r.qtPending || []).forEach(function(p) {
-    html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">' + (p.otherBrand
+    html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">' + (p.late
+      ? 'This was reported after the event (' + esc(_irFmtDay(p.eventDay || r.dateOfEvent)) + '), so the QMS doesn\'t link it automatically. SKU <b>' + esc(p.sku) +
+        '</b> is on ' + (p.candidates.length === 1 ? 'this tracker row' : 'these ' + p.candidates.length + ' tracker rows') + ' from around that date' +
+        (p.otherBrand ? ' under another brand' : '') + '. Link the one for this report:'
+      : p.otherBrand
       ? 'No tracker row under brand <b>' + esc(r.brand || '') + '</b>, but SKU <b>' + esc(p.sku) + '</b> (Damage by Warehouse = Yes, same dates) is on these rows under another brand. Link it if it\'s the same item:'
-      : 'SKU <b>' + esc(p.sku) + '</b> matches ' + p.candidates.length + ' tracker rows. Pick the one for this report:') + '</div>';
+      : 'SKU <b>' + esc(p.sku) + '</b> matches ' + p.candidates.length + ' tracker row' + (p.candidates.length === 1 ? '' : 's') +
+        (p.qty != null && !p.qtyMismatch ? ' with the same quantity (' + esc(String(p.qty)) + ' pcs)' : '') +
+        (p.candidates.length === 1 ? '. Link it if it\'s for this report:' : '. Pick the one for this report:')) + _irQtyNote(p, r) + '</div>';
     html += '<div class="pick-list">' + p.candidates.map(function(c) {
       var bits = [p.otherBrand && c.brand ? 'Brand: ' + c.brand : '', c.at ? fmtDate(c.at) : '', c.qty ? c.qty + ' pcs' : '',
                   c.location, c.reason].filter(Boolean).map(esc).join(' · ');
@@ -4613,7 +4641,7 @@ function _renderIrList() {
         (r.rev ? '<div class="cell-sub">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
       '<td class="sop-meta"><div class="nowrap" style="color:#333">' + esc(r.dateOfEvent) + '</div><div class="cell-sub">' + esc(r.locationOfEvent) + '</div></td>' +
       '<td class="sop-meta"><div style="color:#333">' + esc(r.problemSummary) + '</div>' +
-        (r.warehouseDamage && (r.brand || r.sku) ? '<div class="cell-sub">' + esc([r.brand, r.sku].filter(Boolean).join(' · ')) + '</div>' : '') +
+        (r.warehouseDamage && (r.brand || r.sku) ? '<div class="cell-sub">' + esc([r.brand, r.sku, r.qty ? r.qty + ' pcs' : ''].filter(Boolean).join(' · ')) + '</div>' : '') +
         _irTrackerChip(r) + '</td>' +
       '<td class="sop-meta cell-people"><div title="' + esc(r.submittedBy) + '">' + esc(r.submittedBy) + '</div>' +
         '<div class="cell-sub" title="Approved by">Approved: ' + esc(r.approvedBy || '—') + '</div></td>' +
@@ -4805,7 +4833,7 @@ function showNewIrForm() {
   renderIrChecklist();
   // Clear every field so a previous draft can't bleed into a new report.
   ['ir-date-of-event','ir-location','ir-time-of-event','ir-witnessed-by','ir-ticket-number',
-   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-brand','ir-sku','ir-tracking-number',
+   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-brand','ir-sku','ir-qty','ir-tracking-number',
    'ir-department','ir-client-name','ir-customer-address','ir-customer-name','ir-other-info',
    'ir-basic-cause','ir-immediate-actions','ir-preventive-actions','ir-checked-by',
    'ir-business-impact','ir-approved-by','ir-approved-email','ir-received-by-customer'].forEach(function(id) {
@@ -4830,6 +4858,7 @@ function showNewIrForm() {
   renderIrPhotosPreview();
 
   document.getElementById('ir-form-error').style.display = 'none';
+  if (IR_FIXED_LOCATION) document.getElementById('ir-location').value = IR_FIXED_LOCATION;
   // New reports start dated today (Manila); edits load their own date over it.
   document.getElementById('ir-date-of-event').value = new Date(Date.now() + 8 * 36e5).toISOString().slice(0, 10);
   _irClearMarks();
@@ -4876,6 +4905,7 @@ function collectIrFields() {
     totalTnOn: wh ? '' : v('ir-total-tn-on'),
     brand: wh ? (fixIrBrand(), v('ir-brand')) : '',
     sku: wh ? v('ir-sku') : '',
+    qty: wh ? v('ir-qty') : '',
     trackingNumber: wh ? '' : v('ir-tracking-number'),
     departmentInvolved: v('ir-department'),
     clientName: wh ? '' : v('ir-client-name'),
@@ -4898,6 +4928,8 @@ function collectIrFields() {
 // ── Incident report form steps ────────────────────────────────────────────
 // The form is shown in four steps. Each step is checked before moving on, and
 // Submit re-checks everything (jumping back to the first step with a problem).
+// Location of Event is fixed for now (must match IR_FIXED_LOCATION in Code.gs).
+var IR_FIXED_LOCATION = 'Cabuyao Warehouse';
 var IR_STEPS = ['What happened', 'Problem & details', 'Cause & actions', 'Sign-off & send'];
 var _irStep = 1, _irApproverDirLoaded = false;
 
@@ -4939,6 +4971,14 @@ function _irCheckStep(n) {
     if (_irWarehouseChecked()) {
       need('ir-brand', 'Brand is needed to link the Quarantine Tracker.');
       need('ir-sku', 'SKU is needed to link the Quarantine Tracker.');
+      need('ir-qty', 'How many pieces? It picks the right tracker row.');
+      var qEl = $('ir-qty'), qv = String(qEl && qEl.value || '').trim();
+      if (qv) {
+        var nSku = Math.max(1, String($('ir-sku').value || '').split(/[,;\n]/).filter(function(x) { return x.trim(); }).length);
+        var qs = qv.split(/[,;\n]/).map(function(x) { return x.trim(); }).filter(Boolean);
+        var okQ = qs.length === nSku && qs.every(function(x) { return /^\d+\s*(pcs?|pieces?|pc\.?)?$/i.test(x) && parseInt(x, 10) > 0; });
+        if (!okQ) { _irMark(qEl, nSku > 1 ? 'One quantity per SKU, in the same order, e.g. 2, 1' : 'A whole number of pieces, e.g. 2'); first = first || qEl; }
+      }
     }
   }
   if (n === 4) {
@@ -5134,7 +5174,7 @@ function _irPrefillForm(f) {
     f = f || {};
     var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
     set('ir-date-of-event', f.dateOfEvent);
-    set('ir-location', f.locationOfEvent);
+    set('ir-location', IR_FIXED_LOCATION || f.locationOfEvent);
     set('ir-time-of-event', f.timeOfEvent);
     set('ir-witnessed-by', f.witnessedBy);
     set('ir-ticket-number', f.ticketNumber);
@@ -5163,6 +5203,7 @@ function _irPrefillForm(f) {
     });
     set('ir-brand', f.brand);
     set('ir-sku', f.sku);
+    set('ir-qty', f.qty);
     toggleIrWarehouseMode();
     checkIrBrand();
 
@@ -5296,7 +5337,7 @@ function renderIrDecide(d) {
   html += _irRvSection('2. Problem description', problemLabels.length
     ? '<div class="rv-f wide"><div class="rv-chips" style="margin:0">' + problemLabels.map(function(p) { return '<span class="rv-chip">' + esc(p) + '</span>'; }).join('') + '</div></div>' : '');
   html += _irRvSection('3. Detailed investigation', wh
-    ? _irRv('Brand', f.brand) + _irRv('SKU', f.sku) + _irRv('Department involved', f.departmentInvolved) + _irRv('Other relevant information', f.otherRelevantInfo, true)
+    ? _irRv('Brand', f.brand) + _irRv('SKU', f.sku) + _irRv('Qty affected (pcs)', f.qty) + _irRv('Department involved', f.departmentInvolved) + _irRv('Other relevant information', f.otherRelevantInfo, true)
     : _irRv('Order number', f.orderNumber) + _irRv('Total TN/ON affected', f.totalTnOn) + _irRv('Tracking number', f.trackingNumber) +
       _irRv('Department involved', f.departmentInvolved) + _irRv('Client name', f.clientName) + _irRv('Customer name', f.customerName) +
       _irRv('Customer address', f.customerAddress, true) + _irRv('Other relevant information', f.otherRelevantInfo, true));
