@@ -4768,6 +4768,12 @@ function _irFmtDay(d) {
 function _irPickRow(r) {
   var html = '';
   (r.qtPending || []).forEach(function(p) {
+    if (p.misplaced) {
+      html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">' + p.misplaced.map(function(m) {
+        return 'Tracker row <b>' + Number(m.row) + '</b> has this report\'s link, but that row is a different item (SKU ' + esc(m.sku || '?') + ').';
+      }).join(' ') + ' Clear that cell in column AI of WH_Copy; the QMS then offers the right row here.</div>';
+      return;
+    }
     if (!p.candidates.length) {   // the preparer's pick was taken and nothing else qualifies
       html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">SKU <b>' + esc(p.sku) + '</b>: ' + _irQtyNote(p, r).replace(/^<div[^>]*>|<\/div>$/g, '') + '</div>';
       return;
