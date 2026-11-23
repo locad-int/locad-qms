@@ -897,6 +897,21 @@ body.th-dark .lm-tab-app { color: #94ffa1; font-size: 30px; font-weight: 700; le
 }
 
 </style>
+<style id="qt-pick-css">
+.qt-pick{margin-top:14px;border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:12px 14px;background:var(--surface-2,#fafafa)}
+.qt-pick-h{font-weight:600;font-size:13px;margin-bottom:2px}
+.qt-pick-sub{font-size:12px;color:#6b7280;margin-bottom:8px}
+.qt-pick-warn{font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin:6px 0 8px}
+.qt-opt{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1px solid var(--border,#e5e7eb);border-radius:10px;margin-top:6px;background:#fff;cursor:pointer;font-size:13px;line-height:1.35}
+.qt-opt input{margin-top:2px;flex:none}
+.qt-opt.on{border-color:#16a34a;box-shadow:0 0 0 2px rgba(22,163,74,.15)}
+.qt-opt.taken{opacity:.55;cursor:not-allowed;background:transparent}
+.qt-opt .qt-meta{color:#6b7280}
+.qt-tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px}
+.qt-tag.ok{background:#dcfce7;color:#166534}.qt-tag.no{background:#f3f4f6;color:#4b5563}.qt-tag.br{background:#fef3c7;color:#92400e}
+.qt-pick.field-invalid{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.12)}
+body.th-dark .qt-opt{background:var(--surface,#fff)}
+</style>
 </head>
 <body class="th-dark">
 
@@ -1415,7 +1430,7 @@ body.th-dark .lm-tab-app { color: #94ffa1; font-size: 30px; font-weight: 700; le
       <div class="field-row">
         <div class="field">
           <label>Date of Event *</label>
-          <input id="ir-date-of-event" type="date">
+          <input id="ir-date-of-event" type="date" onchange="irQtSchedule()">
         </div>
         <div class="field">
           <label>Location of Event *</label>
@@ -1492,16 +1507,21 @@ body.th-dark .lm-tab-app { color: #94ffa1; font-size: 30px; font-weight: 700; le
       </div>
       <div class="field-row" id="ir-warehouse-ids-row" style="display:none">
         <div class="field"><label>Brand</label><input id="ir-brand" type="text" list="ir-brand-list" autocomplete="off"
-            oninput="checkIrBrand()" onchange="fixIrBrand()" onblur="fixIrBrand()" placeholder="Pick from the list">
+            oninput="checkIrBrand();irQtSchedule()" onchange="fixIrBrand()" onblur="fixIrBrand()" placeholder="Pick from the list">
           <datalist id="ir-brand-list"></datalist>
           <div id="ir-brand-note" class="field-hint" style="display:none;color:#92400e;margin-top:4px">Not a brand used in the Quarantine
             Tracker — pick one from the list so the report can be linked to the tracker row.</div></div>
-        <div class="field"><label>SKU</label><input id="ir-sku" type="text" placeholder="e.g. KH-001, KH-002">
+        <div class="field"><label>SKU</label><input id="ir-sku" type="text" placeholder="e.g. KH-001, KH-002" oninput="irQtSchedule()">
           <div class="field-hint" style="margin-top:4px">Same SKU as entered in the Quarantine Tracker (actual or system
             SKU). Separate several with commas.</div></div>
-        <div class="field" style="flex:0 0 150px;min-width:130px"><label>Qty affected (pcs)</label><input id="ir-qty" type="text" inputmode="numeric" placeholder="e.g. 2">
-          <div class="field-hint" style="margin-top:4px">As on the tracker row. Several SKUs: one each, e.g. 2, 1</div></div>
       </div>
+      <div class="field-row" id="ir-warehouse-ids-row2" style="display:none;margin-top:12px">
+        <div class="field"><label>Qty affected (pcs)</label><input id="ir-qty" type="text" inputmode="numeric" placeholder="e.g. 2" oninput="_irQtRender()">
+          <div class="field-hint" style="margin-top:4px">As on the tracker row. Several SKUs: one each, e.g. 2, 1</div></div>
+        <div class="field"><label>Damage type</label><select id="ir-damage-type" onchange="_irQtRender()"><option value="">Pick one</option></select>
+          <div class="field-hint" style="margin-top:4px">Same reason as on the tracker row.</div></div>
+      </div>
+      <div id="ir-qt-pick" class="qt-pick" style="display:none"></div>
       <div class="field-row" style="margin-top:12px">
         <div class="field" id="ir-tracking-number-wrap"><label>Tracking number</label><input id="ir-tracking-number" type="text"></div>
         <div class="field"><label>Department involved</label><input id="ir-department" type="text"></div>
@@ -4332,6 +4352,172 @@ function fixIrBrand() {
   checkIrBrand();
 }
 
+// ── Which tracker row is this? ─────────────────────────────────────────────
+// Several pieces of the same SKU are often damaged around the same time, each
+// with its own tracker row and its own IR, and nothing else tells the rows
+// apart. The preparer knows which piece they are reporting, so the form lists
+// the matching tracker rows (same SKU, Damage by Warehouse = Yes, from the day
+// before the event) and they pick one. Rows already linked to another report
+// are shown as taken, which also flags a duplicate report before it's sent.
+var IR_DAMAGE_TYPES = ['Damaged - Packaging', 'Damaged Box', 'Damaged - Leaked', 'Damaged - Stained', 'Damaged - Dented',
+  'Damaged - Hole', 'Damaged - Broken', 'Damaged - Pest Bites', 'Open Seal', 'Melted / Deformed', 'Bad Odor'];
+var _irQt = { key: '', data: null, loading: false, err: '', picks: {}, prefill: null, timer: null };
+
+(function() {
+  var sel = document.getElementById('ir-damage-type');
+  if (sel) sel.innerHTML = '<option value="">Pick one</option>' +
+    IR_DAMAGE_TYPES.map(function(t) { return '<option>' + esc(t) + '</option>'; }).join('') + '<option>Other</option>';
+})();
+
+function _irQtSkuList(v) {
+  var out = [];
+  String(v || '').split(/[,;\n]/).map(function(x) { return x.trim().toLowerCase().replace(/\s+/g, ' '); }).filter(Boolean).forEach(function(x) {
+    var p = x.split('/').map(function(y) { return y.trim(); });
+    if (p.length > 1 && p.every(function(y) { return /^\d{6,}$/.test(y); })) out.push.apply(out, p); else out.push(x);
+  });
+  return out;
+}
+function _irReasonKey(v) { return String(v || '').trim().toLowerCase().replace(/^damaged?\b/, '').replace(/[^a-z0-9]/g, ''); }
+
+function _irQtReset(prefillRows) {
+  clearTimeout(_irQt.timer);
+  _irQt = { key: '', data: null, loading: false, err: '', picks: {}, prefill: null, timer: null };
+  if (prefillRows && prefillRows.length) {
+    _irQt.prefill = {};
+    prefillRows.forEach(function(p) { _irQt.prefill[String(p.sku).toLowerCase()] = Number(p.row); });
+  }
+  var el = document.getElementById('ir-qt-pick'); if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+function irQtSchedule() {
+  clearTimeout(_irQt.timer);
+  _irQt.timer = setTimeout(function() { irQtLoad(false); }, 700);
+}
+
+function irQtLoad(force) {
+  var panel = document.getElementById('ir-qt-pick');
+  if (!panel || !_irWarehouseChecked() || !App.user) return;
+  var val = function(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+  var brand = val('ir-brand'), sku = val('ir-sku'), ev = val('ir-date-of-event');
+  if (!sku) { _irQt.key = ''; _irQt.data = null; panel.style.display = 'none'; return; }
+  var key = [brand.toLowerCase(), _irQtSkuList(sku).join(','), ev].join('|');
+  if (!force && key === _irQt.key && (_irQt.data || _irQt.loading)) { _irQtRender(); return; }
+  _irQt.key = key; _irQt.loading = true; _irQt.err = '';
+  _irQtRender();
+  apiPost({ action: 'qtFormCandidates', brand: brand, sku: sku, dateOfEvent: ev, irNumber: _irRevisingIrNumber || '' }).then(function(r) {
+    if (_irQt.key !== key) return;
+    _irQt.loading = false;
+    if (r && r.ok) { _irQt.data = r.data; _irQt.err = ''; }
+    else { _irQt.data = null; _irQt.err = (r && r.message) || 'Couldn\'t read the Quarantine Tracker just now.'; }
+    _irQtSyncPicks();
+    _irQtRender();
+  }).catch(function(e) {
+    if (_irQt.key !== key) return;
+    _irQt.loading = false; _irQt.data = null; _irQt.err = 'Couldn\'t read the Quarantine Tracker just now (' + e.message + ').';
+    _irQtRender();
+  });
+}
+
+// Keep picks that still exist; apply a saved pick (editing) once its row shows up.
+function _irQtSyncPicks() {
+  var groups = (_irQt.data && _irQt.data.skus) || [], picks = {};
+  groups.forEach(function(g) {
+    var free = function(n) { return g.rows.some(function(r) { return r.row === n && (!r.linkedTo || r.linkedTo === 'this report'); }); };
+    var cur = _irQt.picks[g.sku];
+    if (cur === 'none' || (cur && free(cur))) picks[g.sku] = cur;
+    else if (_irQt.prefill && _irQt.prefill[g.sku] && free(_irQt.prefill[g.sku])) picks[g.sku] = _irQt.prefill[g.sku];
+  });
+  _irQt.picks = picks;
+}
+
+// The free rows that fit the typed quantity and damage type, for a hint.
+function _irQtSuggested(g, gi) {
+  var qs = String((document.getElementById('ir-qty') || {}).value || '').split(/[,;\n]/).map(function(x) { return parseInt(x, 10); }).filter(function(x) { return x > 0; });
+  var n = ((_irQt.data && _irQt.data.skus) || []).length;
+  var qty = qs.length === n ? qs[gi] : (n === 1 && qs.length === 1 ? qs[0] : null);
+  var dt = _irReasonKey((document.getElementById('ir-damage-type') || {}).value);
+  var free = g.rows.filter(function(r) { return !r.linkedTo || r.linkedTo === 'this report'; });
+  return free.filter(function(r) {
+    var rq = parseInt(String(r.qty || '').replace(/[^\d]/g, ''), 10);
+    return (qty == null || rq === qty) && (!dt || dt === 'other' || _irReasonKey(r.reason) === dt);
+  }).map(function(r) { return r.row; });
+}
+
+function irQtPick(sku, val) {
+  _irQt.picks[sku] = val === 'none' ? 'none' : Number(val);
+  var p = document.getElementById('ir-qt-pick'); if (p) { p.classList.remove('field-invalid'); var e = p.querySelector('.field-err'); if (e) e.remove(); }
+  _irQtRender();
+}
+
+function _irQtRender() {
+  var panel = document.getElementById('ir-qt-pick');
+  if (!panel) return;
+  if (!_irWarehouseChecked() || !_irQt.key) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  var keepErr = panel.querySelector('.field-err');
+  var html = '<div class="qt-pick-h">Which Quarantine Tracker row is this?</div>';
+  if (_irQt.loading) {
+    panel.innerHTML = html + '<div class="qt-pick-sub">Looking up the tracker…</div>';
+    return;
+  }
+  if (_irQt.err) {
+    panel.innerHTML = html + '<div class="qt-pick-sub">' + esc(_irQt.err) + ' You can still send the report; it links automatically.</div>';
+    return;
+  }
+  var groups = (_irQt.data && _irQt.data.skus) || [];
+  html += '<div class="qt-pick-sub">Rows with this SKU and Damage by Warehouse = Yes' +
+    (_irQt.data && _irQt.data.eventDay ? ', from the day before the event' : ', from today and yesterday') +
+    '. Pick the one for the item in this report.</div>';
+  groups.forEach(function(g, gi) {
+    var name = 'qtpick-' + gi;
+    var free = g.rows.filter(function(r) { return !r.linkedTo || r.linkedTo === 'this report'; });
+    var sug = _irQtSuggested(g, gi);
+    if (groups.length > 1) html += '<div style="font-size:12px;font-weight:600;margin-top:10px">SKU ' + esc(g.sku) + '</div>';
+    if (!g.rows.length) {
+      html += '<div class="qt-pick-sub" style="margin:4px 0 0">No tracker row for this SKU yet. Nothing to pick — the report links automatically once the tracker entry is made.</div>';
+      return;
+    }
+    if (!free.length) {
+      var by = g.rows.map(function(r) { return r.linkedTo; }).filter(function(x, i, a) { return a.indexOf(x) === i; }).join(', ');
+      html += '<div class="qt-pick-warn"><b>Every matching row is already linked to another report</b> (' + esc(by) + '). ' +
+        'Check this isn\'t a duplicate of that report. If it\'s a different piece, it needs its own tracker entry first.</div>';
+    }
+    g.rows.forEach(function(r) {
+      var taken = r.linkedTo && r.linkedTo !== 'this report';
+      var on = _irQt.picks[g.sku] === r.row;
+      var bits = [r.at ? fmtDate(r.at) : '', r.qty ? r.qty + ' pcs' : '', r.reason, r.location].filter(Boolean).map(esc).join(' · ');
+      html += '<label class="qt-opt' + (on ? ' on' : '') + (taken ? ' taken' : '') + '">' +
+        '<input type="radio" name="' + name + '" value="' + r.row + '"' + (on ? ' checked' : '') + (taken ? ' disabled' : '') +
+        ' onchange="irQtPick(\'' + esc(g.sku) + '\', this.value)">' +
+        '<span><b>Row ' + r.row + '</b> <span class="qt-meta">' + bits + '</span>' +
+        (r.otherBrand ? '<span class="qt-tag br">Brand: ' + esc(r.brand || '?') + '</span>' : '') +
+        (taken ? '<span class="qt-tag no">Linked to ' + esc(r.linkedTo) + '</span>' : '') +
+        (!taken && sug.length && sug.length < free.length && sug.indexOf(r.row) !== -1 ? '<span class="qt-tag ok">Matches qty &amp; damage type</span>' : '') +
+        '</span></label>';
+    });
+    var none = _irQt.picks[g.sku] === 'none';
+    html += '<label class="qt-opt' + (none ? ' on' : '') + '"><input type="radio" name="' + name + '" value="none"' + (none ? ' checked' : '') +
+      ' onchange="irQtPick(\'' + esc(g.sku) + '\', \'none\')"><span>Not on the tracker yet <span class="qt-meta">— link it automatically when it\'s entered</span></span></label>';
+  });
+  panel.innerHTML = html;
+  if (keepErr) panel.appendChild(keepErr);
+}
+
+// Step 2 check: every SKU with rows to choose from needs a choice.
+function _irQtNeedsPick() {
+  if (!_irWarehouseChecked() || !_irQt.key) return null;
+  if (_irQt.loading) return 'Still checking the Quarantine Tracker — pick the row once it appears.';
+  if (_irQt.err || !_irQt.data) return null;
+  var missing = (_irQt.data.skus || []).some(function(g) { return g.rows.length && !_irQt.picks[g.sku]; });
+  return missing ? 'Pick the tracker row for this item, or "Not on the tracker yet".' : null;
+}
+
+function _irQtCollect() {
+  var groups = (_irQt.data && _irQt.data.skus) || [];
+  return groups.filter(function(g) { var p = _irQt.picks[g.sku]; return p && p !== 'none'; })
+    .map(function(g) { return { sku: g.sku, row: _irQt.picks[g.sku] }; });
+}
+
 // Section 3 switches between the package layout (Order number / Total TN/ON,
 // tracking, client, customer) and the warehouse-damage layout (Brand / SKU).
 // Values typed into hidden fields are kept on screen (so unticking by mistake
@@ -4341,10 +4527,11 @@ function toggleIrWarehouseMode() {
   var show = function(id, on) { var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
   show('ir-package-ids-row', !wh);
   show('ir-warehouse-ids-row', wh);
+  show('ir-warehouse-ids-row2', wh);
+  if (wh) irQtSchedule(); else show('ir-qt-pick', false);
   document.getElementById('ir-investigation-hint').textContent = wh
-    ? 'For an item damaged in the warehouse, record the brand, SKU and quantity affected. Once approved, this report\'s link is ' +
-      'added to the matching Quarantine Tracker row (column AI): same brand, SKU and quantity, Damage by Warehouse = Yes, ' +
-      'entered on the event date, the day this report is submitted or the day before.'
+    ? 'For an item damaged in the warehouse, record the brand, SKU, quantity and damage type, then pick the Quarantine Tracker ' +
+      'row for this item. Once approved, this report\'s link is added to that row (column AI).'
     : 'For incidents involving packages, fill up the basic information below.';
   if (wh) loadIrBrandList();
   show('ir-tracking-number-wrap', !wh);
@@ -4549,7 +4736,7 @@ function _irTrackerChip(r) {
   if (pend.length) {
     var n = pend.reduce(function(t, p) { return t + p.candidates.length; }, 0);
     out += '<button class="tk tk-pick" onclick="event.stopPropagation();toggleIrPick(\'' + esc(r.irNumber) + '\')">' +
-      (_irOpenPick[r.irNumber] ? '▾' : '▸') + ' Pick tracker row (' + n + ')</button>';
+      (_irOpenPick[r.irNumber] ? '▾' : '▸') + (n ? ' Pick tracker row (' + n + ')' : ' Check tracker row') + '</button>';
   } else if (!r.qtLinkedRows) {
     out += '<span class="tk tk-wait">' + (r.qtCheckedAt ? 'Not on tracker yet' : 'Linking to tracker…') + '</span>';
   }
@@ -4564,6 +4751,9 @@ function toggleIrPick(irNumber) {
 // Why quantity didn't settle it: none of the rows has the reported quantity,
 // or the report has none (older reports, filed before Qty was asked for).
 function _irQtyNote(p, r) {
+  if (p.picked) return '<div style="margin-top:4px">The preparer picked <b>row ' + Number(p.picked.row) + '</b>, but ' +
+    (p.picked.problem === 'taken' ? 'it\'s now linked to <b>' + esc(p.picked.by || 'another report') + '</b>' : 'that row no longer shows this SKU') +
+    (p.candidates.length ? '. Pick the right row below, or check for a duplicate report.' : '. Check for a duplicate report.') + '</div>';
   if (p.qtyMismatch) return '<div style="margin-top:4px">None of these rows is for <b>' + esc(String(p.qty)) + ' pcs</b> as on the report — check the quantity, or pick the row if it\'s the same item.</div>';
   if (p.qty == null && !r.qty) return '<div style="margin-top:4px;color:#888">This report has no quantity. Reports with Qty affected filled in pick the matching row automatically.</div>';
   return '';
@@ -4578,6 +4768,10 @@ function _irFmtDay(d) {
 function _irPickRow(r) {
   var html = '';
   (r.qtPending || []).forEach(function(p) {
+    if (!p.candidates.length) {   // the preparer's pick was taken and nothing else qualifies
+      html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">SKU <b>' + esc(p.sku) + '</b>: ' + _irQtyNote(p, r).replace(/^<div[^>]*>|<\/div>$/g, '') + '</div>';
+      return;
+    }
     html += '<div style="font-size:12px;color:#92400e;margin-bottom:6px">' + (p.late
       ? 'This was reported after the event (' + esc(_irFmtDay(p.eventDay || r.dateOfEvent)) + '), so the QMS doesn\'t link it automatically. SKU <b>' + esc(p.sku) +
         '</b> is on ' + (p.candidates.length === 1 ? 'this tracker row' : 'these ' + p.candidates.length + ' tracker rows') + ' from around that date' +
@@ -4641,7 +4835,7 @@ function _renderIrList() {
         (r.rev ? '<div class="cell-sub">Rev. ' + esc(String(r.rev)) + '</div>' : '') + '</td>' +
       '<td class="sop-meta"><div class="nowrap" style="color:#333">' + esc(r.dateOfEvent) + '</div><div class="cell-sub">' + esc(r.locationOfEvent) + '</div></td>' +
       '<td class="sop-meta"><div style="color:#333">' + esc(r.problemSummary) + '</div>' +
-        (r.warehouseDamage && (r.brand || r.sku) ? '<div class="cell-sub">' + esc([r.brand, r.sku, r.qty ? r.qty + ' pcs' : ''].filter(Boolean).join(' · ')) + '</div>' : '') +
+        (r.warehouseDamage && (r.brand || r.sku) ? '<div class="cell-sub">' + esc([r.brand, r.sku, r.qty ? r.qty + ' pcs' : '', r.damageType || ''].filter(Boolean).join(' · ')) + '</div>' : '') +
         _irTrackerChip(r) + '</td>' +
       '<td class="sop-meta cell-people"><div title="' + esc(r.submittedBy) + '">' + esc(r.submittedBy) + '</div>' +
         '<div class="cell-sub" title="Approved by">Approved: ' + esc(r.approvedBy || '—') + '</div></td>' +
@@ -4825,6 +5019,7 @@ function showNewIrForm() {
   _irEditingDraftId = null;
   _irRevisingIrNumber = null;
   _irEditingIsRevision = false;
+  _irQtReset();
   document.getElementById('ir-form-title').textContent = 'New Incident Report';
   document.getElementById('ir-revise-note').style.display = 'none';
   document.getElementById('ir-revision-reason-wrap').style.display = 'none';
@@ -4833,7 +5028,7 @@ function showNewIrForm() {
   renderIrChecklist();
   // Clear every field so a previous draft can't bleed into a new report.
   ['ir-date-of-event','ir-location','ir-time-of-event','ir-witnessed-by','ir-ticket-number',
-   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-brand','ir-sku','ir-qty','ir-tracking-number',
+   'ir-description','ir-others-text','ir-order-number','ir-total-tn-on','ir-brand','ir-sku','ir-qty','ir-damage-type','ir-tracking-number',
    'ir-department','ir-client-name','ir-customer-address','ir-customer-name','ir-other-info',
    'ir-basic-cause','ir-immediate-actions','ir-preventive-actions','ir-checked-by',
    'ir-business-impact','ir-approved-by','ir-approved-email','ir-received-by-customer'].forEach(function(id) {
@@ -4906,6 +5101,10 @@ function collectIrFields() {
     brand: wh ? (fixIrBrand(), v('ir-brand')) : '',
     sku: wh ? v('ir-sku') : '',
     qty: wh ? v('ir-qty') : '',
+    damageType: wh ? v('ir-damage-type') : '',
+    // Rows picked on the form; when the tracker couldn't be read, the ones saved before are kept.
+    qtRows: wh ? ((_irQt.data || !_irQt.prefill) ? _irQtCollect()
+                  : Object.keys(_irQt.prefill).map(function(k) { return { sku: k, row: _irQt.prefill[k] }; })) : [],
     trackingNumber: wh ? '' : v('ir-tracking-number'),
     departmentInvolved: v('ir-department'),
     clientName: wh ? '' : v('ir-client-name'),
@@ -4972,9 +5171,17 @@ function _irCheckStep(n) {
       need('ir-brand', 'Brand is needed to link the Quarantine Tracker.');
       need('ir-sku', 'SKU is needed to link the Quarantine Tracker.');
       need('ir-qty', 'How many pieces? It picks the right tracker row.');
+      need('ir-damage-type', 'Pick the damage type, as on the tracker row.');
+      if (!_irQt.key && !_irQt.loading && String(($('ir-sku') || {}).value || '').trim()) irQtLoad(true);
+      var qtMsg = _irQtNeedsPick();
+      if (qtMsg) { var qp = $('ir-qt-pick'); qp.style.display = ''; qp.classList.add('field-invalid');
+        if (!qp.querySelector('.field-err')) { var qe = document.createElement('div'); qe.className = 'field-err'; qe.style.marginTop = '8px'; qe.textContent = qtMsg; qp.appendChild(qe); }
+        else qp.querySelector('.field-err').textContent = qtMsg;
+        first = first || qp; }
       var qEl = $('ir-qty'), qv = String(qEl && qEl.value || '').trim();
       if (qv) {
-        var nSku = Math.max(1, String($('ir-sku').value || '').split(/[,;\n]/).filter(function(x) { return x.trim(); }).length);
+        var nSku = Math.max(1, String($('ir-sku').value || '').split(/[,;\n]/).filter(function(x) { return x.trim(); })
+          .reduce(function(n, x) { var p = x.split('/'); return n + (p.length > 1 && p.every(function(y) { return /^\d{6,}$/.test(y.trim()); }) ? p.length : 1); }, 0));
         var qs = qv.split(/[,;\n]/).map(function(x) { return x.trim(); }).filter(Boolean);
         var okQ = qs.length === nSku && qs.every(function(x) { return /^\d+\s*(pcs?|pieces?|pc\.?)?$/i.test(x) && parseInt(x, 10) > 0; });
         if (!okQ) { _irMark(qEl, nSku > 1 ? 'One quantity per SKU, in the same order, e.g. 2, 1' : 'A whole number of pieces, e.g. 2'); first = first || qEl; }
@@ -5029,6 +5236,7 @@ function irGoStep(n, force) {
   _irRenderSteps();
   var top = document.getElementById('ir-new-view'); if (top && top.scrollIntoView) top.scrollIntoView({ block: 'start' });
   if (n === 4) _irLoadApproverDir();
+  if (n === 2 && _irWarehouseChecked()) irQtLoad(false);
   return true;
 }
 
@@ -5204,6 +5412,8 @@ function _irPrefillForm(f) {
     set('ir-brand', f.brand);
     set('ir-sku', f.sku);
     set('ir-qty', f.qty);
+    set('ir-damage-type', f.damageType);
+    _irQtReset(f.qtRows);
     toggleIrWarehouseMode();
     checkIrBrand();
 
@@ -5337,7 +5547,9 @@ function renderIrDecide(d) {
   html += _irRvSection('2. Problem description', problemLabels.length
     ? '<div class="rv-f wide"><div class="rv-chips" style="margin:0">' + problemLabels.map(function(p) { return '<span class="rv-chip">' + esc(p) + '</span>'; }).join('') + '</div></div>' : '');
   html += _irRvSection('3. Detailed investigation', wh
-    ? _irRv('Brand', f.brand) + _irRv('SKU', f.sku) + _irRv('Qty affected (pcs)', f.qty) + _irRv('Department involved', f.departmentInvolved) + _irRv('Other relevant information', f.otherRelevantInfo, true)
+    ? _irRv('Brand', f.brand) + _irRv('SKU', f.sku) + _irRv('Qty affected (pcs)', f.qty) + _irRv('Damage type', f.damageType) +
+      _irRv('Tracker row', (f.qtRows || []).length ? f.qtRows.map(function(p) { return 'Row ' + p.row; }).join(', ') + ' (picked by the preparer)' : 'Not picked — links automatically') +
+      _irRv('Department involved', f.departmentInvolved) + _irRv('Other relevant information', f.otherRelevantInfo, true)
     : _irRv('Order number', f.orderNumber) + _irRv('Total TN/ON affected', f.totalTnOn) + _irRv('Tracking number', f.trackingNumber) +
       _irRv('Department involved', f.departmentInvolved) + _irRv('Client name', f.clientName) + _irRv('Customer name', f.customerName) +
       _irRv('Customer address', f.customerAddress, true) + _irRv('Other relevant information', f.otherRelevantInfo, true));
