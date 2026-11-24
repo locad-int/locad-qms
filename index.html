@@ -912,6 +912,12 @@ body.th-dark .lm-tab-app { color: #94ffa1; font-size: 30px; font-weight: 700; le
 .qt-pick.field-invalid{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.12)}
 body.th-dark .qt-opt{background:var(--surface,#fff)}
 </style>
+<style id="ir-drive-css">
+.ir-drive-link{display:flex;gap:8px;margin-top:8px}
+.ir-drive-link input{flex:1;min-width:0}
+.ir-drive-link .btn{flex:none;padding:8px 14px}
+.file-drop.drag-on{border-color:#16a34a!important;background:#f0fdf4}
+</style>
 </head>
 <body class="th-dark">
 
@@ -1476,10 +1482,17 @@ body.th-dark .qt-opt{background:var(--surface,#fff)}
              ondragleave="this.style.borderColor='#e0e0e0'"
              ondrop="handleIrPhotosDrop(event)">
           <div class="file-drop-icon">📷</div>
-          <div class="file-drop-text" id="ir-photos-drop-text">Click to upload or drag and drop photos</div>
+          <div class="file-drop-text" id="ir-photos-drop-text">Click to upload, or drag photos here — from your computer or from Google Drive</div>
           <div class="file-drop-sub">JPG or PNG, up to 6 photos</div>
         </div>
-        <input id="ir-photos-input" type="file" accept="image/png,image/jpeg" multiple
+        <div class="ir-drive-link">
+          <input id="ir-drive-link" type="text" placeholder="…or paste a Google Drive link"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addIrDriveLinks(this.value)}"
+            onpaste="var el=this;setTimeout(function(){addIrDriveLinks(el.value)},0)">
+          <button type="button" class="btn btn-secondary" onclick="addIrDriveLinks(document.getElementById('ir-drive-link').value)">Add</button>
+        </div>
+        <div id="ir-drive-status" class="field-hint" style="display:none;margin-top:6px"></div>
+        <input id="ir-photos-input" type="file" accept="image/png,image/jpeg,image/webp" multiple
           style="display:none" onchange="handleIrPhotosSelect(this)">
         <div id="ir-photos-preview" style="display:none;margin-top:10px;gap:8px;flex-wrap:wrap"></div>
       </div>
@@ -4360,7 +4373,7 @@ function fixIrBrand() {
 // before the event) and they pick one. Rows already linked to another report
 // are shown as taken, which also flags a duplicate report before it's sent.
 var IR_DAMAGE_TYPES = ['Damaged - Packaging', 'Damaged Box', 'Damaged - Leaked', 'Damaged - Stained', 'Damaged - Dented',
-  'Damaged - Hole', 'Damaged - Broken', 'Damaged - Pest Bites', 'Open Seal', 'Melted / Deformed', 'Bad Odor'];
+  'Damaged - Hole', 'Damaged - Broken', 'Damaged - Bloated', 'Damaged - Pest Bites', 'Open Seal', 'Melted / Deformed', 'Bad Odor'];
 var _irQt = { key: '', data: null, loading: false, err: '', picks: {}, prefill: null, timer: null };
 
 (function() {
@@ -4948,12 +4961,60 @@ function handleIrPhotosSelect(input) {
 function handleIrPhotosDrop(e) {
   e.preventDefault();
   document.getElementById('ir-photos-drop').style.borderColor = '#e0e0e0';
-  if (e.dataTransfer.files && e.dataTransfer.files.length) addIrPhotoFiles(e.dataTransfer.files);
+  var dt = e.dataTransfer;
+  if (dt.files && dt.files.length) { addIrPhotoFiles(dt.files); return; }
+  // Dragged from Google Drive in the browser: the drop carries the file's link, not the file.
+  var text = ['text/uri-list', 'text/plain', 'text/html'].map(function(t) { try { return dt.getData(t) || ''; } catch (x) { return ''; } }).join('\n');
+  var ids = _irDriveIds(text);
+  if (ids.length) addIrDriveIds(ids);
+  else if (text.trim()) _irDriveStatus('That came from a page, not a file. In Google Drive, drag the photo from the file list — or copy its link and paste it below.', true);
+}
+
+// Drive file IDs in links: /file/d/<id>, /d/<id>, ?id=<id> (the tracker's photo links use open?id=).
+function _irDriveIds(text) {
+  var ids = [], re = /(?:drive|docs)\.google\.com\/[^\s"'<>]*?(?:\/d\/|[?&]id=)([A-Za-z0-9_-]{20,100})/g, m;
+  while ((m = re.exec(String(text || '')))) if (ids.indexOf(m[1]) === -1) ids.push(m[1]);
+  return ids;
+}
+
+function addIrDriveLinks(text) {
+  var ids = _irDriveIds(text);
+  if (!ids.length) { if (String(text || '').trim()) _irDriveStatus('Paste a Google Drive link to a photo (drive.google.com/…).', true); return; }
+  document.getElementById('ir-drive-link').value = '';
+  addIrDriveIds(ids);
+}
+
+function _irDriveStatus(msg, warn) {
+  var el = document.getElementById('ir-drive-status');
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.style.color = warn ? '#b45309' : '';
+  el.textContent = msg || '';
+}
+
+var _irDriveBusy = 0;
+function addIrDriveIds(ids) {
+  var room = IR_MAX_PHOTOS - _irPhotos.length - _irDriveBusy;
+  if (room <= 0) { showToast('Up to ' + IR_MAX_PHOTOS + ' photos — remove one first.'); return; }
+  if (ids.length > room) showToast('Only adding ' + room + ' — up to ' + IR_MAX_PHOTOS + ' photos total.');
+  var errors = [];
+  ids.slice(0, room).forEach(function(id) {
+    _irDriveBusy++;
+    _irDriveStatus('Getting ' + _irDriveBusy + ' photo' + (_irDriveBusy === 1 ? '' : 's') + ' from Google Drive…');
+    apiPost({ action: 'drivePhoto', id: id }).then(function(r) {
+      if (r && r.ok) _irAddPhotoDataUrl(r.name || 'Drive photo', r.dataUrl);
+      else errors.push((r && r.message) || 'A Drive photo couldn\'t be added.');
+    }).catch(function(err) { errors.push(err.message); }).then(function() {
+      _irDriveBusy--;
+      if (_irDriveBusy) _irDriveStatus('Getting ' + _irDriveBusy + ' photo' + (_irDriveBusy === 1 ? '' : 's') + ' from Google Drive…');
+      else _irDriveStatus(errors.join(' '), !!errors.length);
+    });
+  });
 }
 
 function addIrPhotoFiles(fileList) {
   var files = Array.prototype.slice.call(fileList).filter(function(f) {
-    return f.type === 'image/jpeg' || f.type === 'image/png';
+    return f.type === 'image/jpeg' || f.type === 'image/png' || f.type === 'image/webp';
   });
   if (!files.length) return;
   var room = IR_MAX_PHOTOS - _irPhotos.length;
@@ -4964,25 +5025,31 @@ function addIrPhotoFiles(fileList) {
 
 function compressIrPhoto(file) {
   var reader = new FileReader();
-  reader.onload = function(ev) {
-    var img = new Image();
-    img.onload = function() {
-      // Resize to a reasonable max dimension so a full-resolution phone photo
-      // (several MB) doesn't bloat the submission payload or the generated PDF.
-      var MAX_DIM = 1400;
-      var ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
-      var c = document.createElement('canvas');
-      c.width  = Math.max(1, Math.round(img.width  * ratio));
-      c.height = Math.max(1, Math.round(img.height * ratio));
-      var ctx = c.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      _irPhotos.push({ name: file.name, dataUrl: c.toDataURL('image/jpeg', 0.72) });
-      renderIrPhotosPreview();
-    };
-    img.src = ev.target.result;
-  };
+  reader.onload = function(ev) { _irAddPhotoDataUrl(file.name, ev.target.result); };
   reader.readAsDataURL(file);
+}
+
+// Resizes a photo (file or Drive) and adds it to the report.
+function _irAddPhotoDataUrl(name, src) {
+  if (_irPhotos.length >= IR_MAX_PHOTOS) return;
+  var img = new Image();
+  img.onload = function() {
+    // Resize to a reasonable max dimension so a full-resolution phone photo
+    // (several MB) doesn't bloat the submission payload or the generated PDF.
+    var MAX_DIM = 1400;
+    var ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+    var c = document.createElement('canvas');
+    c.width  = Math.max(1, Math.round(img.width  * ratio));
+    c.height = Math.max(1, Math.round(img.height * ratio));
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    if (_irPhotos.length >= IR_MAX_PHOTOS) return;
+    _irPhotos.push({ name: name, dataUrl: c.toDataURL('image/jpeg', 0.72) });
+    renderIrPhotosPreview();
+  };
+  img.onerror = function() { _irDriveStatus('"' + name + '" couldn\'t be read as a photo.', true); };
+  img.src = src;
 }
 
 function removeIrPhoto(i) {
@@ -5057,6 +5124,8 @@ function showNewIrForm() {
   // Reset evidence photos
   _irPhotos = [];
   renderIrPhotosPreview();
+  _irDriveStatus('');
+  var dl = document.getElementById('ir-drive-link'); if (dl) dl.value = '';
 
   document.getElementById('ir-form-error').style.display = 'none';
   if (IR_FIXED_LOCATION) document.getElementById('ir-location').value = IR_FIXED_LOCATION;
